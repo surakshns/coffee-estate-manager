@@ -11,6 +11,7 @@ import { useEstateData } from './hooks/useEstateData'
 import { supabase } from './lib/supabase'
 
 type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Prices' | 'Production' | 'Backup'
+type DeferredInstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 const navigation: { page: Page; short: string; symbol: string }[] = [
   { page: 'Dashboard', short: 'Home', symbol: '⌂' },
   { page: 'Labour', short: 'Labour', symbol: '♟' },
@@ -26,6 +27,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('Dashboard')
   const [year, setYear] = useState(new Date().getFullYear())
   const [notice, setNotice] = useState('')
+  const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null)
   const { data, loading, error, refresh } = useEstateData()
 
   useEffect(() => {
@@ -37,6 +39,21 @@ export default function App() {
     return () => listener.subscription.unsubscribe()
   }, [refresh])
 
+  useEffect(() => {
+    const onBeforeInstall = (event: Event) => { event.preventDefault(); setInstallPrompt(event as DeferredInstallPrompt) }
+    const onInstalled = () => { setInstallPrompt(null); setNotice('Coffee Estate Manager is installed and will open like an app.') }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => { window.removeEventListener('beforeinstallprompt', onBeforeInstall); window.removeEventListener('appinstalled', onInstalled) }
+  }, [])
+
+  async function installApp() {
+    if (!installPrompt) return
+    await installPrompt.prompt()
+    const choice = await installPrompt.userChoice
+    if (choice.outcome === 'accepted') setInstallPrompt(null)
+  }
+
   async function loadDemo() {
     const { error } = await supabase.rpc('seed_my_demo_coffee_estate')
     setNotice(error ? error.message : 'Sample records have been added.')
@@ -46,7 +63,7 @@ export default function App() {
   if (checking) return <main className="grid min-h-screen place-items-center"><p className="text-lg font-bold text-stone-600">Opening Coffee Estate Manager…</p></main>
   if (!session) return <AuthScreen />
 
-  const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 5 + index)
+  const years = Array.from({ length: 11 }, (_, index) => 2025 + index)
   const current = () => {
     const props = { data, year, refresh }
     switch (page) {
@@ -59,7 +76,7 @@ export default function App() {
     }
   }
 
-  return <div className="app-shell"><header className="app-header sticky top-0 z-20 border-b border-leaf-800 bg-leaf-700 text-white"><div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8"><button className="text-left transition-transform active:scale-95" onClick={() => navigate('Dashboard')}><span className="block text-xs font-bold tracking-[.18em] text-leaf-50">COFFEE ESTATE</span><span className="text-xl font-extrabold">Manager</span></button><div className="flex items-center gap-2"><button className="top-download-button sm:hidden" onClick={() => navigate('Backup')} aria-label="Open backup">⇩</button><label className="sr-only" htmlFor="financial-year">Financial year</label><select id="financial-year" className="rounded-lg bg-white/15 px-2 py-2 font-bold text-white outline-none ring-1 ring-white/35 transition hover:bg-white/20 focus:ring-2 focus:ring-white/70" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((item) => <option className="text-stone-900" key={item} value={item}>{item}</option>)}</select><button className="hidden rounded-lg px-3 py-2 font-bold transition hover:bg-white/10 active:scale-95 sm:block" onClick={() => void supabase.auth.signOut()}>Sign out</button></div></div>
+  return <div className="app-shell"><header className="app-header sticky top-0 z-20 border-b border-leaf-800 bg-leaf-700 text-white"><div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8"><button className="text-left transition-transform active:scale-95" onClick={() => navigate('Dashboard')}><span className="block text-xs font-bold tracking-[.18em] text-leaf-50">COFFEE ESTATE</span><span className="text-xl font-extrabold">Manager</span></button><div className="flex items-center gap-2">{installPrompt && <button className="top-download-button sm:hidden" onClick={() => void installApp()} aria-label="Install Coffee Estate Manager" title="Install app">＋</button>}<button className="top-download-button sm:hidden" onClick={() => navigate('Backup')} aria-label="Open backup">⇩</button><label className="sr-only" htmlFor="financial-year">Financial year</label><select id="financial-year" className="rounded-lg bg-white/15 px-2 py-2 font-bold text-white outline-none ring-1 ring-white/35 transition hover:bg-white/20 focus:ring-2 focus:ring-white/70" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((item) => <option className="text-stone-900" key={item} value={item}>{item}</option>)}</select><button className="hidden rounded-lg px-3 py-2 font-bold transition hover:bg-white/10 active:scale-95 sm:block" onClick={() => void supabase.auth.signOut()}>Sign out</button></div></div>
     <nav className="mx-auto hidden max-w-7xl gap-1 px-4 pb-2 sm:flex sm:px-6 lg:px-8">{navigation.map((item) => <button key={item.page} onClick={() => navigate(item.page)} className={`rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200 ${page === item.page ? 'bg-white text-leaf-700 shadow-sm' : 'text-leaf-50 hover:bg-white/10'}`}>{item.page}</button>)}</nav></header>
     {error && <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"><p className="rounded-xl bg-red-50 p-3 font-bold text-red-800">Could not load data: {error}. Check your Supabase settings and SQL migration.</p></div>}
     {notice && <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"><p className="flex items-center justify-between gap-3 rounded-xl bg-leaf-50 p-3 font-bold text-leaf-700">{notice}<button onClick={() => setNotice('')} aria-label="Close">×</button></p></div>}
