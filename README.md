@@ -82,6 +82,23 @@ The **Backup** screen downloads each record type as a CSV file. Keep those files
 5. Deploy. `public/_redirects` makes direct links resolve to the single-page app.
 6. In Supabase **Authentication → URL Configuration**, add the deployed Cloudflare Pages URL as a Site URL / Redirect URL if you enable email confirmation or password reset later.
 
+## Deploy to GitHub Pages
+
+The project includes `.github/workflows/deploy-pages.yml`, which builds and deploys automatically when you push to the `main` branch.
+
+1. Create a new GitHub repository named `coffee-estate-manager`. A public repository is the simplest option for GitHub Pages. The Supabase **publishable** key is designed to be exposed in browser apps; your RLS policies protect the actual data.
+2. Push this project to the new repository.
+3. On GitHub, open the repository → **Settings → Pages**. Under **Build and deployment**, choose **GitHub Actions** as the source.
+4. Open **Settings → Secrets and variables → Actions → Variables**. Add both repository variables:
+
+   - `VITE_SUPABASE_URL` — your Supabase Project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — the key starting with `sb_publishable_`
+
+5. Push a commit (or open **Actions → Deploy Coffee Estate Manager to GitHub Pages → Run workflow**). When the workflow finishes, GitHub displays your public `https://YOUR-USERNAME.github.io/coffee-estate-manager/` URL.
+6. In Supabase **Authentication → URL Configuration**, add that deployed URL as a Site URL / Redirect URL if you enable email confirmation or password reset later.
+
+Do not add a `sb_secret_...` key, a service-role key, or your local `.env` file to GitHub.
+
 ## Future Capacitor packaging
 
 The app uses only frontend browser APIs and Supabase’s official JavaScript client. To package it later:
