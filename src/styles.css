@@ -29,14 +29,16 @@
 }
 
 @layer base {
-  html, body, #root { width: 100%; min-height: 100%; max-width: 100%; overflow-x: hidden; }
-  body { @apply bg-coffee-50 text-stone-800 antialiased; min-width: 320px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+  /* Keep the document as the only vertical scroller. clip contains sideways overflow without creating an Android scroll container. */
+  html { width: 100%; min-height: 100%; max-width: 100%; overflow-x: clip; overflow-y: auto; }
+  body { @apply bg-coffee-50 text-stone-800 antialiased; min-width: 320px; min-height: 100dvh; max-width: 100%; overflow-x: clip; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+  #root { width: 100%; min-height: 100%; max-width: 100%; }
   button, input, select, textarea { font: inherit; }
   button { @apply cursor-pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 }
 
 @layer components {
-  .app-shell { @apply min-h-screen w-full overflow-x-hidden; min-height: 100dvh; overscroll-behavior-y: none; }
+  .app-shell { @apply min-h-screen w-full; min-height: 100dvh; max-width: 100%; overflow-x: clip; overflow-y: visible; }
   .app-header { width: 100%; max-width: 100vw; }
   .page { @apply mx-auto w-full min-w-0 max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-8; }
   .page-transition { animation: page-enter 260ms cubic-bezier(.2,.8,.2,1) both; }
@@ -70,7 +72,7 @@
   .data-table th { @apply border-b border-stone-200 px-3 py-3 font-bold text-stone-600; }
   .data-table td { @apply border-b border-stone-100 px-3 py-3 align-middle; }
   .top-download-button { @apply grid size-10 place-items-center rounded-xl border border-white/20 bg-white/10 text-xl font-bold text-white transition-all duration-200 hover:bg-white/20 active:scale-90; }
-  .mobile-nav { @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 gap-1 border-t border-stone-200/90 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-6px_24px_rgba(41,65,45,.12)] backdrop-blur sm:hidden; }
+  .mobile-nav { @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 gap-1 border-t border-stone-200/90 bg-white px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-6px_24px_rgba(41,65,45,.12)] sm:hidden; will-change: transform; }
   .mobile-nav-item { @apply relative flex min-h-13 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-stone-500 transition-all duration-200 active:scale-95; }
   .mobile-nav-item.is-active { @apply bg-leaf-50 text-leaf-700 shadow-sm; transform: translateY(-2px); }
   .mobile-nav-icon { @apply block text-xl leading-5 transition-transform duration-200; }
@@ -80,6 +82,11 @@
   .worker-status { @apply inline-flex min-w-19 items-center justify-center rounded-full px-3 py-1.5 text-sm font-bold transition-all duration-200; }
   .worker-status.is-active { @apply bg-leaf-50 text-leaf-700 ring-1 ring-leaf-600/15; }
   .worker-status.is-inactive { @apply bg-stone-100 text-stone-600 ring-1 ring-stone-200; }
+}
+
+@media (pointer: coarse) {
+  /* Let vertical swipes on interactive Recharts surfaces continue to the page on Android. */
+  .recharts-wrapper { touch-action: pan-y; }
 }
 
 @media (hover: hover) and (pointer: fine) {
