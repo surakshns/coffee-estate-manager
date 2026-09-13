@@ -1,0 +1,3 @@
+-- Optional demo data. Create a user in Supabase Auth first, then replace the UUID below.
+-- Run this in the Supabase SQL Editor as the project owner.
+-- select public.seed_demo_coffee_estate_for('YOUR_AUTH_USER_UUID');
