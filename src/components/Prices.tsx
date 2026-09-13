@@ -1,20 +1,45 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useEffect, useState } from 'react'
 import { money } from '../lib/calculations'
-import { supabase } from '../lib/supabase'
-import type { CoffeePrice, EstateData } from '../lib/types'
-import { ConfirmDialog } from './ConfirmDialog'
 
-const empty = { price_date: new Date().toISOString().slice(0, 10), coffee_type: 'Arabica', grade: 'Standard', source: 'Manual entry', price_per_kg: '' }
+type FuturesPoint = { date: string; arabicaUsd: number; robustaUsd: number; usdInr: number; arabicaInrKg: number; robustaInrKg: number }
+const cacheUrl = '/market-data/coffee-futures-2026.csv'
+const coffeeApi = 'https://buonmathuotcoffee.com/api/v1/coffee-price'
+const csvHeader = 'date,arabica_usd_lb,robusta_usd_tonne,usd_inr,arabica_inr_kg,robusta_inr_kg,source'
 
-export function Prices({ data, refresh }: { data: EstateData; refresh: () => Promise<void> }) {
-  const [form, setForm] = useState(empty); const [editing, setEditing] = useState<CoffeePrice | null>(null); const [deleting, setDeleting] = useState<CoffeePrice | null>(null); const [message, setMessage] = useState('')
-  const latest = data.prices[0]
-  const priceHistory = useMemo(() => [...data.prices].filter((item) => Number(item.price_date.slice(0, 4)) >= new Date().getFullYear() - 5).sort((a, b) => a.price_date.localeCompare(b.price_date)).map((item) => ({ date: item.price_date, price: Number(item.price_per_kg) })), [data.prices])
-  async function save(event: FormEvent) { event.preventDefault(); const payload = { ...form, price_per_kg: Number(form.price_per_kg) }; const result = editing ? await supabase.from('coffee_prices').update(payload).eq('id', editing.id) : await supabase.from('coffee_prices').insert(payload); setMessage(result.error ? result.error.message : editing ? 'Price updated.' : 'Price recorded.'); if (!result.error) { setForm(empty); setEditing(null); await refresh() } }
-  async function remove() { if (!deleting) return; const { error } = await supabase.from('coffee_prices').delete().eq('id', deleting.id); setMessage(error ? error.message : 'Price deleted.'); setDeleting(null); if (!error) await refresh() }
-  return <div className="page space-y-5"><header><p className="text-sm font-bold uppercase tracking-wider text-leaf-700">Market rates</p><h1 className="mt-1 text-3xl font-extrabold">Coffee prices</h1><p className="mt-1 text-stone-600">Record the rate you see each day. An external price importer can use the source and external ID fields later.</p></header>{message && <p className="rounded-xl bg-leaf-50 p-3 font-semibold text-leaf-700">{message}</p>}
-    <section className="grid gap-5 xl:grid-cols-[.8fr_1.2fr]"><form className="card space-y-3" onSubmit={save}><h2 className="text-xl font-extrabold">{editing ? 'Edit price' : 'Add daily price'}</h2><label className="label">Date<input className="field" type="date" value={form.price_date} onChange={(event) => setForm({ ...form, price_date: event.target.value })} required /></label><label className="label">Coffee type<input className="field" value={form.coffee_type} onChange={(event) => setForm({ ...form, coffee_type: event.target.value })} required /></label><label className="label">Grade<input className="field" value={form.grade} onChange={(event) => setForm({ ...form, grade: event.target.value })} required /></label><label className="label">Source<input className="field" value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value })} required /></label><label className="label">Price per kg (₹)<input className="field" inputMode="decimal" value={form.price_per_kg} onChange={(event) => setForm({ ...form, price_per_kg: event.target.value })} required /></label><div className="flex flex-wrap gap-3"><button className="button-primary">{editing ? 'Save changes' : 'Save price'}</button>{editing && <button className="button-secondary" type="button" onClick={() => { setEditing(null); setForm(empty) }}>Cancel</button>}</div></form>
-      <div className="card"><p className="text-sm font-bold uppercase tracking-wider text-stone-500">Latest recorded price</p><p className="mt-2 text-4xl font-extrabold text-leaf-700">{latest ? money(Number(latest.price_per_kg)) : '—'}<span className="text-base text-stone-500"> / kg</span></p>{latest && <p className="mt-2 text-stone-600">{latest.coffee_type} · {latest.grade} · {latest.price_date} · {latest.source}</p>}<div className="mt-5 h-65">{priceHistory.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={priceHistory}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><YAxis tickFormatter={(item) => `₹${item}`} /><Tooltip formatter={(item) => money(Number(item))} /><Line dataKey="price" stroke="#3d6637" strokeWidth={3} dot={false} /></LineChart></ResponsiveContainer> : <div className="grid h-full place-items-center text-stone-500">Add prices to see five years of history.</div>}</div></div></section>
-    <section className="card"><h2 className="text-xl font-extrabold">Price records</h2><div className="table-wrap mt-3"><table className="data-table"><thead><tr><th>Date</th><th>Type</th><th>Grade</th><th>Source</th><th>Rate / kg</th><th>Actions</th></tr></thead><tbody>{data.prices.map((item) => <tr key={item.id}><td>{item.price_date}</td><td>{item.coffee_type}</td><td>{item.grade}</td><td>{item.source}</td><td className="font-bold">{money(Number(item.price_per_kg))}</td><td><div className="flex gap-2"><button className="font-bold text-leaf-700 underline" onClick={() => { setEditing(item); setForm({ price_date: item.price_date, coffee_type: item.coffee_type, grade: item.grade, source: item.source, price_per_kg: String(item.price_per_kg) }) }}>Edit</button><button className="font-bold text-red-700 underline" onClick={() => setDeleting(item)}>Delete</button></div></td></tr>)}</tbody></table></div></section><ConfirmDialog open={!!deleting} title="Delete price record?" onCancel={() => setDeleting(null)} onConfirm={() => void remove()}>This market-price record will be permanently removed.</ConfirmDialog></div>
+function parseCsv(csv: string) {
+  const [, ...lines] = csv.trim().split('\n')
+  return lines.map((line) => {
+    const [date, arabicaUsd, robustaUsd, usdInr, arabicaInrKg, robustaInrKg] = line.split(',')
+    return { date, arabicaUsd: Number(arabicaUsd), robustaUsd: Number(robustaUsd), usdInr: Number(usdInr), arabicaInrKg: Number(arabicaInrKg), robustaInrKg: Number(robustaInrKg) }
+  }).filter((row) => row.date && Number.isFinite(row.arabicaInrKg) && Number.isFinite(row.robustaInrKg))
 }
+
+export function Prices() {
+  const [futuresHistory, setFuturesHistory] = useState<FuturesPoint[]>([])
+  const [message, setMessage] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  useEffect(() => { void fetch(cacheUrl).then((response) => response.ok ? response.text() : '').then((csv) => setFuturesHistory(parseCsv(csv))).catch(() => setFuturesHistory([])) }, [])
+  const latest = futuresHistory.at(-1)
+  async function refreshLatest() {
+    setRefreshing(true); setMessage('')
+    try {
+      const [quoteResponse, fxResponse] = await Promise.all([fetch(coffeeApi), fetch('https://open.er-api.com/v6/latest/USD')])
+      if (!quoteResponse.ok || !fxResponse.ok) throw new Error('The price source is unavailable right now.')
+      const quote = await quoteResponse.json(); const fx = await fxResponse.json()
+      const usdInr = Number(fx.rates?.INR); const arabicaUsd = Number(quote.ice_arabica?.value); const robustaUsd = Number(quote.ice_robusta?.value); const date = String(quote.timestamp ?? '').slice(0, 10)
+      if (!date || !Number.isFinite(usdInr) || !Number.isFinite(arabicaUsd) || !Number.isFinite(robustaUsd)) throw new Error('The price source returned incomplete data.')
+      const point = { date, arabicaUsd, robustaUsd, usdInr, arabicaInrKg: arabicaUsd * usdInr * 2.20462262185, robustaInrKg: robustaUsd * usdInr / 1000 }
+      const merged = [...futuresHistory.filter((item) => item.date !== date), point].sort((a, b) => a.date.localeCompare(b.date))
+      setFuturesHistory(merged)
+      const csv = `${csvHeader}\n${merged.map((item) => [item.date, item.arabicaUsd, item.robustaUsd, item.usdInr.toFixed(4), item.arabicaInrKg.toFixed(2), item.robustaInrKg.toFixed(2), 'Buon Ma Thuot Coffee API'].join(',')).join('\n')}\n`
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); const link = document.createElement('a'); link.href = url; link.download = 'coffee-futures-2026.csv'; link.click(); URL.revokeObjectURL(url)
+      setMessage(`Latest quote for ${date} loaded and an updated CSV was downloaded.`)
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not refresh prices.') } finally { setRefreshing(false) }
+  }
+  return <div className="page space-y-5"><header><p className="text-sm font-bold uppercase tracking-wider text-leaf-700">Market rates</p><h1 className="mt-1 text-3xl font-extrabold">Coffee prices</h1><p className="mt-1 text-stone-600">Global ICE benchmark futures, converted to Indian rupees per kilogram. These are not Sakleshpur spot rates.</p></header>
+    {message && <p className="rounded-xl bg-leaf-50 p-3 font-semibold text-leaf-700">{message}</p>}
+    <section className="grid gap-4 lg:grid-cols-2"><PriceCard title="Latest Arabica" price={latest?.arabicaInrKg} multiplied={latest?.arabicaInrKg ? latest.arabicaInrKg * 24 : undefined} source={`${latest?.arabicaUsd.toFixed(3) ?? '—'} USD/lb`} /><PriceCard title="Latest Robusta" price={latest?.robustaInrKg} multiplied={latest?.robustaInrKg ? latest.robustaInrKg * 24 : undefined} source={`${latest?.robustaUsd.toLocaleString() ?? '—'} USD/tonne`} /></section>
+    <section className="card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-extrabold">Cached market data</h2><p className="mt-1 text-sm text-stone-600">Latest cached trading day: {latest?.date ?? 'No data'}. Refresh fetches the latest quote and downloads a replacement CSV.</p></div><button className="button-primary shrink-0" disabled={refreshing} onClick={() => void refreshLatest()}>{refreshing ? 'Refreshing…' : 'Refresh & download CSV'}</button></section>
+  </div>
+}
+function PriceCard({ title, price, multiplied, source }: { title: string; price?: number; multiplied?: number; source: string }) { return <section className="card"><p className="text-sm font-bold uppercase tracking-wider text-stone-500">{title}</p><p className="mt-2 text-4xl font-extrabold text-leaf-700">{price == null ? '—' : money(price)}<span className="text-base text-stone-500"> / kg</span></p><p className="mt-2 text-lg font-extrabold text-stone-800">{multiplied == null ? '—' : money(multiplied)} <span className="text-sm font-semibold text-stone-500">for 24 kg</span></p><p className="mt-2 text-sm text-stone-500">{source}</p></section> }

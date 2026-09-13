@@ -13,6 +13,16 @@ export interface WeeklyPayment {
   worker_id: Id
   week_start: string
   amount: number
+  excluded?: boolean
+}
+
+export interface WorkerLoan {
+  id: Id
+  worker_id: Id
+  loan_date: string
+  amount: number
+  kind: 'advance' | 'repayment'
+  notes: string
 }
 
 export interface ExpenseCategory {
@@ -59,6 +69,7 @@ export interface Sale {
 export interface EstateData {
   workers: Worker[]
   weeklyPayments: WeeklyPayment[]
+  workerLoans: WorkerLoan[]
   categories: ExpenseCategory[]
   expenses: Expense[]
   prices: CoffeePrice[]

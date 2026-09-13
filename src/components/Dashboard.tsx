@@ -8,7 +8,7 @@ const number = (value: number | string) => Number(value || 0)
 
 export function Dashboard({ data, year }: { data: EstateData; year: number }) {
   const metrics = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
-  const categories = Object.entries(expensesByCategory(data.expenses, year)).map(([name, amount]) => ({ name, amount }))
+  const categories = [...Object.entries(expensesByCategory(data.expenses, year)).map(([name, amount]) => ({ name, amount })), { name: 'Labour', amount: yearlyLabourTotal(data.weeklyPayments, year) }].filter((item) => item.amount > 0)
   const fiveYearsAgo = new Date().getFullYear() - 5
   const prices = [...data.prices].filter((price) => Number(price.price_date.slice(0, 4)) >= fiveYearsAgo).sort((a, b) => a.price_date.localeCompare(b.price_date)).map((price) => ({ date: price.price_date, price: number(price.price_per_kg), label: `${price.coffee_type} · ${price.grade}` }))
   const annual = Array.from({ length: 5 }, (_, index) => year - 4 + index).map((itemYear) => ({

@@ -22,27 +22,27 @@ export function wednesdaysInMonth(year: number, monthIndex: number) {
 
 export function workersForPaymentDate(workers: Worker[], payments: WeeklyPayment[], paymentDate: string) {
   const historicallyPaid = new Set(payments.filter((payment) => payment.week_start === paymentDate).map((payment) => payment.worker_id))
-  return workers.filter((worker) => historicallyPaid.has(worker.id) || (worker.active && (!worker.created_at || worker.created_at.slice(0, 10) <= paymentDate)))
+  return workers.filter((worker) => historicallyPaid.has(worker.id) || worker.active)
 }
 
 export function weeklyTotal(workers: Worker[], payments: WeeklyPayment[], forWeek: string) {
   return workersForPaymentDate(workers, payments, forWeek).reduce((total, worker) => {
     const payment = payments.find((item) => item.worker_id === worker.id && item.week_start === forWeek)
-    return total + value(payment?.amount ?? worker.default_weekly_amount)
+    return total + value(payment?.excluded ? 0 : payment?.amount ?? worker.default_weekly_amount)
   }, 0)
 }
 
 export function recordedPaymentTotal(payments: WeeklyPayment[], paymentDate: string) {
-  return payments.filter((payment) => payment.week_start === paymentDate).reduce((total, payment) => total + value(payment.amount), 0)
+  return payments.filter((payment) => payment.week_start === paymentDate && !payment.excluded).reduce((total, payment) => total + value(payment.amount), 0)
 }
 
 export function monthlyLabourTotal(payments: WeeklyPayment[], year: number, monthIndex: number) {
   const prefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-  return payments.filter((payment) => payment.week_start.startsWith(prefix)).reduce((total, payment) => total + value(payment.amount), 0)
+  return payments.filter((payment) => payment.week_start.startsWith(prefix) && !payment.excluded).reduce((total, payment) => total + value(payment.amount), 0)
 }
 
 export function yearlyLabourTotal(payments: WeeklyPayment[], year: number) {
-  return payments.filter((payment) => Number(payment.week_start.slice(0, 4)) === year).reduce((total, payment) => total + value(payment.amount), 0)
+  return payments.filter((payment) => Number(payment.week_start.slice(0, 4)) === year && !payment.excluded).reduce((total, payment) => total + value(payment.amount), 0)
 }
 
 export function yearlyExpenseTotal(expenses: Expense[], year: number) {

@@ -4,13 +4,14 @@ import { supabase } from '../lib/supabase'
 import type { Dataset, EstateData } from '../lib/types'
 
 const datasets: { key: Dataset; label: string }[] = [
-  { key: 'workers', label: 'Workers' }, { key: 'weeklyPayments', label: 'Weekly payments' }, { key: 'categories', label: 'Expense categories' }, { key: 'expenses', label: 'Expenses' }, { key: 'prices', label: 'Coffee prices' }, { key: 'production', label: 'Production' }, { key: 'sales', label: 'Sales' }
+  { key: 'workers', label: 'Workers' }, { key: 'weeklyPayments', label: 'Weekly payments' }, { key: 'workerLoans', label: 'Worker loans' }, { key: 'categories', label: 'Expense categories' }, { key: 'expenses', label: 'Expenses' }, { key: 'prices', label: 'Coffee prices' }, { key: 'production', label: 'Production' }, { key: 'sales', label: 'Sales' }
 ]
 
 export function Backup({ data, refresh }: { data: EstateData; refresh: () => Promise<void> }) {
   const [dataset, setDataset] = useState<Dataset>('expenses'); const [message, setMessage] = useState(''); const fileInput = useRef<HTMLInputElement>(null)
   const exportRows = (key: Dataset) => {
     if (key === 'weeklyPayments') return data.weeklyPayments.map((item) => ({ week_start: item.week_start, amount: item.amount, worker_name: data.workers.find((worker) => worker.id === item.worker_id)?.name ?? '' }))
+    if (key === 'workerLoans') return data.workerLoans.map((item) => ({ loan_date: item.loan_date, worker_name: data.workers.find((worker) => worker.id === item.worker_id)?.name ?? '', kind: item.kind, amount: item.amount, notes: item.notes }))
     if (key === 'expenses') return data.expenses.map((item) => ({ expense_date: item.expense_date, category: item.expense_categories?.name ?? '', description: item.description, amount: item.amount }))
     if (key === 'categories') return data.categories.map(({ name, archived }) => ({ name, archived }))
     return (data[key] as unknown as Record<string, unknown>[]).map(({ id: _id, ...row }) => row)
@@ -29,6 +30,11 @@ export function Backup({ data, refresh }: { data: EstateData; refresh: () => Pro
         const inserts = rows.map((row) => ({ worker_id: data.workers.find((worker) => worker.name.trim().toLowerCase() === row.worker_name.trim().toLowerCase())?.id, week_start: row.week_start, amount: Number(row.amount) }))
         if (inserts.some((row) => !row.worker_id)) throw new Error('Create or import all matching worker names before importing weekly payments.')
         const { error } = await supabase.from('weekly_payments').upsert(inserts as { worker_id: string; week_start: string; amount: number }[], { onConflict: 'worker_id,week_start' })
+        if (error) throw error
+      } else if (dataset === 'workerLoans') {
+        const inserts = rows.map((row) => ({ worker_id: data.workers.find((worker) => worker.name.trim().toLowerCase() === row.worker_name.trim().toLowerCase())?.id, loan_date: row.loan_date, kind: row.kind === 'repayment' ? 'repayment' : 'advance', amount: Number(row.amount), notes: row.notes ?? '' }))
+        if (inserts.some((row) => !row.worker_id)) throw new Error('Create or import all matching worker names before importing worker loans.')
+        const { error } = await supabase.from('worker_loans').insert(inserts as { worker_id: string; loan_date: string; kind: 'advance' | 'repayment'; amount: number; notes: string }[])
         if (error) throw error
       } else if (dataset === 'expenses') {
         const inserts = rows.map((row) => ({ expense_date: row.expense_date, category_id: data.categories.find((category) => category.name.toLowerCase() === row.category.toLowerCase())?.id, description: row.description ?? '', amount: Number(row.amount) }))
