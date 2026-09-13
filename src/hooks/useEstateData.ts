@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { EstateData } from '../lib/types'
 
@@ -8,9 +8,12 @@ export function useEstateData() {
   const [data, setData] = useState<EstateData>(empty)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const hasLoaded = useRef(false)
 
   const refresh = useCallback(async () => {
-    setLoading(true); setError('')
+    const initialLoad = !hasLoaded.current
+    if (initialLoad) setLoading(true)
+    setError('')
     const [workers, weeklyPayments, workerLoans, categories, expenses, prices, production, sales] = await Promise.all([
       supabase.from('workers').select('id,name,active,default_weekly_amount,created_at').order('name'),
       supabase.from('weekly_payments').select('id,worker_id,week_start,amount,excluded').order('week_start', { ascending: false }),
@@ -33,7 +36,8 @@ export function useEstateData() {
         expenses: normalizedExpenses, prices: prices.data ?? [], production: production.data ?? [], sales: sales.data ?? []
       })
     }
-    setLoading(false)
+    hasLoaded.current = true
+    if (initialLoad) setLoading(false)
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
