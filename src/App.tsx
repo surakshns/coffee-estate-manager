@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { AuthScreen } from './components/AuthScreen'
 import { Backup } from './components/Backup'
 import { Dashboard } from './components/Dashboard'
+import { EstateGuide } from './components/EstateGuide'
 import { Expenses } from './components/Expenses'
 import { Labour } from './components/Labour'
 import { Prices } from './components/Prices'
@@ -82,6 +83,7 @@ export default function App() {
     {notice && <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"><p className="flex items-center justify-between gap-3 rounded-xl bg-leaf-50 p-3 font-bold text-leaf-700">{notice}<button onClick={() => setNotice('')} aria-label="Close">×</button></p></div>}
     {!loading && data.workers.length === 0 && page === 'Dashboard' && <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"><div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-coffee-100 bg-coffee-100 p-4 sm:flex-row sm:items-center"><p><strong>Starting fresh?</strong> Load safe sample records to see how the dashboard works. You can delete them later.</p><button className="button-secondary shrink-0" onClick={() => void loadDemo()}>Load sample records</button></div></div>}
     {loading ? <main className="grid min-h-75 place-items-center"><p className="font-bold text-stone-600">Loading your records…</p></main> : <div className="page-transition" key={page}>{current()}</div>}
+    {!loading && <EstateGuide data={data} refresh={refresh} />}
     <nav className="mobile-nav sm:hidden">{navigation.filter((item) => item.page !== 'Backup').map((item) => <button key={item.page} className={`mobile-nav-item ${page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon">{item.symbol}</span><span className="mobile-nav-label">{item.short}</span></button>)}</nav>
   </div>
 }

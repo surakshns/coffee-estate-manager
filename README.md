@@ -5,6 +5,7 @@ A responsive, mobile-first coffee estate bookkeeping application. It manages lab
 ## Included features
 
 - Current-year dashboard: labour, other costs, coffee production, revenue, profit, and charts
+- Floating Coffee Estate Guide: a reusable January–December seasonal reference with your own notes and CSV backup
 - Weekly labour tracker: historical weekly payment snapshots, worker defaults, and active/inactive workers
 - Configurable expense categories with monthly, annual, and per-category totals
 - Daily coffee-price records, latest price, and a five-year price chart
@@ -31,6 +32,7 @@ A responsive, mobile-first coffee estate bookkeeping application. It manages lab
    This creates the tables, indexes, user-creation trigger, default categories, seed functions, and Row Level Security policies.
    If you ran an earlier version and sample data reports a `record "new" has no field "worker_id"` error, run the corrective migration `supabase/migrations/202609130002_fix_reference_validation.sql` once in SQL Editor.
    If sample data then reports a duplicate `coffee_prices_user_id_source_external_id_key` error, run `supabase/migrations/202609130003_fix_manual_price_uniqueness.sql` once in SQL Editor.
+   Run later migrations in filename order as well. The Coffee Estate Guide requires both `supabase/migrations/202609140006_monthly_planner.sql` and `supabase/migrations/202609140007_evergreen_estate_guide.sql`.
 4. Open **Connect** near the top of the Supabase project dashboard and copy the Project URL and **Publishable key** (`sb_publishable_...`). On an older project, the equivalent legacy value is called the **anon** key. Never put a secret/service-role key in this app.
 
 ## 2. Configure and run locally

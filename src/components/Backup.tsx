@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import type { Dataset, EstateData } from '../lib/types'
 
 const datasets: { key: Dataset; label: string }[] = [
-  { key: 'workers', label: 'Workers' }, { key: 'weeklyPayments', label: 'Weekly payments' }, { key: 'workerLoans', label: 'Worker loans' }, { key: 'categories', label: 'Expense categories' }, { key: 'expenses', label: 'Expenses' }, { key: 'prices', label: 'Coffee prices' }, { key: 'production', label: 'Production' }, { key: 'sales', label: 'Sales' }
+  { key: 'workers', label: 'Workers' }, { key: 'weeklyPayments', label: 'Weekly payments' }, { key: 'workerLoans', label: 'Worker loans' }, { key: 'categories', label: 'Expense categories' }, { key: 'expenses', label: 'Expenses' }, { key: 'prices', label: 'Coffee prices' }, { key: 'monthlyGuideEntries', label: 'Coffee estate guide notes' }, { key: 'production', label: 'Production' }, { key: 'sales', label: 'Sales' }
 ]
 
 export function Backup({ data, refresh }: { data: EstateData; refresh: () => Promise<void> }) {
@@ -13,6 +13,7 @@ export function Backup({ data, refresh }: { data: EstateData; refresh: () => Pro
     if (key === 'weeklyPayments') return data.weeklyPayments.map((item) => ({ week_start: item.week_start, amount: item.amount, worker_name: data.workers.find((worker) => worker.id === item.worker_id)?.name ?? '' }))
     if (key === 'workerLoans') return data.workerLoans.map((item) => ({ loan_date: item.loan_date, worker_name: data.workers.find((worker) => worker.id === item.worker_id)?.name ?? '', kind: item.kind, amount: item.amount, notes: item.notes }))
     if (key === 'expenses') return data.expenses.map((item) => ({ expense_date: item.expense_date, category: item.expense_categories?.name ?? '', description: item.description, amount: item.amount }))
+    if (key === 'monthlyGuideEntries') return data.monthlyGuideEntries.map((item) => ({ month_number: item.month_number, title: item.title, notes: item.notes }))
     if (key === 'categories') return data.categories.map(({ name, archived }) => ({ name, archived }))
     return (data[key] as unknown as Record<string, unknown>[]).map(({ id: _id, ...row }) => row)
   }
@@ -43,6 +44,11 @@ export function Backup({ data, refresh }: { data: EstateData; refresh: () => Pro
         if (error) throw error
       } else if (dataset === 'prices') {
         const { error } = await supabase.from('coffee_prices').insert(rows.map((row) => ({ price_date: row.price_date, coffee_type: row.coffee_type, grade: row.grade || 'Standard', source: row.source || 'CSV import', price_per_kg: Number(row.price_per_kg) })))
+        if (error) throw error
+      } else if (dataset === 'monthlyGuideEntries') {
+        const inserts = rows.map((row) => ({ month_number: Number(row.month_number) || Number(row.plan_month?.slice(5, 7)), title: row.title?.trim() ?? '', notes: row.notes ?? '' }))
+        if (inserts.some((row) => !Number.isInteger(row.month_number) || row.month_number < 1 || row.month_number > 12 || !row.title)) throw new Error('Each guide row needs a month number from 1–12 and a title.')
+        const { error } = await supabase.from('monthly_tasks').insert(inserts)
         if (error) throw error
       } else if (dataset === 'production') {
         const { error } = await supabase.from('production_records').insert(rows.map((row) => ({ production_year: Number(row.production_year), bags_produced: Number(row.bags_produced), bag_weight_kg: Number(row.bag_weight_kg), notes: row.notes || null })))

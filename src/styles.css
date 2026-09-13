@@ -27,6 +27,10 @@
   65% { transform: translateY(-3px) scale(1.08); }
   100% { transform: translateY(-2px) scale(1); }
 }
+@keyframes estate-guide-enter {
+  from { opacity: 0; transform: translateY(1.25rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @layer base {
   /* Keep the document as the only vertical scroller. clip contains sideways overflow without creating an Android scroll container. */
@@ -40,6 +44,34 @@
 @layer components {
   .app-shell { @apply min-h-screen w-full; min-height: 100dvh; max-width: 100%; overflow-x: clip; overflow-y: visible; }
   .app-header { width: 100%; max-width: 100vw; }
+  .estate-guide-fab { position: fixed; right: max(1rem, env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom) + 5.65rem); z-index: 40; display: inline-flex; min-height: 3.25rem; align-items: center; gap: .5rem; border: 1px solid rgba(255, 255, 255, .55); border-radius: 999px; background: linear-gradient(135deg, #34522f, #547c4c); box-shadow: 0 12px 28px rgba(35, 68, 35, .24); color: #fff; padding: .45rem .8rem .45rem .55rem; font-size: .85rem; font-weight: 800; transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease; }
+  .estate-guide-fab-icon { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 999px; background: rgba(255, 255, 255, .16); font-size: 1rem; }
+  .estate-guide-fab:focus-visible, .estate-guide-close:focus-visible, .estate-guide-month:focus-visible, .estate-guide-edit:focus-visible, .estate-guide-remove:focus-visible, .estate-guide-source:focus-visible { outline: 3px solid rgba(61, 102, 55, .35); outline-offset: 3px; }
+  .estate-guide-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end; justify-content: center; background: rgba(30, 41, 29, .52); padding: .75rem 0 0; }
+  .estate-guide-sheet { display: flex; width: 100%; max-height: calc(100dvh - .75rem); flex-direction: column; overflow: hidden; border: 1px solid rgba(255, 255, 255, .45); border-radius: 1.35rem 1.35rem 0 0; background: #fbfaf7; box-shadow: 0 -18px 45px rgba(29, 39, 28, .28); outline: none; animation: estate-guide-enter 260ms cubic-bezier(.2, .8, .2, 1) both; }
+  .estate-guide-header { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e8e7e0; background: linear-gradient(115deg, #f0f7ed, #fbfaf7 56%); padding: 1rem; }
+  .estate-guide-header > div { min-width: 0; }
+  .estate-guide-close { display: grid; width: 2.65rem; height: 2.65rem; flex: 0 0 auto; place-items: center; border-radius: .85rem; color: #596256; font-size: 1.65rem; line-height: 1; transition: background 180ms ease, color 180ms ease, transform 180ms ease; }
+  .estate-guide-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .estate-guide-months { display: flex; gap: .45rem; overflow-x: auto; border-bottom: 1px solid #ecebe5; background: #fff; padding: .75rem 1rem; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+  .estate-guide-month { min-height: 2.5rem; flex: 0 0 auto; border: 1px solid #e2e4dd; border-radius: 999px; background: #fff; color: #5c6659; padding: .35rem .72rem; font-size: .8rem; font-weight: 800; transition: background 180ms ease, color 180ms ease, transform 180ms ease, border-color 180ms ease; }
+  .estate-guide-month.is-active { border-color: #3d6637; background: #3d6637; color: #fff; box-shadow: 0 4px 10px rgba(61, 102, 55, .22); }
+  .estate-guide-content { display: grid; gap: 1rem; padding: 1rem; }
+  .estate-guide-reference { border: 1px solid #d8e7d4; border-radius: 1rem; background: radial-gradient(circle at 100% 0%, rgba(154, 196, 146, .22), transparent 40%), #f7fbf5; padding: 1rem; }
+  .estate-guide-season { color: #3d6637; font-size: .75rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+  .estate-guide-actions { display: grid; gap: .65rem; margin-top: 1rem; }
+  .estate-guide-actions li { display: flex; gap: .6rem; color: #495548; font-size: .92rem; line-height: 1.45; }
+  .estate-guide-actions li::before { content: '•'; flex: 0 0 auto; color: #3d6637; font-size: 1.25rem; line-height: 1.05; }
+  .estate-guide-disclaimer { margin-top: 1rem; border-top: 1px solid #dce8d8; padding-top: .85rem; color: #687166; font-size: .78rem; line-height: 1.45; }
+  .estate-guide-source { display: inline-flex; margin-top: .7rem; color: #34522f; font-size: .85rem; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+  .estate-guide-personal { border: 1px solid #e4e4df; border-radius: 1rem; background: #fff; padding: 1rem; }
+  .estate-guide-count { display: inline-flex; min-height: 1.75rem; flex: 0 0 auto; align-items: center; border-radius: 999px; background: #eff6ed; color: #34522f; padding: .2rem .6rem; font-size: .74rem; font-weight: 800; }
+  .estate-guide-entry { display: flex; align-items: flex-start; gap: .65rem; border: 1px solid #e9e9e5; border-radius: .85rem; background: #fcfcfa; padding: .75rem; }
+  .estate-guide-entry-actions { display: flex; flex: 0 0 auto; align-items: center; gap: .15rem; }
+  .estate-guide-edit { min-height: 2.5rem; padding: 0 .45rem; color: #34522f; font-size: .8rem; font-weight: 800; }
+  .estate-guide-remove { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border-radius: .7rem; color: #b42318; font-size: 1.35rem; font-weight: 700; transition: background 180ms ease; }
+  .estate-guide-edit:disabled, .estate-guide-remove:disabled { cursor: wait; opacity: .55; }
+  .estate-guide-editor { margin-top: 1rem; border-top: 1px solid #ecece7; padding-top: 1rem; }
   .accordion-panel { display: grid; grid-template-rows: 0fr; overflow: clip; overflow-anchor: none; transition: grid-template-rows 260ms cubic-bezier(.2,.8,.2,1); }
   .accordion-panel.is-expanded { grid-template-rows: 1fr; }
   .accordion-panel-content { min-height: 0; overflow: hidden; }
@@ -92,8 +124,23 @@
   .recharts-wrapper { touch-action: pan-y; }
 }
 
+@media (min-width: 640px) {
+  .estate-guide-fab { right: 1.5rem; bottom: 1.5rem; }
+  .estate-guide-backdrop { align-items: center; padding: 1.5rem; }
+  .estate-guide-sheet { width: min(100%, 60rem); max-height: min(48rem, calc(100dvh - 3rem)); border-radius: 1.35rem; }
+  .estate-guide-header { padding: 1.25rem; }
+  .estate-guide-months { padding-inline: 1.25rem; }
+  .estate-guide-content { grid-template-columns: minmax(0, 1.08fr) minmax(19rem, .92fr); padding: 1.25rem; }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .card:hover, .summary-tile:hover { transform: translateY(-2px); border-color: rgb(214 211 209); box-shadow: 0 12px 26px rgba(61, 102, 55, .09); }
+  .estate-guide-fab:hover { background: linear-gradient(135deg, #2f6232, #6b9660); box-shadow: 0 15px 34px rgba(35, 68, 35, .3); transform: translateY(-2px); }
+  .estate-guide-close:hover { background: rgba(61, 102, 55, .09); color: #34522f; transform: rotate(4deg); }
+  .estate-guide-month:hover:not(.is-active) { border-color: #b9d2b2; background: #f4f9f1; color: #34522f; }
+  .estate-guide-entry:hover { border-color: #c8dcc3; }
+  .estate-guide-edit:hover { color: #2d7a43; text-decoration: underline; }
+  .estate-guide-remove:hover { background: #fef2f2; }
 }
 
 @media (max-width: 639px) {

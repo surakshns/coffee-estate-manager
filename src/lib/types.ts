@@ -49,6 +49,15 @@ export interface CoffeePrice {
   price_per_kg: number
 }
 
+export interface MonthlyGuideEntry {
+  id: Id
+  month_number: number
+  title: string
+  notes: string
+  created_at: string
+  updated_at?: string
+}
+
 export interface ProductionRecord {
   id: Id
   production_year: number
@@ -73,6 +82,7 @@ export interface EstateData {
   categories: ExpenseCategory[]
   expenses: Expense[]
   prices: CoffeePrice[]
+  monthlyGuideEntries: MonthlyGuideEntry[]
   production: ProductionRecord[]
   sales: Sale[]
 }
