@@ -185,6 +185,7 @@
   .app-shell { background: linear-gradient(180deg, rgba(255, 252, 247, .56), rgba(255, 252, 247, 0) 24rem); }
   .app-header {
     isolation: isolate;
+    padding-top: env(safe-area-inset-top);
     border-bottom: 1px solid rgba(244, 225, 197, .20);
     background: linear-gradient(118deg, #24150d 0%, #3b281d 42%, #31593b 100%);
     box-shadow: 0 8px 26px rgba(43, 27, 17, .22);
@@ -328,6 +329,7 @@
 .header-more:hover, .header-menu[open] .header-more { background: rgba(255, 255, 255, .18); }
 .header-menu-panel { position: absolute; right: 0; top: calc(100% + .65rem); z-index: 60; width: 14rem; border: 1px solid #e6d2bd; border-radius: 1rem; background: #fffaf5; padding: .45rem; box-shadow: 0 16px 36px rgba(42, 26, 16, .25); }
 .header-menu-panel button { display: flex; width: 100%; min-height: 2.8rem; align-items: center; gap: .55rem; border-radius: .7rem; color: #553824; padding: .55rem .7rem; text-align: left; font-size: .9rem; font-weight: 700; }
+.header-menu-panel button svg { width: 1.05rem; height: 1.05rem; flex: 0 0 auto; }
 .header-menu-panel button:hover { background: #f5eadf; }
 .menu-caption { color: #806751; padding: .45rem .7rem; font-size: .65rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
 .loading-state { display: grid; min-height: 50vh; place-content: center; justify-items: center; gap: .8rem; color: #675746; font-weight: 700; }

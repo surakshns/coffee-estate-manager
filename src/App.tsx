@@ -102,12 +102,11 @@ export default function App() {
         </button>
         <div className="header-actions flex items-center gap-2">
           <label className="year-control" htmlFor="record-year"><span className="hidden sm:inline">Record year</span><select id="record-year" aria-label="Record year" className="year-picker" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-          <button className="header-utility" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span className="hidden sm:inline">Backup</span></button>
-          <button className="header-signout hidden sm:inline" onClick={() => void supabase.auth.signOut()}>Sign out</button>
-          <details className="header-menu sm:hidden" ref={menuRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}>
+          <details className="header-menu" ref={menuRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}>
             <summary className="header-more" aria-label="More options"><AppIcon name="more" /></summary>
             <div className="header-menu-panel">
               <p className="menu-caption">Your estate</p>
+              <button onClick={() => navigate('Backup')}><AppIcon name="backup" /> Backup &amp; import</button>
               {installPrompt && <button onClick={() => void installApp()}>＋ Install app</button>}
               <button onClick={() => { if (menuRef.current) menuRef.current.open = false; void supabase.auth.signOut() }}>Sign out</button>
             </div>

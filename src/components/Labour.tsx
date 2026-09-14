@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { money, monthlyLabourTotal, recordedPaymentTotal, wednesdaysInMonth, workersForPaymentDate, yearlyLabourTotal } from '../lib/calculations'
+import { money, monthlyLabourTotal, wednesdaysInMonth, workersForPaymentDate, yearlyLabourTotal } from '../lib/calculations'
 import { scrollToEditor } from '../lib/scroll'
 import { supabase } from '../lib/supabase'
 import type { EstateData, JointLoan, Worker, WorkerLoan } from '../lib/types'
@@ -7,6 +7,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import './labour.css'
 
 const asNumber = (value: string | undefined) => Number((value ?? '').replace(/,/g, '') || 0)
+const daysLabel = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 1 })
 const formattedAmount = (value: string) => {
   if (!value) return ''
   const clean = value.replace(/,/g, '').replace(/[^\d.]/g, '')
@@ -97,9 +98,18 @@ export function Labour({ data, year, refresh }: { data: EstateData; year: number
   const jointDeductionFor = (worker: Worker) => recordedJointRepaymentsByWeek[`${openWednesday}:${worker.id}`]?.amount ?? asNumber(jointDeductions[worker.id]?.amount)
   const draftTotal = paymentWorkers.reduce((sum, worker) => sum + grossForWorker(worker), 0)
   const draftTakeHome = paymentWorkers.reduce((sum, worker) => sum + Math.max(0, grossForWorker(worker) - personalDeductionFor(worker) - jointDeductionFor(worker)), 0)
+  const weeklyWorkingDays = paymentWorkers.reduce((sum, worker) => sum + (removed[worker.id] ? 0 : asNumber(daysWorked[worker.id])), 0)
+  const monthlyTakeHome = data.weeklyPayments
+    .filter((payment) => !payment.excluded && new Date(`${payment.week_start}T12:00:00`).getFullYear() === year && new Date(`${payment.week_start}T12:00:00`).getMonth() === openMonth)
+    .reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
+  const monthlyWorkingDays = data.weeklyPayments
+    .filter((payment) => !payment.excluded && new Date(`${payment.week_start}T12:00:00`).getFullYear() === year && new Date(`${payment.week_start}T12:00:00`).getMonth() === openMonth)
+    .reduce((sum, payment) => sum + Number(payment.days_worked ?? 0), 0)
   const includedWorkers = paymentWorkers.filter((worker) => !removed[worker.id]).length
   const hasSavedPayment = data.weeklyPayments.some((payment) => payment.week_start === openWednesday)
-  const recordedTotal = recordedPaymentTotal(data.weeklyPayments, openWednesday)
+  const recordedTakeHome = (date: string) => data.weeklyPayments
+    .filter((payment) => payment.week_start === date && !payment.excluded)
+    .reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
 
   useEffect(() => {
     if (previousYear.current === year) return
@@ -335,6 +345,7 @@ export function Labour({ data, year, refresh }: { data: EstateData; year: number
       <SummaryCard label={`${monthName(openMonth)} payments`} value={money(monthlyLabourTotal(data.weeklyPayments, year, openMonth))} detail="Saved labour cost this month" />
       <SummaryCard label={`Paid in ${year}`} value={money(yearlyLabourTotal(data.weeklyPayments, year))} detail="Included in estate expenses" />
       <SummaryCard label="Worker loan balance" value={money(totalLoanBalance)} detail="Advances less repayments" />
+      {view === 'payments' && <><SummaryCard label="This week’s work days" value={daysLabel(weeklyWorkingDays)} detail="All workers in the selected week" /><SummaryCard label={`${monthName(openMonth)} work days`} value={daysLabel(monthlyWorkingDays)} detail="All saved worker days this month" /><SummaryCard label={`${monthName(openMonth)} take-home`} value={money(monthlyTakeHome)} detail="Wages after loan deductions" /></>}
     </div>
     <nav className="labour-views" aria-label="Labour sections">
       {([{ value: 'payments', label: 'Weekly pay', icon: '₹' }, { value: 'loans', label: 'Loans & advances', icon: '↗' }, { value: 'workers', label: 'Manage workers', icon: '♧' }] as const).map(({ value, label, icon }) => <button key={value} type="button" className={view === value ? 'is-active' : ''} aria-current={view === value ? 'page' : undefined} onClick={() => setView(value)}><span aria-hidden="true">{icon}</span>{label}{value === 'payments' && dirtyDraft && <span className="labour-draft-dot" aria-label="Unsaved changes" />}</button>)}
@@ -347,12 +358,12 @@ export function Labour({ data, year, refresh }: { data: EstateData; year: number
         <div className="labour-weeks" aria-label="Wednesday payment dates">{dates.map((date) => {
           const saved = data.weeklyPayments.some((payment) => payment.week_start === date)
           const selected = openWednesday === date
-          return <button type="button" key={date} className={`labour-week ${selected ? 'is-selected' : ''}`} aria-pressed={selected} disabled={!!busy} onClick={() => chooseWeek({ month: openMonth, date })}><span className="labour-week-day">Wednesday</span><strong>{shortDate(date)}</strong><span className={`labour-week-state ${saved ? 'is-saved' : ''}`}>{selected && dirtyDraft ? '• Unsaved changes' : saved ? '✓ Saved' : 'Not saved'}</span><span className="labour-week-total">{money(recordedPaymentTotal(data.weeklyPayments, date))}</span></button>
+          return <button type="button" key={date} className={`labour-week ${selected ? 'is-selected' : ''}`} aria-pressed={selected} disabled={!!busy} onClick={() => chooseWeek({ month: openMonth, date })}><span className="labour-week-day">Wednesday</span><strong>{shortDate(date)}</strong><span className={`labour-week-state ${saved ? 'is-saved' : ''}`}>{selected && dirtyDraft ? '• Unsaved changes' : saved ? '✓ Saved' : 'Not saved'}</span><span className="labour-week-total">Take-home {money(recordedTakeHome(date))}</span></button>
         })}</div>
       </section>
       <form className="labour-panel labour-payment-sheet" onSubmit={(event) => void saveAll(event)}>
         <div className="labour-section-heading"><div><p className="labour-step">Step 2</p><h2>{friendlyDate(openWednesday)}</h2><p>Check each worker’s payment for this week.</p></div><span className={`labour-status ${hasSavedPayment && !dirtyDraft ? 'is-saved' : ''}`}>{dirtyDraft ? 'Unsaved changes' : hasSavedPayment ? '✓ Saved record' : 'New payment'}</span></div>
-        {!hasSavedPayment && paymentWorkers.length > 0 && <p className="labour-hint">Usual weekly amounts are filled in for you. They count as expenses only after you save.</p>}
+        {!hasSavedPayment && paymentWorkers.length > 0 && <p className="labour-hint">Five working days are filled in for you. Change them for any worker before saving.</p>}
         <div className="labour-payment-list">{paymentWorkers.length ? paymentWorkers.map((worker, index) => {
           const skipped = !!removed[worker.id]
           const repaymentKey = `${openWednesday}:${worker.id}`
@@ -366,15 +377,14 @@ export function Labour({ data, year, refresh }: { data: EstateData; year: number
           return <div className={`labour-worker-payment ${skipped ? 'is-skipped' : ''}`} key={worker.id}>
             <div className="labour-worker-identity"><span className="labour-worker-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><h3>{worker.name}</h3><p>{skipped ? 'Skipped this week · no wage payment' : `${money(rateForWorker(worker))} per day`}</p></div></div>
             <label className="labour-amount-label" htmlFor={`days-${worker.id}`}>Days worked<span className="labour-currency-input"><input id={`days-${worker.id}`} aria-label={`Days worked by ${worker.name}`} type="number" inputMode="decimal" min="0" max="7" step="0.5" required disabled={skipped || !!busy} value={skipped ? '0' : daysWorked[worker.id] ?? ''} onChange={(event) => { markDraft(); setDaysWorked((current) => ({ ...current, [worker.id]: event.target.value })) }} /></span></label>
-            <div className="labour-calculated-pay"><strong>Gross wage {money(gross)}</strong><span>{daysWorked[worker.id] || 0} days × {money(rateForWorker(worker))}</span></div>
+            <div className="labour-calculated-pay"><strong>Take-home to pay {money(Math.max(0, gross - totalDeduction))}</strong><span>{daysWorked[worker.id] || 0} days × {money(rateForWorker(worker))}{totalDeduction > 0 ? ` · less ${money(totalDeduction)} loan` : ''}</span></div>
             <button type="button" className={`labour-skip ${skipped ? 'is-restore' : ''}`} disabled={!!busy} aria-label={`${skipped ? 'Include' : 'Skip'} ${worker.name} ${skipped ? 'in' : 'for'} this week`} onClick={() => { markDraft(); setRemoved((current) => ({ ...current, [worker.id]: !current[worker.id] })) }}>{skipped ? '↶ Include this week' : 'Skip this week'}</button>
             {(loanBalance > 0 || recordedRepayment > 0) && <div className="labour-repayment"><div><strong>Personal loan deduction</strong><p>{recordedRepayment > 0 ? `${money(recordedRepayment)} already recorded` : `${money(loanBalance)} still due`}</p></div><label className="labour-currency-input"><span aria-hidden="true">₹</span><input type="text" inputMode="decimal" readOnly={recordedRepayment > 0} disabled={skipped || !!busy} aria-label={`Personal loan deduction in rupees for ${worker.name}`} value={recordedRepayment > 0 ? formattedAmount(String(recordedRepayment)) : repayments[repaymentKey] ?? ''} placeholder="0" onChange={(event) => { markDraft(); setRepayments((current) => ({ ...current, [repaymentKey]: formattedAmount(event.target.value) })) }} /></label></div>}
             {jointOptions.length > 0 && <div className="labour-repayment labour-joint-deduction"><div><strong>Joint loan deduction</strong><p>{recordedJoint ? `${money(recordedJoint.amount)} already recorded` : 'Reduces the one shared balance'}</p></div><div className="labour-joint-inputs"><select className="field" disabled={skipped || !!busy || !!recordedJoint} value={recordedJoint?.loanId ?? deduction.loanId} onChange={(event) => { markDraft(); setJointDeductions((current) => ({ ...current, [worker.id]: { loanId: event.target.value, amount: current[worker.id]?.amount ?? '' } })) }}><option value="">Choose joint loan</option>{jointOptions.map(({ loan, balance }) => <option key={loan.id} value={loan.id}>{money(balance)} remaining</option>)}</select><label className="labour-currency-input"><span aria-hidden="true">₹</span><input type="text" inputMode="decimal" readOnly={!!recordedJoint} disabled={skipped || !!busy || !(recordedJoint?.loanId ?? deduction.loanId)} aria-label={`Joint loan deduction in rupees for ${worker.name}`} value={recordedJoint ? formattedAmount(String(recordedJoint.amount)) : deduction.amount} placeholder="0" onChange={(event) => { markDraft(); setJointDeductions((current) => ({ ...current, [worker.id]: { ...deduction, amount: formattedAmount(event.target.value) } })) }} /></label></div></div>}
-            {!skipped && <p className="labour-take-home">Take-home payment <strong>{money(Math.max(0, gross - totalDeduction))}</strong>{totalDeduction > 0 && <span> after {money(totalDeduction)} loan deduction</span>}</p>}
           </div>
         }) : <div className="labour-empty"><span aria-hidden="true">♧</span><h3>Add your first worker</h3><p>Set their usual weekly amount once to make every payday easier.</p><button type="button" className="button-primary" onClick={() => setView('workers')}>Add a worker</button></div>}</div>
         <p className="labour-footnote">Gross wages are saved as labour expense. Personal and joint loan deductions reduce only the worker’s take-home amount and loan balance.</p>
-        <div className="labour-save-bar"><div><p className="labour-step">Step 3 · Review & save</p><p className="labour-total-label">Gross labour cost <strong>{money(Number.isFinite(draftTotal) ? draftTotal : 0)}</strong></p><p className="labour-total-detail">Take-home to pay {money(Number.isFinite(draftTakeHome) ? draftTakeHome : 0)} · {includedWorkers} {includedWorkers === 1 ? 'worker' : 'workers'} included{hasSavedPayment ? ` · Previously saved ${money(recordedTotal)}` : ' · Not yet added to expenses'}</p></div><button type="submit" className="button-primary labour-save-button" disabled={!paymentWorkers.length || !!busy}>{busy === 'payments' ? 'Saving payments…' : lastSavedWeek === openWednesday && !dirtyDraft ? '✓ Payments saved' : hasSavedPayment ? 'Save updated payments' : 'Save weekly payments'}</button></div>
+        <div className="labour-save-bar"><div><p className="labour-step">Step 3 · Review & save</p><p className="labour-total-label">Take-home to pay <strong>{money(Number.isFinite(draftTakeHome) ? draftTakeHome : 0)}</strong></p><p className="labour-total-detail">Gross labour cost {money(Number.isFinite(draftTotal) ? draftTotal : 0)} · {includedWorkers} {includedWorkers === 1 ? 'worker' : 'workers'} included{hasSavedPayment ? ` · Previously saved take-home ${money(recordedTakeHome(openWednesday))}` : ' · Not yet added to expenses'}</p></div><button type="submit" className="button-primary labour-save-button" disabled={!paymentWorkers.length || !!busy}>{busy === 'payments' ? 'Saving payments…' : lastSavedWeek === openWednesday && !dirtyDraft ? '✓ Payments saved' : hasSavedPayment ? 'Save updated payments' : 'Save weekly payments'}</button></div>
         {hasSavedPayment && <details className="labour-reset"><summary>Correct a saved week</summary><p>Clear the saved payments and undo loan repayments recorded with this weekly payment.</p><button type="button" className="labour-danger-button" disabled={!!busy} onClick={() => setResettingWeek(openWednesday)}>{busy === 'reset' ? 'Clearing saved payments…' : 'Clear saved payments for this week'}</button></details>}
       </form>
     </>}

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { money, productionMetrics } from '../lib/calculations'
 import { dashboardActivity } from '../lib/dashboardData'
@@ -7,11 +8,13 @@ import './dashboard.css'
 type DashboardPage = 'Labour' | 'Expenses' | 'Production'
 const quantity = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 1 })
 const compactMoney = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 }).format(value)
+const monthName = (month: number) => new Intl.DateTimeFormat('en-IN', { month: 'long' }).format(new Date(2026, month, 1))
 
 export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void }) {
+  const [workingDaysMonth, setWorkingDaysMonth] = useState(new Date().getMonth())
   const harvest = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
   const activity = dashboardActivity(data, year)
-  const hasActivity = Boolean(activity.sales || activity.spending)
+  const hasSpending = Boolean(activity.spending)
   const remaining = Math.max(0, harvest.bagsProduced - harvest.bagsSold)
   const oversold = harvest.bagsSold > harvest.bagsProduced
   const percentSold = harvest.bagsProduced ? Math.min(100, Math.round(harvest.bagsSold / harvest.bagsProduced * 100)) : 0
@@ -22,6 +25,21 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
   const categoryRows = activity.categories.length > 5
     ? [...activity.categories.slice(0, 4), { id: '__other_categories', name: 'Other categories', amount: activity.categories.slice(4).reduce((sum, category) => sum + category.amount, 0) }]
     : activity.categories
+  const workerDayRows = data.workers.map((worker) => {
+    const payments = data.weeklyPayments.filter((payment) => payment.worker_id === worker.id && !payment.excluded && new Date(`${payment.week_start}T12:00:00`).getFullYear() === year && new Date(`${payment.week_start}T12:00:00`).getMonth() === workingDaysMonth)
+    return { worker, days: payments.reduce((total, payment) => total + Number(payment.days_worked ?? 0), 0), weeks: payments.length }
+  }).filter(({ worker, weeks }) => worker.active || weeks > 0)
+  const totalWorkingDays = workerDayRows.reduce((sum, item) => sum + item.days, 0)
+  const fiscalStartYear = workingDaysMonth >= 6 ? year : year - 1
+  const fiscalStart = `${fiscalStartYear}-07-01`
+  const selectedMonthEndDay = new Date(year, workingDaysMonth + 1, 0).getDate()
+  const selectedMonthEnd = `${year}-${String(workingDaysMonth + 1).padStart(2, '0')}-${String(selectedMonthEndDay).padStart(2, '0')}`
+  const cumulativeWorkingDays = data.weeklyPayments
+    .filter((payment) => !payment.excluded && payment.week_start >= fiscalStart && payment.week_start <= selectedMonthEnd)
+    .reduce((sum, payment) => sum + Number(payment.days_worked ?? 0), 0)
+  const cumulativeTakeHome = data.weeklyPayments
+    .filter((payment) => !payment.excluded && payment.week_start >= fiscalStart && payment.week_start <= selectedMonthEnd)
+    .reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
 
   return <div className="page estate-dashboard">
     <header className="dashboard-hero dashboard-welcome">
@@ -45,26 +63,24 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
 
     <section className="dashboard-charts" aria-label="Estate insights">
       <article className="dashboard-panel dashboard-activity-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">The bigger picture</p><h2>Sales & spending</h2></div><span className="dashboard-year-badge">Jan–Dec {year}</span></div>
-        <p className="dashboard-description">See your sales and spending month by month.</p>
-        {hasActivity ? <>
-          <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-sales" /> Sales</span><span><i className="is-spending" /> Spending</span></div>
-          <div className="dashboard-line-chart" role="group" aria-label={`Monthly sales and spending for ${year}. Total sales ${money(activity.sales)}; total spending ${money(activity.spending)}. Monthly values are available in the table below.`}>
+        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">The bigger picture</p><h2>Monthly spending</h2></div><span className="dashboard-year-badge">Jan–Dec {year}</span></div>
+        <p className="dashboard-description">See your labour and estate spending month by month.</p>
+        {hasSpending ? <>
+          <div className="dashboard-line-chart" role="group" aria-label={`Monthly spending for ${year}. Total spending is ${money(activity.spending)}. Monthly values are available in the table below.`}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={activity.monthly} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
                 <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
                 <YAxis width={48} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 10 }} tickFormatter={compactMoney} tickCount={5} />
                 <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(month) => `${month} ${year}`} contentStyle={{ borderRadius: 12, borderColor: '#dce5da', fontSize: 12, boxShadow: '0 6px 20px #23362d12' }} />
-                <Line dataKey="sales" name="Sales" type="linear" stroke="#174e3c" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#174e3c' }} activeDot={{ r: 5 }} isAnimationActive={false} />
-                <Line dataKey="spending" name="Spending" type="linear" stroke="#aa7140" strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 2.5, strokeWidth: 0, fill: '#aa7140' }} activeDot={{ r: 5 }} isAnimationActive={false} />
+                <Line dataKey="spending" name="Spending" type="linear" stroke="#174e3c" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#174e3c' }} activeDot={{ r: 5 }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="dashboard-insight"><span aria-hidden="true">↗</span><span>{activity.spending > 0 ? <><strong>{mostSpent.month}</strong> has the highest recorded spending: <strong>{money(mostSpent.spending)}</strong>.</> : 'Sales are recorded. Add labour pay and expenses to see the full picture.'}</span></p>
-          <details className="dashboard-data-details"><summary>View monthly figures</summary><div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Monthly figures table"><table><caption className="sr-only">Calendar year {year} sales and spending in Indian rupees</caption><thead><tr><th scope="col">Month</th><th scope="col">Sales</th><th scope="col">Spending</th><th scope="col">Balance</th></tr></thead><tbody>{activity.monthly.map((month) => <tr key={month.month}><th scope="row">{month.month}</th><td>{money(month.sales)}</td><td>{money(month.spending)}</td><td>{money(month.balance)}</td></tr>)}</tbody></table></div></details>
-        </> : <EmptyChart symbol="↗" title="Your year will take shape here" description="Record a coffee sale, labour payment, or estate expense to start seeing monthly trends." action={onNavigate ? () => onNavigate('Expenses') : undefined} actionLabel="Add your first expense" />}
-        <p className="dashboard-footnote">Based on record dates, across all harvests. Sales are recorded values, not confirmed payments. Advances and repayments are not included.</p>
+          <p className="dashboard-insight"><span aria-hidden="true">↗</span><span><strong>{mostSpent.month}</strong> has the highest recorded spending: <strong>{money(mostSpent.spending)}</strong>.</span></p>
+          <details className="dashboard-data-details"><summary>View monthly spending</summary><div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Monthly spending table"><table><caption className="sr-only">Calendar year {year} spending in Indian rupees</caption><thead><tr><th scope="col">Month</th><th scope="col">Spending</th></tr></thead><tbody>{activity.monthly.map((month) => <tr key={month.month}><th scope="row">{month.month}</th><td>{money(month.spending)}</td></tr>)}</tbody></table></div></details>
+        </> : <EmptyChart symbol="₹" title="Your spending trend will appear here" description="Save a labour payment or estate expense to see monthly spending." action={onNavigate ? () => onNavigate('Expenses') : undefined} actionLabel="Add your first expense" />}
+        <p className="dashboard-footnote">Based on labour payments and estate expense record dates. Loan advances and repayments are not included.</p>
       </article>
 
       <article className="dashboard-panel dashboard-spending-panel">
@@ -80,6 +96,20 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
           <p className="dashboard-insight"><span aria-hidden="true">◎</span><span><strong>{activity.categories[0].name}</strong> is your largest recorded cost.</span></p>
           {activity.categories.length > 5 && <details className="dashboard-data-details"><summary>View all {activity.categories.length} categories</summary><dl className="dashboard-all-categories">{activity.categories.map((category) => <div key={category.id}><dt>{category.name}</dt><dd>{money(category.amount)}</dd></div>)}</dl></details>}
         </> : <EmptyChart symbol="₹" title="A place for every expense" description="Your labour payments and estate expenses will appear here, grouped into easy-to-read categories." action={onNavigate ? () => onNavigate('Labour') : undefined} actionLabel="Record labour pay" />}
+      </article>
+
+      <article className="dashboard-panel dashboard-working-days-panel">
+        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Your team</p><h2>Monthly working days</h2></div><label className="dashboard-month-select"><span>Month</span><select value={workingDaysMonth} onChange={(event) => setWorkingDaysMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label></div>
+        <p className="dashboard-description">Saved working days for each worker in {monthName(workingDaysMonth)} {year}.</p>
+        <div className="dashboard-working-days-totals"><p><span>{monthName(workingDaysMonth)}</span><strong>{quantity(totalWorkingDays)}</strong> total working days</p><p><span>Jul {fiscalStartYear}–{monthName(workingDaysMonth).slice(0, 3)} {year}</span><strong>{quantity(cumulativeWorkingDays)}</strong> cumulative days</p></div>
+        <div className="dashboard-working-days-list">{workerDayRows.length ? workerDayRows.map(({ worker, days, weeks }, index) => <article key={worker.id}><span className="dashboard-worker-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><h3>{worker.name}</h3><p>{weeks ? `${weeks} saved ${weeks === 1 ? 'week' : 'weeks'}` : 'No saved weeks yet'}</p></div><strong>{quantity(days)} <span>days</span></strong></article>) : <p className="dashboard-working-days-empty">Add a worker to see monthly working days.</p>}</div>
+      </article>
+
+      <article className="dashboard-panel dashboard-takehome-panel">
+        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Labour pay</p><h2>Financial-year take-home</h2></div><span className="dashboard-year-badge">Jul {fiscalStartYear}–{monthName(workingDaysMonth).slice(0, 3)} {year}</span></div>
+        <p className="dashboard-description">Total take-home paid through the selected month, after all saved loan deductions.</p>
+        <p className="dashboard-fiscal-takehome">{money(cumulativeTakeHome)}</p>
+        <p className="dashboard-fiscal-takehome-detail">Cumulative pay from 1 July through {monthName(workingDaysMonth)} {year}.</p>
       </article>
 
       <article className="dashboard-panel dashboard-expense-rhythm-panel">
