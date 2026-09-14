@@ -5,6 +5,7 @@ export interface Worker {
   name: string
   active: boolean
   default_weekly_amount: number
+  default_days_worked?: number
   created_at?: string
 }
 

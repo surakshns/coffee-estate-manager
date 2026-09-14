@@ -15,7 +15,7 @@ export function useEstateData() {
     if (initialLoad) setLoading(true)
     setError('')
     const [workers, weeklyPayments, workerLoans, labourRates, jointLoans, jointLoanRepayments, categories, expenses, prices, monthlyGuideEntries, production, sales] = await Promise.all([
-      supabase.from('workers').select('id,name,active,default_weekly_amount,created_at').order('name'),
+      supabase.from('workers').select('id,name,active,default_weekly_amount,default_days_worked,created_at').order('name'),
       supabase.from('weekly_payments').select('id,worker_id,week_start,amount,excluded,days_worked,daily_rate,loan_deduction').order('week_start', { ascending: false }),
       supabase.from('worker_loans').select('id,worker_id,loan_date,amount,kind,notes').order('loan_date', { ascending: false }),
       supabase.from('labour_daily_rates').select('id,rate_year,daily_rate').order('rate_year', { ascending: false }),

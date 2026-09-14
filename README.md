@@ -120,3 +120,7 @@ Install Capacitor packages only when you are ready to produce a mobile store bui
 - The app uses the public Supabase anon/publishable key by design. Security comes from Supabase Auth and the RLS policies in the migration.
 - Do not disable RLS and do not expose a service-role key in `VITE_*` variables.
 - Currency display is Indian Rupees (`₹`). Change the `money` helper in `src/lib/calculations.ts` if your estate uses another currency.
+
+## Worker days and editing saved weeks
+
+Run `supabase/migrations/202609140009_worker_days_and_weekly_updates.sql` after the existing migrations. It adds a default of 5 working days per worker (editable from 0–6) and a transaction for saving or updating wages and their linked loan deductions together. Saved weeks have **Edit weekly payments**, **Save updates**, and **Cancel editing** actions. The migration does not change existing wage records.

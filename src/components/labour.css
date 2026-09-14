@@ -186,3 +186,38 @@
   .labour-week-total { font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { .labour-page *, .labour-page *::before, .labour-page *::after { scroll-behavior: auto; transition-duration: .01ms; } }
+
+/* Payment entry uses one reading order on phones and desktop. */
+.labour-worker-payment { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 16px; padding: 18px; border-radius: 16px; }
+.labour-worker-identity { grid-column: 1 / -1; padding-bottom: 14px; border-bottom: 1px solid #e2e8df; }
+.labour-worker-identity h3 { font: 800 19px/1.4 ui-sans-serif, system-ui, sans-serif; }
+.labour-worker-identity p { font-size: 14px; }
+.labour-amount-label { font-size: 15px; }
+.labour-amount-label .field { margin: 0; font-size: 18px; font-weight: 750; }
+.labour-calculated-pay { grid-column: 1 / -1; grid-row: auto; padding: 16px; background: #edf5e8; }
+.labour-calculated-pay strong { font-size: 28px; margin: 5px 0; line-height: 1.2; overflow-wrap: anywhere; }
+.labour-calculated-pay span { font-size: 14px; color: #426040; }
+.labour-skip { max-width: none; min-height: 44px; align-self: stretch; font-size: 14px; }
+.labour-repayment, .labour-joint-deduction { grid-template-columns: minmax(0, 1fr); padding-right: 0; gap: 10px; }
+.labour-repayment strong { font-size: 15px; }
+.labour-repayment p { font-size: 13px; }
+.labour-repayment .labour-currency-input { height: 52px; }
+.labour-repayment input { font-size: 20px; }
+.labour-joint-inputs .field { font-size: 16px; min-height: 48px; }
+.labour-edit-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; padding: 16px; border-radius: 12px; background: #eef4e8; border: 1px solid #d4e1ca; }
+.labour-edit-toolbar p { color: #365738; font-size: 14px; }
+.labour-edit-toolbar .button-secondary { background: white; }
+.labour-page .field:disabled { opacity: 1; color: #4e6150; background: #f3f5ef; cursor: default; }
+.labour-payment-sheet .labour-footnote { color: #53634f; font-size: 13px; }
+.labour-save-bar { padding: 18px; background: #edf5e8; border: 1px solid #d6e3ce; border-radius: 14px; }
+.labour-total-detail { font-size: 13px; color: #4e624b; }
+.labour-page .labour-save-button:disabled { cursor: default; }
+.labour-form > p:not(.labour-step) { font-size: 14px; }
+.labour-page .label { font-size: 15px; }
+@media (min-width: 700px) {
+  .labour-worker-payment { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 22px; gap: 20px; }
+  .labour-calculated-pay { grid-column: 2; grid-row: 2 / span 2; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+  .labour-skip { grid-column: 1; grid-row: 3; }
+  .labour-repayment, .labour-joint-deduction { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .labour-joint-inputs { grid-template-columns: minmax(0, 1fr); }
+}

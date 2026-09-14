@@ -27,7 +27,7 @@ export function Backup({ data, refresh }: { data: EstateData; refresh: () => Pro
     const rows = parseCsv(await file.text()); if (!rows.length) { setMessage('No valid CSV rows were found.'); return }
     try {
       if (dataset === 'workers') {
-        const { error } = await supabase.from('workers').insert(rows.map((row) => ({ name: row.name, active: row.active !== 'false', default_weekly_amount: Number(row.default_weekly_amount) })))
+        const { error } = await supabase.from('workers').insert(rows.map((row) => ({ name: row.name, active: row.active !== 'false', default_weekly_amount: Number(row.default_weekly_amount || 0), default_days_worked: Number(row.default_days_worked || 5) })))
         if (error) throw error
       } else if (dataset === 'categories') {
         const { error } = await supabase.from('expense_categories').insert(rows.map((row) => ({ name: row.name, archived: row.archived === 'true' })))
