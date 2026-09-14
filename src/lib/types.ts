@@ -14,6 +14,9 @@ export interface WeeklyPayment {
   week_start: string
   amount: number
   excluded?: boolean
+  days_worked?: number | null
+  daily_rate?: number | null
+  loan_deduction?: number
 }
 
 export interface WorkerLoan {
@@ -22,6 +25,30 @@ export interface WorkerLoan {
   loan_date: string
   amount: number
   kind: 'advance' | 'repayment'
+  notes: string
+}
+
+export interface LabourDailyRate {
+  id: Id
+  rate_year: number
+  daily_rate: number
+}
+
+export interface JointLoan {
+  id: Id
+  worker_one_id: Id
+  worker_two_id: Id
+  loan_date: string
+  amount: number
+  notes: string
+}
+
+export interface JointLoanRepayment {
+  id: Id
+  joint_loan_id: Id
+  worker_id: Id | null
+  repayment_date: string
+  amount: number
   notes: string
 }
 
@@ -79,6 +106,9 @@ export interface EstateData {
   workers: Worker[]
   weeklyPayments: WeeklyPayment[]
   workerLoans: WorkerLoan[]
+  labourRates: LabourDailyRate[]
+  jointLoans: JointLoan[]
+  jointLoanRepayments: JointLoanRepayment[]
   categories: ExpenseCategory[]
   expenses: Expense[]
   prices: CoffeePrice[]

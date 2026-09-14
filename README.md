@@ -32,7 +32,7 @@ A responsive, mobile-first coffee estate bookkeeping application. It manages lab
    This creates the tables, indexes, user-creation trigger, default categories, seed functions, and Row Level Security policies.
    If you ran an earlier version and sample data reports a `record "new" has no field "worker_id"` error, run the corrective migration `supabase/migrations/202609130002_fix_reference_validation.sql` once in SQL Editor.
    If sample data then reports a duplicate `coffee_prices_user_id_source_external_id_key` error, run `supabase/migrations/202609130003_fix_manual_price_uniqueness.sql` once in SQL Editor.
-   Run later migrations in filename order as well. The Coffee Estate Guide requires both `supabase/migrations/202609140006_monthly_planner.sql` and `supabase/migrations/202609140007_evergreen_estate_guide.sql`.
+   Run later migrations in filename order as well. The Coffee Estate Guide requires both `supabase/migrations/202609140006_monthly_planner.sql` and `supabase/migrations/202609140007_evergreen_estate_guide.sql`. Weekly days worked, yearly daily pay rates, and shared two-worker loans require `supabase/migrations/202609140008_joint_loans_and_daily_rates.sql`.
 4. Open **Connect** near the top of the Supabase project dashboard and copy the Project URL and **Publishable key** (`sb_publishable_...`). On an older project, the equivalent legacy value is called the **anon** key. Never put a secret/service-role key in this app.
 
 ## 2. Configure and run locally

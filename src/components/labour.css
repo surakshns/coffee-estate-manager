@@ -61,6 +61,10 @@
 .labour-worker-number { display: inline-flex; width: 37px; height: 37px; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50%; background: #edf2e8; color: #6e8365; font-size: 12px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .labour-worker-identity p { margin-top: 2px; font-size: 11px; line-height: 1.5; color: var(--labour-muted); }
 .labour-amount-label { min-width: 0; display: grid; gap: 7px; font-size: 12px; color: #576858; font-weight: 650; }
+.labour-calculated-pay { align-self: end; min-width: 0; padding: 10px 12px; border: 1px solid #dce6d8; border-radius: 10px; background: #f1f6ed; }
+.labour-calculated-pay strong, .labour-calculated-pay span { display: block; }
+.labour-calculated-pay strong { color: var(--labour-green); font-size: 14px; font-variant-numeric: tabular-nums; }
+.labour-calculated-pay span { margin-top: 3px; color: #667762; font-size: 11px; line-height: 1.4; }
 .labour-currency-input { display: flex; align-items: center; min-width: 0; height: 52px; border: 1.5px solid #bdcdb8; border-radius: 10px; overflow: hidden; background: #fff; }
 .labour-currency-input:focus-within { border-color: var(--labour-green); box-shadow: 0 0 0 3px #174e3c12; }
 .labour-currency-input > span { padding-left: 13px; color: #7b8e73; font-size: 17px; font-weight: 600; }
@@ -77,6 +81,13 @@
 .labour-repayment p { margin-top: 3px; font-size: 11px; line-height: 1.55; color: var(--labour-muted); }
 .labour-repayment .labour-currency-input { height: 48px; border-color: #d1dccc; }
 .labour-repayment input { font-size: 17px; }
+.labour-joint-deduction { align-items: start; }
+.labour-joint-inputs { display: grid; gap: 8px; min-width: 0; }
+.labour-joint-inputs .field { min-height: 42px; padding: 8px 10px; font-size: 13px; }
+.labour-joint-inputs .labour-currency-input { width: 100%; }
+.labour-take-home { grid-column: 1 / -1; padding-top: 11px; border-top: 1px solid #e6ebe2; color: #52644f; font-size: 12px; font-weight: 650; }
+.labour-take-home strong { margin-left: 6px; color: var(--labour-green); font-size: 17px; font-variant-numeric: tabular-nums; }
+.labour-take-home span { display: block; margin-top: 3px; color: var(--labour-muted); font-size: 11px; font-weight: 500; }
 .labour-footnote { margin-top: 15px; color: #778071; font-size: 11px; line-height: 1.65; }
 .labour-save-bar { display: flex; flex-direction: column; gap: 17px; margin-top: 21px; padding-top: 21px; border-top: 1px solid var(--labour-line); }
 .labour-total-label { display: flex; flex-direction: column; gap: 4px; margin-top: 9px; font-size: 13px; font-weight: 600; }
@@ -112,6 +123,13 @@
 .labour-balance-list strong { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .labour-balance-list span { flex-shrink: 0; font-size: 17px; font-weight: 750; color: #8a603c; font-variant-numeric: tabular-nums; }
 .labour-balance-list span.is-credit { color: var(--labour-green); }
+.labour-joint-balance-list { display: grid; gap: 9px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--labour-line); }
+.labour-joint-balance-list > h3 { font-size: 15px; }
+.labour-joint-balance-list article { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px; border: 1px solid #dce5d9; border-radius: 11px; background: #f8faf5; }
+.labour-joint-balance-list article > div { min-width: 0; }
+.labour-joint-balance-list p { margin-top: 4px; color: var(--labour-muted); font-size: 11px; line-height: 1.45; }
+.labour-joint-balance-list article > div:last-child { display: grid; justify-items: end; gap: 3px; flex-shrink: 0; color: #80613d; font-size: 12px; font-variant-numeric: tabular-nums; }
+.labour-joint-balance-list .labour-text-danger { min-height: 28px; padding: 3px 0; }
 .labour-history { margin-top: 18px; border-top: 1px solid var(--labour-line); }
 .labour-history > summary { min-height: 58px; padding: 20px 0 15px; cursor: pointer; color: var(--labour-ink); font-size: 15px; font-weight: 750; }
 .labour-history > summary > span { margin-left: 5px; color: #7f8a74; font-size: 11px; font-weight: 500; }
@@ -146,12 +164,14 @@
   .labour-month-label { width: 210px; }
   .labour-weeks { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .labour-week { min-height: 141px; padding: 15px 12px; }
-  .labour-worker-payment { grid-template-columns: minmax(0, 1fr) 164px 126px; align-items: center; gap: 16px; padding: 18px; }
+  .labour-worker-payment { grid-template-columns: minmax(0, 1fr) 164px; align-items: center; gap: 16px; padding: 18px; }
   .labour-worker-identity { grid-column: auto; }
   .labour-worker-identity h3 { font-size: 17px; }
   .labour-worker-identity p { font-size: 12px; }
   .labour-skip { max-width: none; font-size: 12px; }
-  .labour-repayment { grid-template-columns: minmax(0, 1fr) 164px; padding-right: 142px; }
+  .labour-repayment { grid-template-columns: minmax(0, 1fr) 164px; padding-right: 0; }
+  .labour-joint-deduction { grid-template-columns: minmax(0, 1fr) 164px; }
+  .labour-joint-inputs { grid-template-columns: 1fr; }
   .labour-repayment p { font-size: 12px; }
   .labour-repayment strong { font-size: 13px; }
   .labour-save-bar { flex-direction: row; align-items: center; justify-content: space-between; gap: 28px; }
