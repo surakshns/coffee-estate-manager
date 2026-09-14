@@ -1,0 +1,171 @@
+.labour-page {
+  --labour-green: #174e3c;
+  --labour-ink: #23362d;
+  --labour-muted: #647369;
+  --labour-line: #dce4da;
+  display: grid;
+  gap: 22px;
+  color: var(--labour-ink);
+}
+.labour-page button, .labour-page input, .labour-page select, .labour-page summary { touch-action: manipulation; }
+.labour-page button, .labour-page summary { -webkit-tap-highlight-color: transparent; }
+.labour-page button:focus-visible, .labour-page summary:focus-visible, .labour-page select:focus-visible, .labour-page input:focus-visible { outline: 3px solid #8caa52; outline-offset: 3px; }
+.labour-page button:disabled { cursor: wait; opacity: .55; }
+.labour-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.labour-eyebrow, .labour-step { color: var(--labour-green); font-size: 11px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.labour-heading h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(32px, 5vw, 44px); line-height: 1.13; font-weight: 500; letter-spacing: -.04em; margin: 9px 0 10px; }
+.labour-heading > div > p:last-child { color: var(--labour-muted); line-height: 1.6; font-size: 15px; }
+.labour-team-count { display: inline-flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid var(--labour-line); background: #edf2e8; border-radius: 99px; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.labour-team-count > span { font-size: 21px; line-height: 1; }
+.labour-summary { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.labour-summary-card { min-width: 0; padding: 17px 15px; background: #fffefb; border: 1px solid var(--labour-line); border-radius: 16px; }
+.labour-summary-card:first-child { background: #e9f1e9; border-color: #dce7d9; }
+.labour-summary-card:last-child { grid-column: 1 / -1; }
+.labour-summary-card p { font-size: 12px; font-weight: 650; color: #4e6155; }
+.labour-summary-card strong { display: block; margin: 8px 0 5px; font-size: clamp(23px, 4vw, 30px); font-weight: 750; letter-spacing: -.04em; line-height: 1.15; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.labour-summary-card span { display: block; color: var(--labour-muted); font-size: 11px; line-height: 1.5; }
+.labour-views { display: grid; grid-template-columns: .9fr 1.2fr 1.1fr; gap: 4px; background: #e9ede4; padding: 5px; border: 1px solid #dfe5d9; border-radius: 15px; }
+.labour-views button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 62px; padding: 8px 4px; border: 1px solid transparent; border-radius: 10px; color: #637065; font-size: 11px; font-weight: 750; text-align: center; line-height: 1.35; }
+.labour-views button > span:first-child { font-size: 18px; line-height: 1; }
+.labour-views button.is-active { background: #fffefb; border-color: #dce4d5; color: var(--labour-green); box-shadow: 0 2px 5px #25372009; }
+.labour-draft-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 100%; background: #b77b22; }
+.labour-panel { min-width: 0; padding: 18px; border: 1px solid var(--labour-line); border-radius: 19px; background: #fffefb; box-shadow: 0 3px 16px #263b2403; }
+.labour-panel h2 { font-size: 19px; line-height: 1.35; font-weight: 750; letter-spacing: -.025em; }
+.labour-panel h3 { font-size: 16px; line-height: 1.45; font-weight: 750; overflow-wrap: anywhere; }
+.labour-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 19px; }
+.labour-section-heading > div { min-width: 0; }
+.labour-section-heading .labour-step { margin-bottom: 5px; }
+.labour-section-heading > div > p:last-child:not(.labour-step), .labour-section-description { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--labour-muted); }
+.labour-month-label { display: grid; width: 100%; gap: 5px; color: #536257; font-size: 12px; font-weight: 700; }
+.labour-page .field { min-height: 50px; width: 100%; padding: 11px 13px; border: 1px solid #ccd6c8; border-radius: 10px; background: #fff; color: var(--labour-ink); font-size: 16px; font-weight: 550; box-shadow: 0 1px 2px #263b2403; }
+.labour-page .field:focus { border-color: var(--labour-green); }
+.labour-month-label .field { margin: 0; font-weight: 700; }
+.labour-weeks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.labour-week { display: flex; flex-direction: column; align-items: flex-start; min-height: 133px; padding: 13px; background: #f7f8f2; border: 1.5px solid #e1e6dc; border-radius: 12px; text-align: left; transition: background .15s, border-color .15s; }
+.labour-week:hover { border-color: #9bb59e; background: #f0f4eb; }
+.labour-week.is-selected { background: var(--labour-green); border-color: var(--labour-green); color: white; box-shadow: 0 3px 8px #174e3c15; }
+.labour-week-day { color: #758175; font-size: 10px; font-weight: 700; letter-spacing: .03em; }
+.labour-week strong { margin: 5px 0 9px; font-size: 22px; letter-spacing: -.035em; line-height: 1.1; }
+.labour-week-state { font-size: 10px; font-weight: 700; color: #737b6e; }
+.labour-week-state.is-saved { color: #3d6f4c; }
+.labour-week-total { margin-top: 5px; font-size: 12px; color: #667260; font-variant-numeric: tabular-nums; }
+.labour-week.is-selected .labour-week-day, .labour-week.is-selected .labour-week-total, .labour-week.is-selected .labour-week-state { color: #d5e6d6; }
+.labour-status { display: inline-flex; align-items: center; flex-shrink: 0; padding: 6px 10px; border: 1px solid #e3dbc2; border-radius: 99px; background: #f6f0df; color: #80642b; font-size: 11px; font-weight: 750; line-height: 1.25; }
+.labour-status.is-saved { border-color: #d6e5d5; background: #eaf2e7; color: #386047; }
+.labour-hint { margin: -1px 0 18px; padding: 11px 13px; background: #f1f5eb; color: #576951; border-radius: 9px; font-size: 12px; line-height: 1.65; }
+.labour-payment-list { display: grid; gap: 12px; }
+.labour-worker-payment { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px 12px; padding: 16px; border: 1px solid #dce4da; border-radius: 14px; background: #fff; }
+.labour-worker-payment.is-skipped { background: #f4f4ef; border-style: dashed; }
+.labour-worker-identity { display: flex; align-items: center; min-width: 0; gap: 11px; grid-column: 1 / -1; }
+.labour-worker-identity > div { min-width: 0; }
+.labour-worker-number { display: inline-flex; width: 37px; height: 37px; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50%; background: #edf2e8; color: #6e8365; font-size: 12px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.labour-worker-identity p { margin-top: 2px; font-size: 11px; line-height: 1.5; color: var(--labour-muted); }
+.labour-amount-label { min-width: 0; display: grid; gap: 7px; font-size: 12px; color: #576858; font-weight: 650; }
+.labour-currency-input { display: flex; align-items: center; min-width: 0; height: 52px; border: 1.5px solid #bdcdb8; border-radius: 10px; overflow: hidden; background: #fff; }
+.labour-currency-input:focus-within { border-color: var(--labour-green); box-shadow: 0 0 0 3px #174e3c12; }
+.labour-currency-input > span { padding-left: 13px; color: #7b8e73; font-size: 17px; font-weight: 600; }
+.labour-currency-input input { width: 100%; min-width: 0; height: 100%; border: 0; padding: 10px 10px 10px 7px; background: transparent; font-size: 21px; line-height: 1; font-weight: 750; color: var(--labour-ink); font-variant-numeric: tabular-nums; outline: none; appearance: textfield; -moz-appearance: textfield; }
+.labour-currency-input input::-webkit-inner-spin-button, .labour-currency-input input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.labour-currency-input input:disabled { color: #899184; background: #f4f4ef; }
+.labour-currency-input input:read-only { color: #68825f; background: #f3f6ee; }
+.labour-currency-input input:focus-visible { outline: none; }
+.labour-skip { display: flex; align-items: center; justify-content: center; align-self: end; min-height: 52px; max-width: 110px; padding: 9px 10px; border: 1px solid #dee4da; border-radius: 10px; background: #f7f8f3; color: #667160; font-size: 11px; font-weight: 700; line-height: 1.4; }
+.labour-skip:hover { background: #edf1e6; border-color: #b1c3a8; }
+.labour-skip.is-restore { color: var(--labour-green); background: #e6efdf; }
+.labour-repayment { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 102px; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px dashed #dce4d6; }
+.labour-repayment strong { font-size: 12px; }
+.labour-repayment p { margin-top: 3px; font-size: 11px; line-height: 1.55; color: var(--labour-muted); }
+.labour-repayment .labour-currency-input { height: 48px; border-color: #d1dccc; }
+.labour-repayment input { font-size: 17px; }
+.labour-footnote { margin-top: 15px; color: #778071; font-size: 11px; line-height: 1.65; }
+.labour-save-bar { display: flex; flex-direction: column; gap: 17px; margin-top: 21px; padding-top: 21px; border-top: 1px solid var(--labour-line); }
+.labour-total-label { display: flex; flex-direction: column; gap: 4px; margin-top: 9px; font-size: 13px; font-weight: 600; }
+.labour-total-label strong { display: block; font-size: 31px; font-weight: 750; line-height: 1.25; letter-spacing: -.045em; color: var(--labour-green); font-variant-numeric: tabular-nums; }
+.labour-total-detail { margin-top: 5px; font-size: 11px; line-height: 1.5; color: var(--labour-muted); }
+.labour-page .button-primary, .labour-page .button-secondary, .labour-danger-button { min-height: 50px; border-radius: 11px; padding: 13px 17px; font-size: 14px; line-height: 1.5; font-weight: 750; text-align: center; }
+.labour-page .button-primary { color: #fff; background: var(--labour-green); border: 1px solid var(--labour-green); box-shadow: 0 3px 7px #174e3c10; }
+.labour-page .button-primary:hover { background: #113e2f; }
+.labour-page .button-secondary { color: var(--labour-green); background: #f3f6ef; border: 1px solid #d5dfce; box-shadow: none; }
+.labour-page .labour-save-button { width: 100%; min-height: 55px; font-size: 15px; }
+.labour-reset { margin-top: 18px; border-top: 1px solid #e6e9df; padding-top: 6px; }
+.labour-reset summary { display: list-item; min-height: 48px; padding: 15px 0; cursor: pointer; font-size: 12px; font-weight: 650; color: #73806c; }
+.labour-reset p { font-size: 12px; line-height: 1.65; color: var(--labour-muted); margin-bottom: 12px; }
+.labour-danger-button { border: 1px solid #e2c5bd; color: #9a4635; background: #fff7f3; font-size: 12px; }
+.labour-message { border: 1px solid #ccddc6; border-radius: 13px; background: #eaf3e5; padding: 14px 16px; color: #345c3d; font-size: 14px; line-height: 1.65; font-weight: 600; overflow-wrap: anywhere; }
+.labour-message.is-error { background: #fff0e9; border-color: #eed2c4; color: #974b34; }
+.labour-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 28px 12px; }
+.labour-empty > span { font-size: 40px; color: #829871; }
+.labour-empty p { max-width: 300px; color: var(--labour-muted); font-size: 14px; line-height: 1.7; }
+.labour-empty-record { padding: 20px 16px; background: #f3f6ef; border: 1px dashed #d5dfcd; border-radius: 12px; color: #6c7b61; font-size: 13px; line-height: 1.7; }
+.labour-management-grid { display: grid; align-items: start; gap: 20px; }
+.labour-form { display: grid; gap: 16px; scroll-margin-top: 100px; }
+.labour-form > h2 { margin-top: -9px; }
+.labour-form > p:not(.labour-step) { margin-top: -7px; color: var(--labour-muted); font-size: 13px; line-height: 1.65; }
+.labour-page .label { min-width: 0; display: block; color: #51614f; font-size: 13px; font-weight: 700; }
+.labour-page .label .field { display: block; margin-top: 8px; }
+.labour-optional { font-weight: 400; color: #8a9280; }
+.labour-form-pair { display: grid; gap: 16px; }
+.labour-form-actions { display: flex; flex-direction: column; gap: 10px; }
+.labour-balance-list { display: grid; gap: 0; margin-top: 17px; }
+.labour-balance-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 0; border-bottom: 1px solid #e3e8dc; }
+.labour-balance-list > div:last-child { border-bottom: 0; }
+.labour-balance-list strong { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.labour-balance-list span { flex-shrink: 0; font-size: 17px; font-weight: 750; color: #8a603c; font-variant-numeric: tabular-nums; }
+.labour-balance-list span.is-credit { color: var(--labour-green); }
+.labour-history { margin-top: 18px; border-top: 1px solid var(--labour-line); }
+.labour-history > summary { min-height: 58px; padding: 20px 0 15px; cursor: pointer; color: var(--labour-ink); font-size: 15px; font-weight: 750; }
+.labour-history > summary > span { margin-left: 5px; color: #7f8a74; font-size: 11px; font-weight: 500; }
+.labour-history-list, .labour-team-list { display: grid; gap: 11px; }
+.labour-history-list article, .labour-team-list article { min-width: 0; padding: 16px; border: 1px solid #e0e5d9; border-radius: 12px; background: #fff; }
+.labour-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.labour-record-heading > div { min-width: 0; }
+.labour-record-heading h3 { font-size: 15px; }
+.labour-record-heading p { color: #76806d; font-size: 11px; line-height: 1.6; margin-top: 4px; }
+.labour-record-heading > strong { flex-shrink: 0; color: var(--labour-green); font-size: 17px; font-variant-numeric: tabular-nums; }
+.labour-record-note { margin-top: 12px; color: #6b7663; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.labour-text-danger { min-height: 48px; padding: 12px 3px; color: #9d5b49; font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; text-align: left; }
+.labour-worker-actions { display: flex; align-items: flex-start; gap: 12px; margin-top: 15px; }
+.labour-worker-actions .button-secondary { min-height: 48px; padding: 11px 14px; font-size: 12px; }
+.labour-worker-actions > details { min-width: 0; margin-left: auto; text-align: right; }
+.labour-worker-actions summary { min-height: 48px; padding: 15px 6px; cursor: pointer; color: #818b77; font-size: 12px; font-weight: 650; }
+.labour-worker-actions .labour-text-danger { padding: 5px 0 0; font-size: 11px; }
+@media (min-width: 440px) {
+  .labour-panel { padding: 22px; }
+  .labour-summary-card { padding: 20px; }
+  .labour-views button { font-size: 12px; }
+  .labour-form-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 640px) {
+  .labour-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .labour-summary-card:last-child { grid-column: auto; }
+  .labour-summary-card p { font-size: 13px; }
+  .labour-summary-card span { font-size: 12px; }
+  .labour-views { display: flex; width: fit-content; }
+  .labour-views button { flex-direction: row; gap: 10px; min-height: 48px; padding: 10px 19px; font-size: 13px; }
+  .labour-views button > span:first-child { font-size: 17px; }
+  .labour-month-label { width: 210px; }
+  .labour-weeks { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .labour-week { min-height: 141px; padding: 15px 12px; }
+  .labour-worker-payment { grid-template-columns: minmax(0, 1fr) 164px 126px; align-items: center; gap: 16px; padding: 18px; }
+  .labour-worker-identity { grid-column: auto; }
+  .labour-worker-identity h3 { font-size: 17px; }
+  .labour-worker-identity p { font-size: 12px; }
+  .labour-skip { max-width: none; font-size: 12px; }
+  .labour-repayment { grid-template-columns: minmax(0, 1fr) 164px; padding-right: 142px; }
+  .labour-repayment p { font-size: 12px; }
+  .labour-repayment strong { font-size: 13px; }
+  .labour-save-bar { flex-direction: row; align-items: center; justify-content: space-between; gap: 28px; }
+  .labour-page .labour-save-button { width: auto; min-width: 213px; }
+  .labour-total-label { font-size: 14px; }
+  .labour-total-detail { font-size: 12px; }
+  .labour-form-actions { flex-direction: row; flex-wrap: wrap; }
+}
+@media (min-width: 1000px) {
+  .labour-management-grid { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
+  .labour-panel { padding: 26px; }
+  .labour-week { padding: 16px 18px; }
+  .labour-week strong { font-size: 25px; }
+  .labour-week-day, .labour-week-state { font-size: 11px; }
+  .labour-week-total { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { .labour-page *, .labour-page *::before, .labour-page *::after { scroll-behavior: auto; transition-duration: .01ms; } }

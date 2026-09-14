@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-coffee-50: #f8f5ef;
-  --color-coffee-100: #ede4d6;
-  --color-coffee-700: #5c3b26;
-  --color-leaf-50: #eff6ed;
-  --color-leaf-600: #3d6637;
-  --color-leaf-700: #34522f;
+  --color-coffee-50: #fff9f1;
+  --color-coffee-100: #f2dfcc;
+  --color-coffee-700: #593521;
+  --color-leaf-50: #eff5ea;
+  --color-leaf-600: #47724a;
+  --color-leaf-700: #315a3a;
+  --color-leaf-800: #26472f;
 }
 
 @keyframes page-enter {
@@ -34,7 +35,7 @@
 
 @layer base {
   /* Keep the document as the only vertical scroller. clip contains sideways overflow without creating an Android scroll container. */
-  html { width: 100%; min-height: 100%; max-width: 100%; overflow-x: clip; overflow-y: auto; }
+  html { width: 100%; min-height: 100%; max-width: 100%; overflow-x: clip; overflow-y: auto; scroll-behavior: smooth; }
   body { @apply bg-coffee-50 text-stone-800 antialiased; min-width: 320px; min-height: 100dvh; max-width: 100%; overflow-x: clip; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
   #root { width: 100%; min-height: 100%; max-width: 100%; }
   button, input, select, textarea { font: inherit; }
@@ -151,4 +152,200 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+/* Warm coffee-estate visual system. It is intentionally texture-led rather than a copy of any cafe brand. */
+@layer base {
+  :root {
+    --estate-ink: #28170f;
+    --estate-espresso: #51301e;
+    --estate-roast: #885536;
+    --estate-terracotta: #bd6c43;
+    --estate-gold: #c9913f;
+    --estate-cream: #fffaf4;
+    --estate-oat: #f5e8d9;
+    --estate-paper: #fcf7ef;
+    --estate-leaf: #355c3d;
+    --estate-sage: #72916f;
+    --estate-line: #e9dbca;
+    --estate-shadow: 0 14px 34px rgba(77, 48, 30, .08);
+    --estate-ease: cubic-bezier(.2, .8, .2, 1);
+  }
+  body {
+    background:
+      radial-gradient(circle at 100% 0%, rgba(220, 182, 129, .20), transparent 26rem),
+      radial-gradient(circle at 0% 26rem, rgba(125, 161, 113, .13), transparent 32rem),
+      var(--estate-paper);
+    color: var(--estate-ink);
+  }
+  h1, h2, h3 { font-family: Georgia, 'Times New Roman', ui-serif, serif; letter-spacing: -.025em; }
+}
+
+@layer components {
+  .app-shell { background: linear-gradient(180deg, rgba(255, 252, 247, .56), rgba(255, 252, 247, 0) 24rem); }
+  .app-header {
+    isolation: isolate;
+    border-bottom: 1px solid rgba(244, 225, 197, .20);
+    background: linear-gradient(118deg, #24150d 0%, #3b281d 42%, #31593b 100%);
+    box-shadow: 0 8px 26px rgba(43, 27, 17, .22);
+  }
+  .app-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: .55;
+    background:
+      radial-gradient(ellipse at 8% -52%, rgba(244, 205, 149, .23), transparent 38%),
+      radial-gradient(ellipse at 92% 160%, rgba(120, 165, 117, .22), transparent 40%);
+    pointer-events: none;
+  }
+  .app-header-inner { min-width: 0; }
+  .brand-lockup { display: inline-flex; min-width: 0; align-items: center; gap: .65rem; border-radius: 1rem; padding: .2rem; transition: transform 180ms var(--estate-ease), background 180ms ease; }
+  .brand-lockup:hover { background: rgba(255, 255, 255, .08); }
+  .brand-lockup:active { transform: scale(.97); }
+  .brand-cup { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border: 1px solid rgba(255, 255, 255, .17); border-radius: .82rem; background: linear-gradient(135deg, rgba(250, 222, 180, .24), rgba(255, 255, 255, .08)); font-size: 1.15rem; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18); }
+  .brand-eyebrow { display: block; color: rgba(255, 248, 238, .72); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .62rem; font-weight: 900; letter-spacing: .16em; line-height: 1.1; }
+  .brand-title { display: block; margin-top: .12rem; color: #fffaf4; font-family: Georgia, 'Times New Roman', ui-serif, serif; font-size: 1.3rem; font-weight: 800; letter-spacing: -.025em; line-height: 1; }
+  .year-picker { min-height: 2.55rem; border: 1px solid rgba(255, 247, 235, .26); border-radius: .85rem; background: rgba(255, 255, 255, .12); color: #fffdf9; padding: .45rem 1.9rem .45rem .7rem; font-size: .9rem; font-weight: 800; outline: none; transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
+  .year-picker:hover { background: rgba(255, 255, 255, .18); }
+  .year-picker:focus { border-color: rgba(255, 247, 235, .78); box-shadow: 0 0 0 4px rgba(255, 240, 213, .15); }
+  .header-signout { min-height: 2.55rem; border-radius: .85rem; color: rgba(255, 249, 240, .88); padding: .45rem .8rem; font-size: .86rem; font-weight: 800; transition: background 180ms ease, color 180ms ease, transform 180ms var(--estate-ease); }
+  .header-signout:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+  .header-signout:active { transform: scale(.97); }
+  .desktop-nav { position: relative; z-index: 1; }
+  .desktop-nav-item { min-height: 2.35rem; border-radius: .76rem; color: rgba(255, 248, 238, .74); padding: .45rem .82rem; font-size: .84rem; font-weight: 800; transition: background 180ms ease, color 180ms ease, transform 180ms var(--estate-ease), box-shadow 180ms ease; }
+  .desktop-nav-item:hover { background: rgba(255, 255, 255, .09); color: #fffdf9; }
+  .desktop-nav-item.is-active { background: var(--estate-cream); color: var(--estate-espresso); box-shadow: 0 4px 12px rgba(19, 11, 7, .20); transform: translateY(-1px); }
+  .page { padding-top: 1.25rem; }
+  .page > header:not(.dashboard-hero) { position: relative; overflow: hidden; border: 1px solid var(--estate-line); border-radius: 1.35rem; background: linear-gradient(112deg, rgba(255, 253, 249, .94), rgba(248, 239, 226, .89)); box-shadow: 0 9px 24px rgba(77, 48, 30, .055); padding: 1.1rem 1.15rem; }
+  .page > header:not(.dashboard-hero)::after { content: '☕'; position: absolute; right: 1rem; top: 50%; color: rgba(134, 83, 54, .11); font-size: 4.4rem; line-height: 1; transform: translateY(-50%) rotate(-10deg); pointer-events: none; }
+  .page > header:not(.dashboard-hero) > * { position: relative; z-index: 1; }
+  .page > header:not(.dashboard-hero) > p:first-child { color: var(--estate-leaf); font-size: .7rem; font-weight: 900; letter-spacing: .15em; }
+  .page > header:not(.dashboard-hero) h1 { color: var(--estate-ink); font-size: clamp(1.8rem, 4vw, 2.35rem); }
+  .page > header:not(.dashboard-hero) > p:last-child { max-width: 46rem; color: #706359; line-height: 1.55; }
+  .card { border-color: var(--estate-line); border-radius: 1.25rem; background: rgba(255, 253, 249, .94); box-shadow: var(--estate-shadow); }
+  .card h2, .card h3 { color: var(--estate-ink); }
+  .card .rounded-xl.bg-stone-50 { border: 1px solid #f0e4d7; background: #fffaf5; }
+  .summary-tile { border-color: color-mix(in srgb, currentColor 18%, white); border-radius: 1.2rem; box-shadow: 0 11px 24px rgba(80, 52, 32, .09); }
+  .summary-tile::after { right: -2.1rem; bottom: -2.6rem; width: 8rem; height: 8rem; opacity: .10; }
+  .tone-production { background: linear-gradient(135deg, #e4f0df, #fbfcf7); color: #2d6539; }
+  .tone-revenue { background: linear-gradient(135deg, #f5e4d2, #fffaf5); color: #774329; }
+  .tone-profit { background: linear-gradient(135deg, #f8edc8, #fffaf0); color: #76601d; }
+  .tone-loss { background: linear-gradient(135deg, #f9e3df, #fff8f6); color: #9d493d; }
+  .tone-labour { background: linear-gradient(135deg, #f8e2d9, #fff9f6); color: #934d36; }
+  .tone-expense { background: linear-gradient(135deg, #faedcf, #fffaf1); color: #99671d; }
+  .tone-volume { background: linear-gradient(135deg, #e4eef0, #f8fbfb); color: #2e6570; }
+  .tone-market-arabica { background: linear-gradient(135deg, #eedccb, #fff9f2); color: #744729; }
+  .tone-market-robusta { background: linear-gradient(135deg, #e4eddf, #f9fcf7); color: #3f683e; }
+  .tone-category { background: linear-gradient(135deg, #e8efe2, #fafcf8); color: #4f6f44; }
+  .button-primary { border: 1px solid rgba(37, 77, 47, .24); background: linear-gradient(135deg, #315b3a, #477247); box-shadow: 0 7px 15px rgba(46, 89, 55, .19); }
+  .button-primary:hover { background: linear-gradient(135deg, #274e31, #3d6a41); box-shadow: 0 10px 19px rgba(46, 89, 55, .24); }
+  .button-secondary { border-color: #dfcdbb; background: #fffaf4; color: var(--estate-espresso); }
+  .button-secondary:hover { border-color: #c7a98e; background: #f9efe5; }
+  .field { border-color: #ddccba; border-radius: .85rem; background: #fffdf9; color: var(--estate-ink); box-shadow: inset 0 1px 1px rgba(71, 44, 25, .025); }
+  .field:hover { border-color: #c9ae95; }
+  .field:focus { border-color: var(--estate-sage); box-shadow: 0 0 0 4px rgba(91, 134, 84, .14); }
+  .label { color: #5c493b; }
+  .data-table { color: #594a40; }
+  .data-table th { border-bottom-color: #e7d9ca; background: #faf2e8; color: #775b46; font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; }
+  .data-table td { border-bottom-color: #f0e6dc; }
+  .data-table tbody tr { transition: background 160ms ease; }
+  .data-table tbody tr:hover { background: rgba(247, 238, 227, .58); }
+  .worker-status.is-active { background: #e4f0df; color: #2d6539; box-shadow: 0 0 0 1px rgba(45, 101, 57, .14); }
+  .worker-status.is-inactive { background: #f2e9e0; color: #795e4f; box-shadow: 0 0 0 1px rgba(121, 94, 79, .12); }
+  .mobile-nav { border-top-color: #e8dacb; background: #fffaf5; box-shadow: 0 -8px 24px rgba(72, 43, 24, .12); }
+  .mobile-nav-item { color: #8a7565; }
+  .mobile-nav-item.is-active { background: #e7f0e3; color: #315b3a; box-shadow: 0 5px 11px rgba(48, 87, 54, .10); }
+  .mobile-nav-icon { font-size: 1.08rem; }
+  .mobile-nav-label { letter-spacing: .01em; }
+  .top-download-button { border-color: rgba(255, 247, 235, .22); background: rgba(255, 255, 255, .11); }
+  .top-download-button:hover { background: rgba(255, 255, 255, .19); }
+  .save-confirmation { background: #e6f1e1; color: #315b3a; box-shadow: 0 0 0 1px rgba(49, 91, 58, .14); }
+  .estate-guide-fab { border-color: rgba(255, 249, 240, .46); background: linear-gradient(135deg, #51301e, #355c3d); box-shadow: 0 13px 28px rgba(65, 41, 25, .28); }
+  .estate-guide-fab:hover { background: linear-gradient(135deg, #3d2518, #2d593a); }
+  .estate-guide-reference { border-color: #d8e5d2; background: radial-gradient(circle at 100% 0%, rgba(201, 154, 88, .19), transparent 43%), #f7fbf4; }
+  .estate-guide-personal, .estate-guide-entry { border-color: #ebddcd; background: #fffdf9; }
+  .estate-guide-month.is-active { border-color: var(--estate-espresso); background: var(--estate-espresso); box-shadow: 0 4px 10px rgba(81, 48, 30, .21); }
+}
+
+@media (max-width: 380px) {
+  .app-header-inner { gap: .4rem; padding-inline: .65rem; }
+  .brand-lockup { gap: .35rem; }
+  .brand-cup { width: 2rem; height: 2rem; font-size: 1rem; }
+  .brand-eyebrow { font-size: .5rem; letter-spacing: .11em; }
+  .brand-title { font-size: 1.08rem; }
+  .header-actions { gap: .3rem; }
+  .year-picker { min-height: 2.4rem; padding-inline: .45rem 1.45rem; font-size: .8rem; }
+  .top-download-button { width: 2.4rem; height: 2.4rem; }
+}
+
+@media (max-width: 639px) {
+  .page > header:not(.dashboard-hero) { padding: 1rem; }
+  .page > header:not(.dashboard-hero)::after { right: .55rem; font-size: 3.8rem; }
+  .recharts-pie-label-text { display: none; }
+  .recharts-wrapper { font-size: .76rem; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { border-color: #dbc4ad; box-shadow: 0 15px 31px rgba(77, 48, 30, .10); }
+  .summary-tile:hover { box-shadow: 0 15px 29px rgba(77, 48, 30, .13); }
+}
+
+@layer components {
+  .auth-shell {
+    min-height: 100dvh;
+    background:
+      radial-gradient(circle at 88% 6%, rgba(201, 145, 63, .23), transparent 21rem),
+      radial-gradient(circle at 4% 82%, rgba(87, 132, 80, .19), transparent 24rem),
+      linear-gradient(135deg, #fffaf3, #f6e9d8);
+  }
+  .auth-card { border: 1px solid rgba(226, 203, 181, .86); border-radius: 1.75rem; background: rgba(255, 253, 249, .92); box-shadow: 0 22px 55px rgba(70, 45, 28, .16); }
+  .auth-brand { position: relative; display: flex; align-items: center; gap: .9rem; overflow: hidden; border: 1px solid rgba(255, 255, 255, .18); border-radius: 1.25rem; background: linear-gradient(132deg, #2a190f, #56341f 52%, #355c3d); padding: 1rem; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .13); }
+  .auth-mark { display: grid; width: 3rem; height: 3rem; flex: 0 0 auto; place-items: center; border-radius: 1rem; background: rgba(255, 244, 225, .14); font-size: 1.45rem; }
+  .auth-leaf { position: absolute; right: .9rem; bottom: -.65rem; opacity: .15; font-size: 4.3rem; transform: rotate(-16deg); }
+  .confirm-backdrop { background: rgba(39, 24, 15, .58); }
+  .confirm-dialog { border: 1px solid #ead8c5; border-radius: 1.35rem; background: #fffaf5; box-shadow: 0 22px 55px rgba(39, 24, 15, .32); animation: estate-guide-enter 200ms var(--estate-ease) both; }
+  .dashboard-hero { box-shadow: 0 17px 38px rgba(41, 58, 37, .22); }
+  .dashboard-hero h1 { font-family: Georgia, 'Times New Roman', ui-serif, serif; }
+}
+
+@media (max-width: 420px) {
+  .dashboard-hero { border-radius: 1.25rem; padding: 1.1rem; }
+  .dashboard-hero h1 { font-size: 1.75rem; }
+}
+
+/* App shell details for the current navigation. These keep the existing warm tile system intact. */
+.skip-link { position: fixed; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.skip-link:focus { top: 1rem; left: 1rem; z-index: 200; width: auto; height: auto; margin: 0; clip: auto; clip-path: none; border-radius: .7rem; background: #fffaf4; color: #315b3a; padding: .8rem 1rem; font-weight: 800; box-shadow: 0 10px 24px rgba(38, 24, 14, .28); }
+.year-control { display: inline-flex; align-items: center; gap: .55rem; color: rgba(255, 249, 240, .75); font-size: .76rem; font-weight: 700; }
+.header-menu { position: relative; }
+.header-utility { display: inline-flex; min-height: 2.55rem; align-items: center; justify-content: center; gap: .45rem; border: 1px solid rgba(255, 247, 235, .25); border-radius: .85rem; background: rgba(255, 255, 255, .1); color: #fffaf4; padding: .45rem .7rem; font-size: .86rem; font-weight: 800; }
+.header-utility svg { width: 1.05rem; height: 1.05rem; }
+.header-utility:hover { background: rgba(255, 255, 255, .18); }
+.header-more { display: grid; width: 2.55rem; height: 2.55rem; place-items: center; border: 1px solid rgba(255, 247, 235, .25); border-radius: .85rem; background: rgba(255, 255, 255, .1); color: #fffaf4; list-style: none; }
+.header-more::-webkit-details-marker { display: none; }
+.header-more:hover, .header-menu[open] .header-more { background: rgba(255, 255, 255, .18); }
+.header-menu-panel { position: absolute; right: 0; top: calc(100% + .65rem); z-index: 60; width: 14rem; border: 1px solid #e6d2bd; border-radius: 1rem; background: #fffaf5; padding: .45rem; box-shadow: 0 16px 36px rgba(42, 26, 16, .25); }
+.header-menu-panel button { display: flex; width: 100%; min-height: 2.8rem; align-items: center; gap: .55rem; border-radius: .7rem; color: #553824; padding: .55rem .7rem; text-align: left; font-size: .9rem; font-weight: 700; }
+.header-menu-panel button:hover { background: #f5eadf; }
+.menu-caption { color: #806751; padding: .45rem .7rem; font-size: .65rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.loading-state { display: grid; min-height: 50vh; place-content: center; justify-items: center; gap: .8rem; color: #675746; font-weight: 700; }
+.loading-leaf { font-size: 2.5rem; }
+.app-banner { width: min(calc(100% - 2rem), 80rem); margin: 1rem auto 0; border: 1px solid #e2c9ac; border-radius: 1rem; background: #fff6e9; padding: 1rem; color: #684622; }
+.notice-banner { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-color: #d5e5cf; background: #eff6ec; color: #315b3a; }
+.notice-banner button { width: 2.5rem; height: 2.5rem; font-size: 1.4rem; }
+.welcome-banner { display: flex; flex-direction: column; gap: .75rem; color: #5d4734; }
+.welcome-banner summary { min-height: 2.7rem; padding-top: .5rem; font-weight: 800; }
+.estate-guide-fab { width: 3.5rem; min-height: 3.5rem; height: 3.5rem; justify-content: center; padding: .25rem; }
+.estate-guide-fab-icon { width: 2.65rem; height: 2.65rem; background: transparent; }
+.estate-guide-fab-icon svg { width: 100%; height: 100%; }
+.brand-cup { width: 2.65rem; height: 2.65rem; border: 0; border-radius: 50%; background: transparent; padding: 0; box-shadow: none; }
+.brand-cup-icon { display: block; width: 100%; height: 100%; }
+@media (min-width: 640px) {
+  .mobile-nav { display: none !important; }
+  .welcome-banner { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+@media (max-width: 380px) {
+  .brand-cup { width: 2.3rem; height: 2.3rem; }
 }

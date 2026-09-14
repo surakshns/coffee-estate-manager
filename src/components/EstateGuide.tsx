@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { CoffeeCup } from './CoffeeCup'
 import { scrollToEditor } from '../lib/scroll'
 import { supabase } from '../lib/supabase'
 import type { EstateData, MonthlyGuideEntry } from '../lib/types'
@@ -29,6 +30,7 @@ const guide: GuideMonth[] = [
 const monthName = (month: number, short = false) => new Intl.DateTimeFormat('en-IN', { month: short ? 'short' : 'long' }).format(new Date(2024, month - 1, 1))
 
 export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () => Promise<void> }) {
+  const currentMonth = new Date().getMonth() + 1
   const [open, setOpen] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [title, setTitle] = useState('')
@@ -38,6 +40,7 @@ export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () =
   const [workingEntry, setWorkingEntry] = useState('')
   const [message, setMessage] = useState('')
   const dialogRef = useRef<HTMLElement>(null)
+  const monthStripRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLFormElement>(null)
   const currentGuide = guide[selectedMonth - 1]
   const entries = useMemo(() => data.monthlyGuideEntries.filter((entry) => entry.month_number === selectedMonth).sort((left, right) => left.created_at.localeCompare(right.created_at)), [data.monthlyGuideEntries, selectedMonth])
@@ -50,7 +53,33 @@ export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () =
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
     const frame = window.requestAnimationFrame(() => dialogRef.current?.focus({ preventScroll: true }))
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setOpen(false)
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const dialog = dialogRef.current
+      if (!dialog) return
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'))
+        .filter((element) => element.getClientRects().length > 0)
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) {
+        event.preventDefault()
+        dialog.focus()
+        return
+      }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog || !dialog.contains(document.activeElement))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
     window.addEventListener('keydown', onKeyDown)
     return () => {
       window.cancelAnimationFrame(frame)
@@ -60,6 +89,17 @@ export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () =
       previousFocus?.focus({ preventScroll: true })
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const strip = monthStripRef.current
+    const selected = strip?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!strip || !selected) return
+    // Scroll only the month strip, keeping the dialog content in place.
+    const stripBounds = strip.getBoundingClientRect()
+    const selectedBounds = selected.getBoundingClientRect()
+    strip.scrollLeft += selectedBounds.left - stripBounds.left - (strip.clientWidth - selectedBounds.width) / 2
+  }, [open, selectedMonth])
 
   function selectMonth(month: number) {
     setSelectedMonth(month)
@@ -111,22 +151,23 @@ export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () =
   }
 
   return <>
-    <button type="button" className="estate-guide-fab" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-controls="estate-guide-dialog">
-      <span className="estate-guide-fab-icon" aria-hidden="true">☕</span><span>Estate guide</span>
+    <button type="button" className="estate-guide-fab" onClick={() => setOpen(true)} aria-label="Open coffee estate guide" title="Coffee estate guide" aria-haspopup="dialog" aria-expanded={open} aria-controls="estate-guide-dialog">
+      <span className="estate-guide-fab-icon" aria-hidden="true"><CoffeeCup /></span>
     </button>
     {open && createPortal(
       <div className="estate-guide-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}>
         <aside ref={dialogRef} id="estate-guide-dialog" className="estate-guide-sheet" role="dialog" aria-modal="true" aria-labelledby="estate-guide-title" tabIndex={-1}>
           <header className="estate-guide-header">
             <div><p className="tile-label text-leaf-700">Evergreen reference</p><h2 id="estate-guide-title" className="mt-1 text-xl font-extrabold text-stone-900">Coffee estate guide</h2><p className="mt-1 text-sm text-stone-600">A seasonal reference for a South-West monsoon coffee estate, plus your own notes.</p></div>
-            <button type="button" className="estate-guide-close" onClick={() => setOpen(false)} aria-label="Close estate guide">×</button>
+            <button type="button" className="estate-guide-close min-h-11 min-w-11" onClick={() => setOpen(false)} aria-label="Close estate guide">×</button>
           </header>
           <div className="estate-guide-scroll">
-            <div className="estate-guide-months" aria-label="Choose a month">{guide.map((item) => <button type="button" key={item.month} className={selectedMonth === item.month ? 'estate-guide-month is-active' : 'estate-guide-month'} onClick={() => selectMonth(item.month)} aria-pressed={selectedMonth === item.month}>{monthName(item.month, true)}</button>)}</div>
+            <div ref={monthStripRef} className="estate-guide-months" role="group" aria-label="Choose a month">{guide.map((item) => <button type="button" key={item.month} className={'estate-guide-month min-h-11 min-w-11' + (selectedMonth === item.month ? ' is-active' : '')} onClick={() => selectMonth(item.month)} aria-label={monthName(item.month) + (item.month === currentMonth ? ', current month' : '')} aria-pressed={selectedMonth === item.month}>{monthName(item.month, true)}{item.month === currentMonth && <span aria-hidden="true" className="ml-1">•</span>}</button>)}</div>
+            {selectedMonth !== currentMonth && <div className="px-4 pt-3"><button type="button" className="estate-guide-edit min-h-11 rounded-lg px-3" onClick={() => selectMonth(currentMonth)}>↩ Back to {monthName(currentMonth)} · This month</button></div>}
             <div className="estate-guide-content">
               <section className="estate-guide-reference"><p className="estate-guide-season">{currentGuide.season}</p><h3 className="mt-1 text-2xl font-extrabold text-stone-900">{monthName(selectedMonth)} focus</h3><p className="mt-2 leading-6 text-stone-700">{currentGuide.headline}</p><ul className="estate-guide-actions">{currentGuide.actions.map((action) => <li key={action}>{action}</li>)}</ul><p className="estate-guide-disclaimer">Timing changes with rain, elevation, variety, and block conditions. Use scouting, weather, and your local Coffee Board or agronomy advice for field decisions.</p><a className="estate-guide-source" href="https://coffeeboard.gov.in/Publications/9%20-%20IC%20Dec%2020_Final%20for%20web.pdf" target="_blank" rel="noreferrer">Open the Coffee Board calendar ↗</a></section>
               <section className="estate-guide-personal"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="tile-label text-leaf-700">Your reference</p><h3 className="mt-1 text-lg font-extrabold text-stone-900">{monthName(selectedMonth)} notes</h3></div><span className="estate-guide-count">{entries.length} saved</span></div>
-                {entries.length > 0 && <ul className="space-y-2">{entries.map((entry) => <li className="estate-guide-entry" key={entry.id}><div className="min-w-0 flex-1"><p className="break-words font-extrabold text-stone-900">{entry.title}</p>{entry.notes && <p className="mt-1 break-words text-sm leading-5 text-stone-600">{entry.notes}</p>}</div><div className="estate-guide-entry-actions"><button type="button" className="estate-guide-edit" disabled={workingEntry === entry.id} onClick={() => startEditing(entry)}>Edit</button><button type="button" className="estate-guide-remove" aria-label={'Remove ' + entry.title} disabled={workingEntry === entry.id} onClick={() => void removeEntry(entry)}>×</button></div></li>)}</ul>}
+                {entries.length > 0 && <ul className="space-y-2">{entries.map((entry) => <li className="estate-guide-entry" key={entry.id}><div className="min-w-0 flex-1"><p className="break-words font-extrabold text-stone-900">{entry.title}</p>{entry.notes && <p className="mt-1 break-words text-sm leading-5 text-stone-600">{entry.notes}</p>}</div><div className="estate-guide-entry-actions"><button type="button" className="estate-guide-edit min-h-11 min-w-11" aria-label={'Edit ' + entry.title} disabled={workingEntry === entry.id} onClick={() => startEditing(entry)}>Edit</button><button type="button" className="estate-guide-remove min-h-11 min-w-11" aria-label={'Remove ' + entry.title} disabled={workingEntry === entry.id} onClick={() => void removeEntry(entry)}>×</button></div></li>)}</ul>}
                 {!entries.length && <p className="rounded-xl border border-dashed border-leaf-600/25 bg-leaf-50/50 p-3 text-sm leading-5 text-stone-600">Add your estate-specific practices, contacts, reminders, or lessons here. These notes repeat every year.</p>}
                 <form ref={editorRef} className="estate-guide-editor scroll-mt-24" onSubmit={saveEntry}><p className="mb-3 text-sm font-extrabold text-stone-800">{editing ? 'Edit your reference note' : 'Add a ' + monthName(selectedMonth) + ' reference note'}</p><label className="label">Title<input className="field" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={140} placeholder="e.g. Our irrigation checklist" required /></label><label className="label">Details <span className="font-medium text-stone-500">(optional)</span><textarea className="field min-h-24 resize-y" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2000} placeholder="What you want to remember each year…" /></label><div className="mt-3 flex flex-col gap-2 sm:flex-row"><button className="button-primary flex-1" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save note changes' : 'Save reference note'}</button>{editing && <button type="button" className="button-secondary" onClick={clearEditor}>Cancel</button>}</div>{message && <p className="mt-3 text-sm font-bold text-leaf-700" role="status">{message}</p>}</form>
               </section>
