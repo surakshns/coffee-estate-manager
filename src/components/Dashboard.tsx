@@ -11,7 +11,10 @@ const compactMoney = (value: number) => new Intl.NumberFormat('en-IN', { style: 
 const monthName = (month: number) => new Intl.DateTimeFormat('en-IN', { month: 'long' }).format(new Date(2026, month, 1))
 
 export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void }) {
-  const [workingDaysMonth, setWorkingDaysMonth] = useState(new Date().getMonth())
+  const [periodFromYear, setPeriodFromYear] = useState(year)
+  const [periodFromMonth, setPeriodFromMonth] = useState(0)
+  const [periodToYear, setPeriodToYear] = useState(year)
+  const [periodToMonth, setPeriodToMonth] = useState(new Date().getMonth())
   const harvest = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
   const activity = dashboardActivity(data, year)
   const hasSpending = Boolean(activity.spending)
@@ -25,21 +28,22 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
   const categoryRows = activity.categories.length > 5
     ? [...activity.categories.slice(0, 4), { id: '__other_categories', name: 'Other categories', amount: activity.categories.slice(4).reduce((sum, category) => sum + category.amount, 0) }]
     : activity.categories
+  const periodStart = `${periodFromYear}-${String(periodFromMonth + 1).padStart(2, '0')}-01`
+  const periodEndDay = new Date(periodToYear, periodToMonth + 1, 0).getDate()
+  const periodEnd = `${periodToYear}-${String(periodToMonth + 1).padStart(2, '0')}-${String(periodEndDay).padStart(2, '0')}`
+  const validPeriod = periodStart <= periodEnd
+  const periodYears = [...new Set([periodFromYear, periodToYear, year, ...Array.from({ length: 11 }, (_, index) => year - 5 + index), ...data.weeklyPayments.map((payment) => Number(payment.week_start.slice(0, 4)))])].filter(Number.isFinite).sort((a, b) => b - a)
+  const periodPayments = validPeriod ? data.weeklyPayments.filter((payment) => !payment.excluded && payment.week_start >= periodStart && payment.week_start <= periodEnd) : []
   const workerDayRows = data.workers.map((worker) => {
-    const payments = data.weeklyPayments.filter((payment) => payment.worker_id === worker.id && !payment.excluded && new Date(`${payment.week_start}T12:00:00`).getFullYear() === year && new Date(`${payment.week_start}T12:00:00`).getMonth() === workingDaysMonth)
-    return { worker, days: payments.reduce((total, payment) => total + Number(payment.days_worked ?? 0), 0), weeks: payments.length }
+    const payments = periodPayments.filter((payment) => payment.worker_id === worker.id)
+    const gross = payments.reduce((total, payment) => total + Number(payment.amount), 0)
+    const deductions = payments.reduce((total, payment) => total + Number(payment.loan_deduction ?? 0), 0)
+    return { worker, days: payments.reduce((total, payment) => total + Number(payment.days_worked ?? 0), 0), weeks: payments.length, gross, takeHome: Math.max(0, gross - deductions) }
   }).filter(({ worker, weeks }) => worker.active || weeks > 0)
-  const totalWorkingDays = workerDayRows.reduce((sum, item) => sum + item.days, 0)
-  const fiscalStartYear = workingDaysMonth >= 6 ? year : year - 1
-  const fiscalStart = `${fiscalStartYear}-07-01`
-  const selectedMonthEndDay = new Date(year, workingDaysMonth + 1, 0).getDate()
-  const selectedMonthEnd = `${year}-${String(workingDaysMonth + 1).padStart(2, '0')}-${String(selectedMonthEndDay).padStart(2, '0')}`
-  const cumulativeWorkingDays = data.weeklyPayments
-    .filter((payment) => !payment.excluded && payment.week_start >= fiscalStart && payment.week_start <= selectedMonthEnd)
-    .reduce((sum, payment) => sum + Number(payment.days_worked ?? 0), 0)
-  const cumulativeTakeHome = data.weeklyPayments
-    .filter((payment) => !payment.excluded && payment.week_start >= fiscalStart && payment.week_start <= selectedMonthEnd)
-    .reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
+  const periodWorkingDays = workerDayRows.reduce((sum, item) => sum + item.days, 0)
+  const periodGrossPay = periodPayments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+  const periodTakeHome = periodPayments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
+  const periodLoansPaid = (validPeriod ? data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date >= periodStart && loan.loan_date <= periodEnd).reduce((sum, loan) => sum + Number(loan.amount), 0) + data.jointLoanRepayments.filter((repayment) => repayment.repayment_date >= periodStart && repayment.repayment_date <= periodEnd).reduce((sum, repayment) => sum + Number(repayment.amount), 0) : 0)
 
   return <div className="page estate-dashboard">
     <header className="dashboard-hero dashboard-welcome">
@@ -99,17 +103,13 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
       </article>
 
       <article className="dashboard-panel dashboard-working-days-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Your team</p><h2>Monthly working days</h2></div><label className="dashboard-month-select"><span>Month</span><select value={workingDaysMonth} onChange={(event) => setWorkingDaysMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label></div>
-        <p className="dashboard-description">Saved working days for each worker in {monthName(workingDaysMonth)} {year}.</p>
-        <div className="dashboard-working-days-totals"><p><span>{monthName(workingDaysMonth)}</span><strong>{quantity(totalWorkingDays)}</strong> total working days</p><p><span>Jul {fiscalStartYear}–{monthName(workingDaysMonth).slice(0, 3)} {year}</span><strong>{quantity(cumulativeWorkingDays)}</strong> cumulative days</p></div>
-        <div className="dashboard-working-days-list">{workerDayRows.length ? workerDayRows.map(({ worker, days, weeks }, index) => <article key={worker.id}><span className="dashboard-worker-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><h3>{worker.name}</h3><p>{weeks ? `${weeks} saved ${weeks === 1 ? 'week' : 'weeks'}` : 'No saved weeks yet'}</p></div><strong>{quantity(days)} <span>days</span></strong></article>) : <p className="dashboard-working-days-empty">Add a worker to see monthly working days.</p>}</div>
-      </article>
-
-      <article className="dashboard-panel dashboard-takehome-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Labour pay</p><h2>Financial-year take-home</h2></div><span className="dashboard-year-badge">Jul {fiscalStartYear}–{monthName(workingDaysMonth).slice(0, 3)} {year}</span></div>
-        <p className="dashboard-description">Total take-home paid through the selected month, after all saved loan deductions.</p>
-        <p className="dashboard-fiscal-takehome">{money(cumulativeTakeHome)}</p>
-        <p className="dashboard-fiscal-takehome-detail">Cumulative pay from 1 July through {monthName(workingDaysMonth)} {year}.</p>
+        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Your team</p><h2>Working days &amp; pay</h2></div></div>
+        <p className="dashboard-description">Choose a start and end month. Every worker total and payment figure below uses saved records inside that inclusive period.</p>
+        <div className="dashboard-period-controls"><div><label>From<select aria-label="Period start year" value={periodFromYear} onChange={(event) => setPeriodFromYear(Number(event.target.value))}>{periodYears.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label="Period start month" value={periodFromMonth} onChange={(event) => setPeriodFromMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label><label>To<select aria-label="Period end year" value={periodToYear} onChange={(event) => setPeriodToYear(Number(event.target.value))}>{periodYears.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label="Period end month" value={periodToMonth} onChange={(event) => setPeriodToMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label></div></div>
+        {!validPeriod && <p className="dashboard-period-error" role="alert">Choose a From month before the To month.</p>}
+        <div className="dashboard-period-summary" aria-live="polite"><article><span>Working days</span><strong>{quantity(periodWorkingDays)} <em>days</em></strong><p>All workers</p></article><article><span>Gross payment</span><strong>{money(periodGrossPay)}</strong><p>Before loan deductions</p></article><article><span>Take-home to pay</span><strong>{money(periodTakeHome)}</strong><p>After weekly loan deductions</p></article><article><span>Loans paid</span><strong>{money(periodLoansPaid)}</strong><p>Weekly deductions and clearances</p></article></div>
+        <div className="dashboard-worker-period-heading"><h3>Worker working days</h3><p>{monthName(periodFromMonth).slice(0, 3)} {periodFromYear} to {monthName(periodToMonth).slice(0, 3)} {periodToYear}</p></div>
+        <div className="dashboard-working-days-list">{workerDayRows.length ? workerDayRows.map(({ worker, days, weeks, gross, takeHome }, index) => <article key={worker.id}><span className="dashboard-worker-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><h3>{worker.name}</h3><p>{quantity(days)} days · {weeks} saved {weeks === 1 ? 'week' : 'weeks'}</p></div><div className="dashboard-worker-pay"><strong>{money(takeHome)}</strong><span>take-home · gross {money(gross)}</span></div></article>) : <p className="dashboard-working-days-empty">No saved worker payments in this period.</p>}</div>
       </article>
 
       <article className="dashboard-panel dashboard-expense-rhythm-panel">
