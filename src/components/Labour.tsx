@@ -123,7 +123,7 @@ export function Labour({ data, year, refresh }: { data: EstateData; year: number
       const historical = data.weeklyPayments.find((payment) => payment.worker_id === worker.id && payment.week_start === openWednesday)
       const rate = Number(historical?.daily_rate ?? annualRate)
       const savedDays = historical?.days_worked
-      const derivedDays = savedDays ?? (historical?.amount ? Number(historical.amount) / rate : Number(worker.default_weekly_amount) / rate)
+      const derivedDays = savedDays ?? (historical?.amount ? Number(historical.amount) / rate : 5)
       nextDays[worker.id] = String(Math.round(derivedDays * 10) / 10)
       nextRemoved[worker.id] = Boolean(historical?.excluded)
     })
