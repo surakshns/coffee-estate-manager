@@ -4,6 +4,7 @@ import { money, productionMetrics } from '../lib/calculations'
 import { dashboardActivity } from '../lib/dashboardData'
 import type { EstateData } from '../lib/types'
 import './dashboard.css'
+import { loanStory } from '../lib/loanStory'
 
 type DashboardPage = 'Labour' | 'Expenses' | 'Production'
 const quantity = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 1 })
@@ -88,19 +89,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
   })
   const yearLoansGiven = loanTrendRows.reduce((sum, row) => sum + row.given, 0)
   const yearLoansRepaid = loanTrendRows.reduce((sum, row) => sum + row.repaid, 0)
-  const currentLoanBalance = loanTrendRows.at(-1)?.balance ?? 0
-  const recentRepaymentRows = loanTrendRows.filter((row) => row.repaid > 0).slice(-3)
-  const averageRecentRepayment = recentRepaymentRows.length ? recentRepaymentRows.reduce((sum, row) => sum + row.repaid, 0) / recentRepaymentRows.length : 0
-  const payoffMonths = currentLoanBalance > 0 && averageRecentRepayment > 0 ? Math.ceil(currentLoanBalance / averageRecentRepayment) : 0
-  const projectedLoanRows = Array.from({ length: Math.min(payoffMonths, 12) }, (_, index) => {
-    const date = new Date(year, 12 + index, 1)
-    return { month: `${monthName(date.getMonth()).slice(0, 3)} ${String(date.getFullYear()).slice(2)}`, given: 0, repaid: 0, balance: null, projectedBalance: Math.max(0, currentLoanBalance - averageRecentRepayment * (index + 1)) }
-  })
-  const loanStoryRows = [...loanTrendRows.map((row) => ({ ...row, projectedBalance: null as number | null })), ...projectedLoanRows]
-  const lastThreeLoanRows = loanTrendRows.slice(-3)
-  const loansAreRising = lastThreeLoanRows.reduce((sum, row) => sum + row.given - row.repaid, 0) > 0
-  const payoffText = currentLoanBalance <= 0 ? 'Cleared' : averageRecentRepayment > 0 ? payoffMonths <= 12 ? `${payoffMonths} months` : `about ${Math.ceil(payoffMonths / 12)} years` : 'No repayment pace yet'
-  const loanSuggestion = currentLoanBalance <= 0 ? 'Loan balance is cleared.' : averageRecentRepayment <= 0 ? 'Start a regular weekly deduction to create an ending date.' : loansAreRising ? 'Balance is rising. Pause new advances or increase weekly deductions.' : `At the recent pace, loans may end in ${payoffText}.`
+  const story = loanStory(data)
   const insightCards = [
     latestSpendingMonth ? { label: 'Latest spend pulse', value: money(latestSpendingMonth.spending), detail: averageSpending ? `${latestSpendingMonth.month} is ${money(Math.abs(spendingVsAverage))} ${spendingVsAverage >= 0 ? 'above' : 'below'} the usual month.` : `${latestSpendingMonth.month} has recorded spending.` } : null,
     activity.categories[0] ? { label: 'Largest cost head', value: activity.categories[0].name, detail: `${money(activity.categories[0].amount)} recorded in ${year}.` } : null,
@@ -186,11 +175,11 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
 
       {(yearLoansGiven > 0 || yearLoansRepaid > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Worker loans</p><h2>Loan trend and repayments</h2></div><span className="dashboard-year-badge">Jan-Dec {year}</span></div>
-        <p className="dashboard-description">Follow advances, repayments, running balance, and the likely ending point if repayments continue at the recent pace.</p>
-        <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span><span><i className="is-loan-projected" /> Projected end</span></div>
+        <p className="dashboard-description">Monthly advances, repayments and outstanding balance for the selected year.</p>
+        <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span></div>
         <div className="dashboard-loan-trend-chart" role="group" aria-label={`Worker loan trend for ${year}.`}>
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <ComposedChart data={loanStoryRows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
+            <ComposedChart data={loanTrendRows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
               <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
               <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
               <YAxis width={48} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 10 }} tickFormatter={compactMoney} tickCount={5} />
@@ -198,11 +187,31 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
               <Bar dataKey="given" name="Loans given" fill="#b86e3d" radius={[3, 3, 0, 0]} isAnimationActive={false} />
               <Bar dataKey="repaid" name="Repaid" fill="#628a65" radius={[3, 3, 0, 0]} isAnimationActive={false} />
               <Line dataKey="balance" name="Running balance" type="linear" stroke="#173f2f" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#173f2f' }} connectNulls={false} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </article>}
+
+      {(story.rows.some(row => (row.given ?? 0) > 0 || (row.repaid ?? 0) > 0) || story.balance > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
+        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Worker loans</p><h2>Loan journey & estimated payoff</h2></div><span className="dashboard-year-badge">June 2025 → {story.end}</span></div>
+        <p className="dashboard-description">From June 2025 to today, then a dashed forecast until repayment. Includes earlier outstanding loans. The current month is partial.</p>
+        <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span><span><i className="is-loan-projected" /> Projected end</span></div>
+        <div className="dashboard-loan-trend-chart" role="group" aria-label="Worker loans from June 2025 through estimated payoff">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ComposedChart data={story.rows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
+              <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
+              <YAxis width={48} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 10 }} tickFormatter={compactMoney} tickCount={5} />
+              <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(month) => String(month)} contentStyle={{ borderRadius: 12, borderColor: '#dce5da', fontSize: 12, boxShadow: '0 6px 20px #23362d12' }} />
+              <Bar dataKey="given" name="Loans given" fill="#b86e3d" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+              <Bar dataKey="repaid" name="Repaid" fill="#628a65" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+              <Line dataKey="balance" name="Running balance" type="linear" stroke="#173f2f" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#173f2f' }} connectNulls={false} isAnimationActive={false} />
               <Line dataKey="projectedBalance" name="Projected balance" type="linear" stroke="#173f2f" strokeDasharray="6 5" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#173f2f' }} connectNulls={false} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div className="dashboard-loan-advice"><div><span>Current balance</span><strong>{money(currentLoanBalance)}</strong></div><div><span>Likely end</span><strong>{payoffText}</strong></div><div><span>Suggestion</span><strong>{loanSuggestion}</strong></div></div>
+        <div className="dashboard-loan-advice"><div><span>Current balance</span><strong>{money(story.balance)}</strong></div><div><span>Likely end</span><strong>{story.end}</strong></div><div><span>Monthly repayment pace</span><strong>{money(story.pace)}</strong></div></div>
+        <p className="dashboard-description">Estimate uses the last 3 complete calendar months, including months with no repayments. Assumes no new advances and the same total repayment pace. With no recent repayments, an end date cannot be estimated.</p>
       </article>}
 
       <article className="dashboard-panel dashboard-working-days-panel">
@@ -212,7 +221,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
         {!validPeriod && <p className="dashboard-period-error" role="alert">Choose a From month before the To month.</p>}
         <div className="dashboard-period-summary" aria-live="polite"><button type="button"><span>Working days</span><strong>{quantity(periodWorkingDays)} <em>days</em></strong><p>All workers</p></button><button type="button"><span>Gross payment</span><strong>{money(periodGrossPay)}</strong><p>Before loan deductions</p></button><button type="button"><span>Take-home to pay</span><strong>{money(periodTakeHome)}</strong><p>After weekly loan deductions</p></button><button type="button"><span>Loans paid</span><strong>{money(periodLoansPaid)}</strong><p>Weekly deductions and clearances</p></button><button type="button"><span>Expense cost</span><strong>{money(periodOtherExpenses)}</strong><p>Only estate expenses</p></button><button type="button"><span>Expense + labour</span><strong>{money(periodExpensesAndTakeHome)}</strong><p>Expenses plus take-home</p></button></div>
         <div className="dashboard-worker-period-heading"><h3>Worker working days</h3><p>{monthName(periodFromMonth).slice(0, 3)} {periodFromYear} to {monthName(periodToMonth).slice(0, 3)} {periodToYear}</p></div>
-        {workerDayRows.length ? <div className="dashboard-worker-table-card"><div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Worker working days and pay table"><table className="dashboard-worker-table"><caption className="sr-only">Worker working days and pay for selected range</caption><thead><tr><th scope="col">Worker</th><th scope="col">Weeks</th><th scope="col">Days</th><th scope="col">Gross</th><th scope="col">Take-home</th></tr></thead><tbody>{workerDayRows.map(({ worker, days, weeks, gross, takeHome }) => <tr key={worker.id} className={selectedWorker?.worker.id === worker.id ? 'is-selected' : ''} onClick={() => setSelectedWorkerId(worker.id)}><th scope="row"><button type="button" onClick={() => setSelectedWorkerId(worker.id)}><strong>{worker.name}</strong><span>{worker.active ? 'Active worker' : 'Inactive worker'}</span></button></th><td>{weeks}</td><td className="is-days">{quantity(days)}</td><td>{money(gross)}</td><td className="is-take-home">{money(takeHome)}</td></tr>)}</tbody></table></div>{selectedWorker && <div className="dashboard-worker-detail"><div><span>Selected worker</span><strong>{selectedWorker.worker.name}</strong></div><div><span>Average take-home / week</span><strong>{money(selectedWorker.weeks ? selectedWorker.takeHome / selectedWorker.weeks : 0)}</strong></div><div><span>Loan deducted</span><strong>{money(Math.max(0, selectedWorker.gross - selectedWorker.takeHome))}</strong></div></div>}</div> : <p className="dashboard-working-days-empty">No saved worker payments in this period.</p>}
+        {workerDayRows.length ? <div className="dashboard-worker-table-card"><div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Worker working days and pay table"><table className="dashboard-worker-table"><caption className="sr-only">Worker working days and pay for selected range</caption><thead><tr><th scope="col">Worker</th><th scope="col">Weeks</th><th scope="col">Days</th><th scope="col">Gross</th><th scope="col">Take-home</th><th scope="col">Loan deducted</th></tr></thead><tbody>{workerDayRows.map(({ worker, days, weeks, gross, takeHome }) => <tr key={worker.id} className={selectedWorker?.worker.id === worker.id ? 'is-selected' : ''} onClick={() => setSelectedWorkerId(worker.id)}><th scope="row"><button type="button" onClick={() => setSelectedWorkerId(worker.id)}><strong>{worker.name}</strong><span>{worker.active ? 'Active worker' : 'Inactive worker'}</span></button></th><td data-label="Weeks">{weeks}</td><td data-label="Working days" className="is-days">{quantity(days)}</td><td data-label="Gross pay">{money(gross)}</td><td data-label="Take-home" className="is-take-home">{money(takeHome)}</td><td data-label="Loan deducted">{money(Math.max(0, gross - takeHome))}</td></tr>)}</tbody></table></div>{selectedWorker && <div className="dashboard-worker-detail"><div><span>Selected worker</span><strong>{selectedWorker.worker.name}</strong></div><div><span>Average take-home / week</span><strong>{money(selectedWorker.weeks ? selectedWorker.takeHome / selectedWorker.weeks : 0)}</strong></div><div><span>Loan deducted</span><strong>{money(Math.max(0, selectedWorker.gross - selectedWorker.takeHome))}</strong></div></div>}</div> : <p className="dashboard-working-days-empty">No saved worker payments in this period.</p>}
       </article>
 
       <article className="dashboard-panel dashboard-expense-rhythm-panel">
