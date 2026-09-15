@@ -35,7 +35,7 @@
 
 @layer base {
   /* Keep the document as the only vertical scroller. clip contains sideways overflow without creating an Android scroll container. */
-  html { width: 100%; min-height: 100%; max-width: 100%; overflow-x: clip; overflow-y: auto; scroll-behavior: smooth; }
+  html { width: 100%; min-height: 100%; max-width: 100%; overflow-x: clip; overflow-y: auto; scroll-behavior: smooth; background-color: #24150d; }
   body { @apply bg-coffee-50 text-stone-800 antialiased; min-width: 320px; min-height: 100dvh; max-width: 100%; overflow-x: clip; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
   #root { width: 100%; min-height: 100%; max-width: 100%; }
   button, input, select, textarea { font: inherit; }
@@ -202,6 +202,16 @@
     pointer-events: none;
   }
   .app-header-inner { min-width: 0; }
+  /* Paint behind the iPhone status icons, including during rubber-band scrolling. */
+  .app-shell::before {
+    content: '';
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top, 0px);
+    z-index: 100;
+    background: #24150d;
+    pointer-events: none;
+  }
   .brand-lockup { display: inline-flex; min-width: 0; align-items: center; gap: .65rem; border-radius: 1rem; padding: .2rem; transition: transform 180ms var(--estate-ease), background 180ms ease; }
   .brand-lockup:hover { background: rgba(255, 255, 255, .08); }
   .brand-lockup:active { transform: scale(.97); }

@@ -11,7 +11,7 @@
     "standalone"
   ],
   "theme_color": "#24150d",
-  "background_color": "#f8f5ef",
+  "background_color": "#24150d",
   "icons": [
     {
       "src": "icons/coffee-estate-192.png",
