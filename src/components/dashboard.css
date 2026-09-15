@@ -58,6 +58,14 @@
 .dashboard-loan-advice > div { min-width: 0; border: 1px solid #eadfce; border-radius: .85rem; background: #fff; padding: .9rem; }
 .dashboard-loan-advice span { display: block; color: #745f4d; font-size: .75rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .dashboard-loan-advice strong { display: block; margin-top: .4rem; color: #253d2c; font-size: 1.05rem; font-weight: 850; line-height: 1.35; overflow-wrap: anywhere; }
+.dashboard-loan-accounts { display: grid; gap: .85rem; margin-top: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+.dashboard-loan-accounts article { min-width: 0; border: 1px solid #d9e4d4; border-radius: .9rem; padding: 1rem; background: #fff; }
+.dashboard-loan-accounts h3 { font-family: inherit; font-size: 1rem; font-weight: 800; line-height: 1.4; color: #173f2f; overflow-wrap: anywhere; }
+.dashboard-loan-accounts p { margin-top: .35rem; font-size: .8rem; line-height: 1.6; color: #596c59; }
+.dashboard-loan-accounts dl { display: grid; gap: .65rem; margin: .85rem 0; }
+.dashboard-loan-accounts dl > div { display: flex; justify-content: space-between; gap: .75rem; }
+.dashboard-loan-accounts dt { font-size: .85rem; color: #596c59; }
+.dashboard-loan-accounts dd { font-weight: 800; color: #173f2f; text-align: right; overflow-wrap: anywhere; }
 .dashboard-insights-panel { grid-column: 1 / -1; border-color: #cddfca; background: linear-gradient(135deg, #eef6e9, #fffaf2); box-shadow: 0 12px 32px #23362d12; }
 .dashboard-insights-panel .dashboard-panel-heading { align-items: center; }
 .dashboard-insights-panel h2 { font-size: clamp(1.45rem, 3vw, 2rem); color: #173f2f; }
@@ -109,6 +117,13 @@
 .dashboard-worker-period-heading { flex-wrap: wrap; margin-top: 1.6rem; }
 .dashboard-worker-period-heading h3 { font-family: inherit; font-size: 1.1rem; font-weight: 800; }
 .dashboard-worker-period-heading p { font-size: .85rem; color: #536253; }
+.dashboard-worker-sort { display: none; flex-wrap: wrap; align-items: end; gap: .7rem; margin-top: 1rem; }
+.dashboard-worker-sort label { display: grid; gap: .35rem; color: #405c42; font-size: .8rem; font-weight: 700; flex: 1; max-width: 20rem; }
+.dashboard-worker-sort select, .dashboard-worker-sort button { min-height: 44px; border: 1px solid #ccdcca; border-radius: .65rem; padding: .6rem .8rem; background: #fff; color: #173f2f; font: inherit; }
+.dashboard-worker-sort button { font-size: .85rem; font-weight: 700; }
+.dashboard-worker-table thead button { min-height: 44px; width: 100%; text-align: inherit; font: inherit; cursor: pointer; }
+.dashboard-worker-table thead button:hover { color: #173f2f; text-decoration: underline; }
+.dashboard-worker-table thead button:focus-visible, .dashboard-worker-sort select:focus-visible, .dashboard-worker-sort button:focus-visible { outline: 3px solid #628a65; outline-offset: 2px; }
 .dashboard-worker-table-card { margin-top: 1rem; overflow: hidden; border: 1px solid #d4e0cf; border-radius: 1rem; background: linear-gradient(180deg, #ffffff, #fbfdf8); box-shadow: 0 8px 24px #23362d0b; }
 .dashboard-worker-table { min-width: 0; font-size: .88rem; }
 .dashboard-worker-table th, .dashboard-worker-table td { padding: .95rem .9rem; border-bottom: 1px solid #e5ebe0; vertical-align: middle; }
@@ -223,6 +238,7 @@
 .dashboard-worker-table-card .dashboard-worker-table tbody th button { min-height: 44px; border-radius: .4rem; }
 .dashboard-worker-table-card .dashboard-worker-table tbody th button:focus-visible { outline: 3px solid #628a65; }
 @media (max-width: 767px) {
+  .dashboard-worker-sort { display: flex; }
   .dashboard-worker-table-card { border: 0; background: transparent; box-shadow: none; overflow: visible; }
   .dashboard-worker-table-card .dashboard-table-scroll { overflow: visible; }
   .dashboard-worker-table-card .dashboard-worker-table,
