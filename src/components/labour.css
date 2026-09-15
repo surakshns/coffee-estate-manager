@@ -144,6 +144,15 @@
 .labour-worker-actions > details { min-width: 0; margin-left: auto; text-align: right; }
 .labour-worker-actions summary { min-height: 48px; padding: 15px 6px; cursor: pointer; color: #818b77; font-size: 12px; font-weight: 650; }
 .labour-worker-actions .labour-text-danger { padding: 5px 0 0; font-size: 11px; }
+.labour-loans-layout { display: grid; gap: 20px; }
+.labour-loan-records { grid-column: 1 / -1; }
+.labour-loan-filters { display: grid; gap: 14px; margin-bottom: 22px; padding: 14px; border: 1px solid #dce6d7; border-radius: 14px; background: #f5f8f1; }
+.labour-loan-columns { display: grid; gap: 18px; }
+.labour-loan-columns > section { min-width: 0; display: grid; align-content: start; gap: 10px; }
+.labour-loan-columns > section > h3 { color: #254634; font-size: 18px; }
+.labour-loan-record { border-left: 4px solid #7f9b67; }
+.labour-loan-columns > section:last-child .labour-loan-record { border-left-color: #b58648; }
+.labour-loan-record .labour-record-heading > strong { font-size: 20px; }
 @media (min-width: 440px) {
   .labour-panel { padding: 22px; }
   .labour-summary-card { padding: 20px; }
@@ -220,4 +229,6 @@
   .labour-skip { grid-column: 1; grid-row: 3; }
   .labour-repayment, .labour-joint-deduction { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .labour-joint-inputs { grid-template-columns: minmax(0, 1fr); }
+  .labour-loan-filters { grid-template-columns: minmax(0, 1.3fr) minmax(190px, .7fr); align-items: end; }
+  .labour-loan-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 }

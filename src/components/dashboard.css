@@ -37,15 +37,38 @@
 .dashboard-description { margin-top: .5rem; color: #6c786c; font-size: .79rem; line-height: 1.6; }
 .dashboard-year-badge { flex-shrink: 0; border: 1px solid #e5e9df; border-radius: .5rem; padding: .35rem .5rem; color: #66745f; font-size: .62rem; font-weight: 600; }
 .dashboard-panel-icon { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border-radius: .65rem; background: #f1f4eb; color: #617656; font-size: 1rem; }
-.dashboard-chart-legend { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; color: #5e6e60; font-size: .7rem; }
-.dashboard-chart-legend > span { display: inline-flex; align-items: center; gap: .4rem; }
-.dashboard-chart-legend i { width: 1rem; height: .2rem; background: #174e3c; }
+.dashboard-chart-legend { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .55rem .85rem; margin-top: 1.25rem; color: #5e6e60; font-size: .7rem; }
+.dashboard-chart-legend > span { display: inline-flex; max-width: 11rem; align-items: center; gap: .4rem; line-height: 1.25; }
+.dashboard-chart-legend i { width: .95rem; height: .32rem; flex: 0 0 auto; border-radius: 99px; background: #174e3c; }
 .dashboard-chart-legend i.is-spending { border-top: 2px dashed #aa7140; background: none; }
 .dashboard-chart-legend i.is-labour { background: #8b563b; }
 .dashboard-chart-legend i.is-other { background: #d1a24d; }
+.dashboard-chart-legend i.is-take-home { background: #174e3c; }
+.dashboard-chart-legend i.is-loan { background: #c37947; }
+.dashboard-chart-legend i.is-loan-given { background: #b86e3d; }
+.dashboard-chart-legend i.is-loan-repaid { background: #628a65; }
+.dashboard-chart-legend i.is-loan-balance { height: 0; border-top: 3px solid #173f2f; background: transparent; }
+.dashboard-chart-legend i.is-loan-projected { height: 0; border-top: 3px dashed #173f2f; background: transparent; }
 .dashboard-line-chart { width: 100%; min-width: 0; height: 15.5rem; margin-top: .5rem; }
 .dashboard-expense-rhythm-panel { grid-column: 1 / -1; }
 .dashboard-expense-chart { width: 100%; min-width: 0; height: 15rem; margin-top: .5rem; }
+.dashboard-loan-trend-panel { grid-column: 1 / -1; background: linear-gradient(180deg, #fffefa, #fbf7ef); }
+.dashboard-loan-trend-chart { width: 100%; min-width: 0; height: 16rem; margin-top: .5rem; }
+.dashboard-loan-advice { display: grid; gap: .7rem; margin-top: 1rem; }
+.dashboard-loan-advice > div { min-width: 0; border: 1px solid #eadfce; border-radius: .85rem; background: #fff; padding: .9rem; }
+.dashboard-loan-advice span { display: block; color: #745f4d; font-size: .75rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.dashboard-loan-advice strong { display: block; margin-top: .4rem; color: #253d2c; font-size: 1.05rem; font-weight: 850; line-height: 1.35; overflow-wrap: anywhere; }
+.dashboard-insights-panel { grid-column: 1 / -1; border-color: #cddfca; background: linear-gradient(135deg, #eef6e9, #fffaf2); box-shadow: 0 12px 32px #23362d12; }
+.dashboard-insights-panel .dashboard-panel-heading { align-items: center; }
+.dashboard-insights-panel h2 { font-size: clamp(1.45rem, 3vw, 2rem); color: #173f2f; }
+.dashboard-insight-grid { display: grid; gap: .8rem; margin-top: 1.25rem; }
+.dashboard-insight-grid > div { min-width: 0; border: 1px solid #d7e5d1; border-radius: .9rem; background: rgba(255, 255, 255, .86); padding: 1rem; box-shadow: 0 6px 18px #23362d0d; }
+.dashboard-insight-grid > div:first-child { border-color: #b9d4b4; background: #fff; }
+.dashboard-insight-grid p { color: #4c664d; font-size: .72rem; font-weight: 850; letter-spacing: .05em; line-height: 1.35; text-transform: uppercase; }
+.dashboard-insight-grid strong { display: block; margin-top: .5rem; color: #123d26; font-size: clamp(1.15rem, 4vw, 1.55rem); font-weight: 900; line-height: 1.15; overflow-wrap: anywhere; }
+.dashboard-insight-grid span { display: block; margin-top: .45rem; color: #536852; font-size: .84rem; line-height: 1.55; }
+.dashboard-payroll-panel { grid-column: 1 / -1; }
+.dashboard-payroll-chart { width: 100%; min-width: 0; height: 15rem; margin-top: .5rem; }
 .dashboard-expense-insights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; margin-top: 1.1rem; }
 .dashboard-expense-insights > div { min-width: 0; border: 1px solid #ebe3d7; border-radius: .8rem; background: #fffaf5; padding: .75rem; }
 .dashboard-expense-insights p { color: #807160; font-size: .62rem; line-height: 1.35; }
@@ -62,13 +85,16 @@
 .dashboard-period-controls label { display: grid; grid-template-columns: 2.1rem minmax(0, 1fr) minmax(0, 1.2fr); align-items: center; gap: .35rem; color: #52694f; font-size: .65rem; font-weight: 800; }
 .dashboard-period-controls select { min-width: 0; min-height: 2.2rem; border: 1px solid #d3e0ce; border-radius: .48rem; background: #fffefa; color: #36523d; padding: .35rem; font: inherit; font-size: .7rem; font-weight: 700; }
 .dashboard-period-error { margin-top: .55rem; color: #a04f36; font-size: .68rem; font-weight: 700; }
-.dashboard-period-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin-top: 1rem; }
-.dashboard-period-summary article { min-width: 0; border: 1px solid #d7e4d2; border-radius: .8rem; background: #fcfdf9; padding: .85rem; box-shadow: 0 3px 10px #23362d08; }
-.dashboard-period-summary article:nth-child(3) { border-color: #cfe2cb; background: linear-gradient(135deg, #e7f3e3, #fbfdf8); }
-.dashboard-period-summary span { display: block; color: #405c42; font-size: .7rem; font-weight: 850; letter-spacing: .02em; line-height: 1.35; }
-.dashboard-period-summary strong { display: block; margin-top: .36rem; color: #123d26; font-size: clamp(1.22rem, 5vw, 1.58rem); font-weight: 850; letter-spacing: -.045em; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dashboard-period-summary { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; margin-top: 1rem; }
+.dashboard-period-summary button { display: grid; grid-template-columns: minmax(7.5rem, 1fr) auto; align-items: center; gap: .35rem .85rem; min-width: 0; min-height: 4.5rem; border: 1px solid #d7e4d2; border-radius: .9rem; background: #fcfdf9; padding: .85rem .95rem; text-align: left; box-shadow: 0 3px 10px #23362d08; transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+.dashboard-period-summary button:nth-child(3) { border-color: #bcd9b6; background: linear-gradient(135deg, #e5f4e2, #fbfdf8); }
+.dashboard-period-summary button:nth-child(5) { border-color: #e1d4b9; background: #fffaf0; }
+.dashboard-period-summary button:nth-child(6) { border-color: #d7dfc4; background: #f8fbef; }
+.dashboard-period-summary span { min-width: 0; color: #405c42; font-size: .84rem; font-weight: 850; line-height: 1.3; }
+.dashboard-period-summary strong { justify-self: end; max-width: 100%; color: #123d26; font-size: clamp(1.15rem, 4vw, 1.55rem); font-weight: 850; letter-spacing: -.025em; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; text-align: right; }
 .dashboard-period-summary em { color: #456547; font-size: .74rem; font-style: normal; font-weight: 800; letter-spacing: 0; }
-.dashboard-period-summary p { margin-top: .42rem; color: #687b68; font-size: .63rem; font-weight: 600; line-height: 1.4; }
+.dashboard-period-summary p { grid-column: 1 / -1; color: #687b68; font-size: .75rem; font-weight: 600; line-height: 1.35; }
+.dashboard-period-summary button:hover { transform: translateY(-1px); border-color: #9eb798; background: #f2f7ef; box-shadow: 0 8px 18px #23362d10; }
 .dashboard-worker-period-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; margin-top: 1.1rem; }
 .dashboard-worker-period-heading h3 { color: #354f39; font-size: .88rem; font-weight: 700; }
 .dashboard-worker-period-heading p { color: #72806e; font-size: .62rem; text-align: right; }
@@ -78,30 +104,38 @@
 .dashboard-period-controls label { font-size: .85rem; grid-template-columns: 2.5rem minmax(0, 1fr) minmax(0, 1.2fr); }
 .dashboard-period-controls select:focus-visible { outline: 3px solid #5d845e; outline-offset: 2px; }
 .dashboard-period-summary span { font-size: .85rem; }
-.dashboard-period-summary strong { font-size: clamp(1.35rem, 3vw, 1.8rem); letter-spacing: -.025em; }
+.dashboard-period-summary strong { font-size: clamp(1.22rem, 2.7vw, 1.68rem); }
 .dashboard-period-summary p { font-size: .78rem; color: #526452; }
 .dashboard-worker-period-heading { flex-wrap: wrap; margin-top: 1.6rem; }
 .dashboard-worker-period-heading h3 { font-family: inherit; font-size: 1.1rem; font-weight: 800; }
 .dashboard-worker-period-heading p { font-size: .85rem; color: #536253; }
-.dashboard-working-days-list { display: grid; gap: 1rem; margin-top: 1rem; }
-.dashboard-working-days-list > article { min-width: 0; border: 1px solid #d8e1d5; border-radius: 1rem; overflow: hidden; background: #fff; }
-.dashboard-worker-heading { display: flex; align-items: center; gap: .8rem; padding: 1rem; background: #edf4e8; border-bottom: 1px solid #d8e1d5; }
-.dashboard-worker-number { display: grid; width: 2.5rem; height: 2.5rem; flex-shrink: 0; place-items: center; border-radius: .7rem; background: #315b3a; color: white; font-size: .9rem; font-weight: 800; }
-.dashboard-worker-heading h3 { font: 800 1.1rem/1.4 ui-sans-serif, system-ui, sans-serif; color: #233e2c; overflow-wrap: anywhere; }
-.dashboard-worker-heading p { margin-top: .15rem; color: #526452; font-size: .85rem; }
-.dashboard-worker-figures { display: grid; grid-template-columns: minmax(0, 1fr); padding: .25rem 1rem; }
-.dashboard-worker-figures > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .4rem 1rem; padding: .9rem 0; border-bottom: 1px solid #e4e9df; }
-.dashboard-worker-figures > div:last-child { border-bottom: 0; }
-.dashboard-worker-figures dt { font-size: .9rem; font-weight: 650; color: #4b584b; }
-.dashboard-worker-figures dd { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #5f452b; overflow-wrap: anywhere; }
-.dashboard-worker-figures .worker-days dd { color: #315b71; }
-.dashboard-worker-figures .worker-net dt, .dashboard-worker-figures .worker-net dd { color: #174e3c; }
-.dashboard-worker-figures .worker-net dd { font-size: 1.5rem; }
+.dashboard-worker-table-card { margin-top: 1rem; overflow: hidden; border: 1px solid #d4e0cf; border-radius: 1rem; background: linear-gradient(180deg, #ffffff, #fbfdf8); box-shadow: 0 8px 24px #23362d0b; }
+.dashboard-worker-table { min-width: 640px; font-size: .88rem; }
+.dashboard-worker-table th, .dashboard-worker-table td { padding: .95rem .9rem; border-bottom: 1px solid #e5ebe0; vertical-align: middle; }
+.dashboard-worker-table tbody tr:last-child th, .dashboard-worker-table tbody tr:last-child td { border-bottom: 0; }
+.dashboard-worker-table thead th { background: #edf4e8; color: #38543a; font-size: .75rem; font-weight: 850; letter-spacing: .03em; text-transform: uppercase; }
+.dashboard-worker-table th:first-child { position: sticky; left: 0; z-index: 1; width: 13rem; background: #fff; text-align: left; box-shadow: 1px 0 0 #e5ebe0; }
+.dashboard-worker-table thead th:first-child { z-index: 2; background: #edf4e8; }
+.dashboard-worker-table tbody tr { cursor: pointer; transition: background .15s ease; }
+.dashboard-worker-table tbody tr:hover, .dashboard-worker-table tbody tr.is-selected { background: #f1f7ec; }
+.dashboard-worker-table tbody tr:hover th:first-child, .dashboard-worker-table tbody tr.is-selected th:first-child { background: #f1f7ec; }
+.dashboard-worker-table tbody th button { width: 100%; text-align: left; }
+.dashboard-worker-table tbody th strong { display: block; color: #203d2a; font-size: 1rem; font-weight: 850; line-height: 1.35; overflow-wrap: anywhere; }
+.dashboard-worker-table tbody th span { display: block; margin-top: .22rem; color: #667866; font-size: .72rem; font-weight: 650; }
+.dashboard-worker-table td { color: #553f2a; font-size: 1rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dashboard-worker-table td:nth-child(2) { color: #516051; }
+.dashboard-worker-table .is-days { color: #275c73; font-size: 1.12rem; }
+.dashboard-worker-table .is-take-home { color: #174e3c; font-size: 1.12rem; }
+.dashboard-worker-detail { display: grid; gap: .65rem; border-top: 1px solid #dfe8d9; background: #f4f8ef; padding: 1rem; }
+.dashboard-worker-detail > div { min-width: 0; border: 1px solid #dce6d6; border-radius: .75rem; background: #fff; padding: .8rem; }
+.dashboard-worker-detail span { display: block; color: #617161; font-size: .75rem; font-weight: 700; }
+.dashboard-worker-detail strong { display: block; margin-top: .3rem; color: #174e3c; font-size: 1.1rem; font-weight: 850; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 @media (min-width: 700px) {
   .dashboard-period-controls > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
-  .dashboard-period-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
-  .dashboard-working-days-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-period-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+  .dashboard-worker-detail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@media (min-width: 1060px) { .dashboard-period-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .dashboard-working-days-empty { padding: 1.6rem .2rem .8rem; color: #71806c; font-size: .75rem; text-align: center; }
 .dashboard-category-list { display: grid; gap: 1rem; margin-top: 1.45rem; padding: 0; list-style: none; }
 .dashboard-category-label { display: flex; justify-content: space-between; align-items: baseline; gap: .7rem; color: #52664f; font-size: .78rem; }
@@ -161,10 +195,15 @@
   .dashboard-panel { padding: 1.5rem; }
   .dashboard-line-chart { height: 19rem; }
   .dashboard-expense-chart { height: 18rem; }
+  .dashboard-payroll-chart { height: 17rem; }
+  .dashboard-loan-trend-chart { height: 18rem; }
+  .dashboard-loan-advice { grid-template-columns: .7fr .7fr 1.6fr; }
+  .dashboard-insight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-harvest-panel { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); align-items: center; gap: 2.2rem; }
   .dashboard-harvest-figures { margin-top: 1.5rem; }
   .dashboard-harvest-figures strong { font-size: 1.15rem; }
 }
+@media (min-width: 1100px) { .dashboard-insight-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (max-width: 390px) {
   .dashboard-expense-insights { grid-template-columns: 1fr; }
 }
