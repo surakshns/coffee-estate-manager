@@ -108,7 +108,7 @@
   .data-table th { @apply border-b border-stone-200 px-3 py-3 font-bold text-stone-600; }
   .data-table td { @apply border-b border-stone-100 px-3 py-3 align-middle; }
   .top-download-button { @apply grid size-10 place-items-center rounded-xl border border-white/20 bg-white/10 text-xl font-bold text-white transition-all duration-200 hover:bg-white/20 active:scale-90; }
-  .mobile-nav { @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 gap-1 border-t border-stone-200/90 bg-white px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-6px_24px_rgba(41,65,45,.12)] sm:hidden; will-change: transform; }
+  .mobile-nav { @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 gap-1 border-t border-stone-200/90 bg-white px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-6px_24px_rgba(41,65,45,.12)] sm:hidden; will-change: transform; }
   .mobile-nav-item { @apply relative flex min-h-13 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-stone-500 transition-all duration-200 active:scale-95; }
   .mobile-nav-item.is-active { @apply bg-leaf-50 text-leaf-700 shadow-sm; transform: translateY(-2px); }
   .mobile-nav-icon { @apply block text-xl leading-5 transition-transform duration-200; }

@@ -10,15 +10,17 @@ import { Expenses } from './components/Expenses'
 import { Labour } from './components/Labour'
 import { Prices } from './components/Prices'
 import { Production } from './components/Production'
+import { Rainfall } from './components/Rainfall'
 import { useEstateData } from './hooks/useEstateData'
 import { supabase } from './lib/supabase'
 
-type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Prices' | 'Production' | 'Backup'
+type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Backup'
 type DeferredInstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
-const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'prices' | 'harvest' | 'backup' }[] = [
+const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'backup' }[] = [
   { page: 'Dashboard', short: 'Home', icon: 'home' },
   { page: 'Labour', short: 'Labour', icon: 'labour' },
   { page: 'Expenses', short: 'Expenses', icon: 'expenses' },
+  { page: 'Rainfall', short: 'Rain', icon: 'rainfall' },
   { page: 'Prices', short: 'Prices', icon: 'prices' },
   { page: 'Production', short: 'Harvest', icon: 'harvest' }
 ]
@@ -83,6 +85,7 @@ export default function App() {
     switch (page) {
       case 'Labour': return <Labour {...props} />
       case 'Expenses': return <Expenses {...props} />
+      case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
       case 'Production': return <Production {...props} />
       case 'Backup': return <Backup data={data} refresh={refresh} />

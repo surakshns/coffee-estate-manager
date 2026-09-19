@@ -6,7 +6,7 @@ import type { EstateData } from '../lib/types'
 import './dashboard.css'
 import { loanStory } from '../lib/loanStory'
 
-type DashboardPage = 'Labour' | 'Expenses' | 'Production'
+type DashboardPage = 'Labour' | 'Expenses' | 'Production' | 'Rainfall'
 const quantity = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 1 })
 const compactMoney = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 }).format(value)
 const monthName = (month: number) => new Intl.DateTimeFormat('en-IN', { month: 'long' }).format(new Date(2026, month, 1))
@@ -118,6 +118,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
       {onNavigate && <div className="dashboard-quick-actions" aria-label="Quick actions">
         <button className="dashboard-action-primary" onClick={() => onNavigate('Labour')}><span aria-hidden="true">＋</span> Record labour</button>
         <button className="dashboard-action-secondary" onClick={() => onNavigate('Expenses')}><span aria-hidden="true">＋</span> Add expense</button>
+        <button className="dashboard-action-secondary" onClick={() => onNavigate('Rainfall')}><span aria-hidden="true">🌧️</span> Rain gauge</button>
       </div>}
     </header>
 
