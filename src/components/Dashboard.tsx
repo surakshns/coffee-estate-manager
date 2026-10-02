@@ -4,6 +4,8 @@ import { money, productionMetrics } from '../lib/calculations'
 import { dashboardActivity } from '../lib/dashboardData'
 import type { EstateData } from '../lib/types'
 import './dashboard.css'
+import { ViewTabs } from './Workspace'
+import { Users, ReceiptText, CloudRain } from 'lucide-react'
 import { loanStory } from '../lib/loanStory'
 
 type DashboardPage = 'Labour' | 'Expenses' | 'Production' | 'Rainfall'
@@ -16,6 +18,7 @@ const workerSortColumns = [{ key: 'name', label: 'Worker' }, { key: 'weeks', lab
 type WorkerSortKey = typeof workerSortColumns[number]['key']
 
 export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void }) {
+  const [dashboardView, setDashboardView] = useState<'overview' | 'team' | 'loans'>('overview')
   const [periodFromYear, setPeriodFromYear] = useState(year)
   const [periodFromMonth, setPeriodFromMonth] = useState(0)
   const [periodToYear, setPeriodToYear] = useState(year)
@@ -112,13 +115,12 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
     <header className="dashboard-hero dashboard-welcome">
       <div>
         <p className="dashboard-eyebrow"><span aria-hidden="true" className="dashboard-season-dot" /> {year} overview</p>
-        <h1>Your estate at a glance.</h1>
-        <p className="dashboard-welcome-copy">A clear view of your harvest, your people, and the numbers that matter.</p>
+        <h1>Estate overview</h1>
       </div>
       {onNavigate && <div className="dashboard-quick-actions" aria-label="Quick actions">
-        <button className="dashboard-action-primary" onClick={() => onNavigate('Labour')}><span aria-hidden="true">＋</span> Record labour</button>
-        <button className="dashboard-action-secondary" onClick={() => onNavigate('Expenses')}><span aria-hidden="true">＋</span> Add expense</button>
-        <button className="dashboard-action-secondary" onClick={() => onNavigate('Rainfall')}><span aria-hidden="true">🌧️</span> Rain gauge</button>
+        <button className="dashboard-action-primary" onClick={() => onNavigate('Labour')}><Users size={17} /> Labour</button>
+        <button className="dashboard-action-secondary" onClick={() => onNavigate('Expenses')}><ReceiptText size={17} /> Expenses</button>
+        <button className="dashboard-action-secondary" onClick={() => onNavigate('Rainfall')}><CloudRain size={17} /> Rainfall</button>
       </div>}
     </header>
 
@@ -129,7 +131,9 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
       <SummaryTile label="Recorded balance" value={money(activity.balance)} detail="Sales minus spending" icon="balance" emphasis={activity.balance >= 0 ? 'positive' : 'negative'} />
     </section>
 
+    <ViewTabs<'overview' | 'team' | 'loans'> label="Dashboard views" value={dashboardView} onChange={setDashboardView} items={[{ value: 'overview', label: 'Overview' }, { value: 'team', label: 'Workers & pay' }, { value: 'loans', label: 'Loans' }]} />
     <section className="dashboard-charts" aria-label="Estate insights">
+      {dashboardView === 'overview' && <>
       <article className="dashboard-panel dashboard-activity-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">The bigger picture</p><h2>Monthly spending</h2></div><span className="dashboard-year-badge">Jan–Dec {year}</span></div>
         <p className="dashboard-description">See your labour and estate spending month by month.</p>
@@ -166,7 +170,8 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
         </> : <EmptyChart symbol="₹" title="A place for every expense" description="Your labour payments and estate expenses will appear here, grouped into easy-to-read categories." action={onNavigate ? () => onNavigate('Labour') : undefined} actionLabel="Record labour pay" />}
       </article>
 
-      {harvest.labour > 0 && <article className="dashboard-panel dashboard-payroll-panel">
+      </>}
+      {dashboardView === 'team' && harvest.labour > 0 && <article className="dashboard-panel dashboard-payroll-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Pay flow</p><h2>Take-home and loan deductions</h2></div><span className="dashboard-year-badge">Jan-Dec {year}</span></div>
         <p className="dashboard-description">See how saved wages split between cash to pay and loan deductions each month.</p>
         <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-take-home" /> Take-home</span><span><i className="is-loan" /> Loan deductions</span></div>
@@ -184,7 +189,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
         </div>
       </article>}
 
-      {(yearLoansGiven > 0 || yearLoansRepaid > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
+      {dashboardView === 'loans' && (yearLoansGiven > 0 || yearLoansRepaid > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Worker loans</p><h2>Loan trend and repayments</h2></div><span className="dashboard-year-badge">Jan-Dec {year}</span></div>
         <p className="dashboard-description">Monthly advances, repayments and outstanding balance for the selected year.</p>
         <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span></div>
@@ -203,7 +208,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
         </div>
       </article>}
 
-      {(story.rows.some(row => (row.given ?? 0) > 0 || (row.repaid ?? 0) > 0) || story.balance > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
+      {dashboardView === 'loans' && (story.rows.some(row => (row.given ?? 0) > 0 || (row.repaid ?? 0) > 0) || story.balance > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Worker loans</p><h2>Loan journey & estimated payoff</h2></div><span className="dashboard-year-badge">July 2025 → {story.asOf}</span></div>
         <p className="dashboard-description">Monthly loans, repayments and outstanding balance from July 2025 through {story.asOf}. Earlier outstanding loans are included in the opening balance; the last point shows this month so far.</p>
         <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span></div>
@@ -227,7 +232,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
 
       </article>}
 
-      <article className="dashboard-panel dashboard-working-days-panel">
+      {dashboardView === 'team' && <article className="dashboard-panel dashboard-working-days-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Your team</p><h2>Working days &amp; pay</h2></div></div>
         <p className="dashboard-description">Choose a start and end month. Every worker total and payment figure below uses saved records inside that inclusive period.</p>
         <div className="dashboard-period-controls"><div><label>From<select aria-label="Period start year" value={periodFromYear} onChange={(event) => setPeriodFromYear(Number(event.target.value))}>{periodYears.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label="Period start month" value={periodFromMonth} onChange={(event) => setPeriodFromMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label><label>To<select aria-label="Period end year" value={periodToYear} onChange={(event) => setPeriodToYear(Number(event.target.value))}>{periodYears.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label="Period end month" value={periodToMonth} onChange={(event) => setPeriodToMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label></div></div>
@@ -236,9 +241,9 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
         <div className="dashboard-worker-period-heading"><h3>Worker working days</h3><p>{monthName(periodFromMonth).slice(0, 3)} {periodFromYear} to {monthName(periodToMonth).slice(0, 3)} {periodToYear}</p></div>
         <div className="dashboard-worker-sort"><label>Sort by<select value={workerSort.key} onChange={event => setWorkerSort({ key: event.target.value as WorkerSortKey, ascending: event.target.value === 'name' })}>{workerSortColumns.map(column => <option key={column.key} value={column.key}>{column.label}</option>)}</select></label><button type="button" onClick={() => setWorkerSort(previous => ({ ...previous, ascending: !previous.ascending }))}>{workerSort.key === 'name' ? workerSort.ascending ? 'A → Z' : 'Z → A' : workerSort.ascending ? 'Lowest first ↑' : 'Highest first ↓'}</button></div>
         {workerDayRows.length ? <div className="dashboard-worker-table-card"><div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Worker working days and pay table"><table className="dashboard-worker-table"><caption className="sr-only">Worker working days and pay for selected range</caption><thead><tr>{workerSortColumns.map(column => <th key={column.key} scope="col" aria-sort={workerSort.key === column.key ? workerSort.ascending ? 'ascending' : 'descending' : 'none'}><button type="button" onClick={() => sortWorkers(column.key)}>{column.label} <span aria-hidden="true">{workerSort.key === column.key ? workerSort.ascending ? '↑' : '↓' : '↕'}</span></button></th>)}</tr></thead><tbody>{sortedWorkerRows.map(({ worker, days, weeks, gross, takeHome }) => <tr key={worker.id} className={selectedWorker?.worker.id === worker.id ? 'is-selected' : ''} onClick={() => setSelectedWorkerId(worker.id)}><th scope="row"><button type="button" onClick={() => setSelectedWorkerId(worker.id)}><strong>{worker.name}</strong><span>{worker.active ? 'Active worker' : 'Inactive worker'}</span></button></th><td data-label="Weeks">{weeks}</td><td data-label="Working days" className="is-days">{quantity(days)}</td><td data-label="Gross pay">{money(gross)}</td><td data-label="Take-home" className="is-take-home">{money(takeHome)}</td><td data-label="Loan deducted">{money(Math.max(0, gross - takeHome))}</td></tr>)}</tbody></table></div>{selectedWorker && <div className="dashboard-worker-detail"><div><span>Selected worker</span><strong>{selectedWorker.worker.name}</strong></div><div><span>Average take-home / week</span><strong>{money(selectedWorker.weeks ? selectedWorker.takeHome / selectedWorker.weeks : 0)}</strong></div><div><span>Loan deducted</span><strong>{money(Math.max(0, selectedWorker.gross - selectedWorker.takeHome))}</strong></div></div>}</div> : <p className="dashboard-working-days-empty">No saved worker payments in this period.</p>}
-      </article>
+      </article>}
 
-      <article className="dashboard-panel dashboard-expense-rhythm-panel">
+      {dashboardView === 'overview' && <><article className="dashboard-panel dashboard-expense-rhythm-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Spending rhythm</p><h2>Labour versus estate costs</h2></div><span className="dashboard-year-badge">Jan–Dec {year}</span></div>
         <p className="dashboard-description">Each column shows where the month’s spending went.</p>
         {activity.spending > 0 ? <>
@@ -279,7 +284,8 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
           </> : <div className="dashboard-harvest-empty"><span aria-hidden="true" className="dashboard-empty-symbol">♧</span><div><h3>{harvest.bagsSold > 0 ? 'Add the harvest behind your sales' : 'Ready for this year’s harvest'}</h3><p>{harvest.bagsSold > 0 ? `${quantity(harvest.bagsSold)} bags sold from this crop. Add production to calculate what remains.` : 'Add bags produced to follow your progress from harvest to sale.'}</p></div></div>}
           <p className="dashboard-footnote">Only the {year} production crop, including its sales in other years. This can differ from calendar-year sales above.</p>
         </div>
-      </article>
+      </article></>}
+      {dashboardView === 'loans' && !yearLoansGiven && !yearLoansRepaid && !story.balance && !story.rows.some(row => (row.given ?? 0) > 0 || (row.repaid ?? 0) > 0) && <EmptyChart symbol="₹" title="No loan records yet" description="Worker advances and repayments will appear here." action={onNavigate ? () => onNavigate('Labour') : undefined} actionLabel="Open Labour" />}
     </section>
   </div>
 }

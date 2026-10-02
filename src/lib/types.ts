@@ -103,6 +103,19 @@ export interface Sale {
   buyer: string
 }
 
+export interface PropertyDocument {
+  id: Id
+  title: string
+  document_date: string | null
+  category: string
+  notes: string
+  file_path: string
+  file_name: string
+  file_type: string | null
+  file_size: number | null
+  created_at: string
+}
+
 export interface EstateData {
   workers: Worker[]
   weeklyPayments: WeeklyPayment[]
@@ -116,6 +129,7 @@ export interface EstateData {
   monthlyGuideEntries: MonthlyGuideEntry[]
   production: ProductionRecord[]
   sales: Sale[]
+  documents: PropertyDocument[]
 }
 
 export type Dataset = keyof EstateData

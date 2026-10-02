@@ -4,7 +4,7 @@ import type { EstateData } from './types'
 
 const emptyData: EstateData = {
   workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], jointLoans: [], jointLoanRepayments: [], categories: [], expenses: [],
-  prices: [], monthlyGuideEntries: [], production: [], sales: []
+  prices: [], monthlyGuideEntries: [], production: [], sales: [], documents: []
 }
 
 describe('dashboard calendar activity', () => {

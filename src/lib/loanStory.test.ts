@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { loanStory } from './loanStory'
 import type { EstateData } from './types'
 
-const empty: EstateData = { workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], jointLoans: [], jointLoanRepayments: [], categories: [], expenses: [], prices: [], monthlyGuideEntries: [], production: [], sales: [] }
+const empty: EstateData = { workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], jointLoans: [], jointLoanRepayments: [], categories: [], expenses: [], prices: [], monthlyGuideEntries: [], production: [], sales: [], documents: [] }
 const now = new Date(2026, 8, 15)
 it('carries earlier loans, includes zero repayment months and projects beyond twelve months', () => {
   const result = loanStory({ ...empty, workerLoans: [

@@ -5,6 +5,7 @@ import { CoffeeCup } from './components/CoffeeCup'
 import { AuthScreen } from './components/AuthScreen'
 import { Backup } from './components/Backup'
 import { Dashboard } from './components/Dashboard'
+import { Documents } from './components/Documents'
 import { EstateGuide } from './components/EstateGuide'
 import { Expenses } from './components/Expenses'
 import { Labour } from './components/Labour'
@@ -13,22 +14,25 @@ import { Production } from './components/Production'
 import { Rainfall } from './components/Rainfall'
 import { useEstateData } from './hooks/useEstateData'
 import { supabase } from './lib/supabase'
+import { Sheet } from './components/Workspace'
 
-type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Backup'
+type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup'
 type DeferredInstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
-const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'backup' }[] = [
+const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'documents' | 'backup' }[] = [
   { page: 'Dashboard', short: 'Home', icon: 'home' },
   { page: 'Labour', short: 'Labour', icon: 'labour' },
   { page: 'Expenses', short: 'Expenses', icon: 'expenses' },
   { page: 'Rainfall', short: 'Rain', icon: 'rainfall' },
   { page: 'Prices', short: 'Prices', icon: 'prices' },
-  { page: 'Production', short: 'Harvest', icon: 'harvest' }
+  { page: 'Production', short: 'Harvest', icon: 'harvest' },
+  { page: 'Documents', short: 'Docs', icon: 'documents' }
 ]
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [checking, setChecking] = useState(true)
   const [page, setPage] = useState<Page>('Dashboard')
+  const [moreOpen, setMoreOpen] = useState(false)
   const [year, setYear] = useState(new Date().getFullYear())
   const [notice, setNotice] = useState('')
   const [loadingDemo, setLoadingDemo] = useState(false)
@@ -70,6 +74,7 @@ export default function App() {
     setLoadingDemo(false)
   }
   function navigate(nextPage: Page) {
+    setMoreOpen(false)
     if (menuRef.current) menuRef.current.open = false
     if (nextPage !== page) setPage(nextPage)
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -88,12 +93,13 @@ export default function App() {
       case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
       case 'Production': return <Production {...props} />
+      case 'Documents': return <Documents data={data} refresh={refresh} />
       case 'Backup': return <Backup data={data} refresh={refresh} />
       default: return <Dashboard data={data} year={year} onNavigate={navigate} />
     }
   }
 
-  const hasRecords = data.workers.length || data.expenses.length || data.production.length || data.sales.length
+  const hasRecords = data.workers.length || data.expenses.length || data.production.length || data.sales.length || data.documents.length
 
   return <div className="app-shell">
     <a href="#main-content" className="skip-link">Skip to content</a>
@@ -104,7 +110,8 @@ export default function App() {
           <span><span className="brand-eyebrow">COFFEE ESTATE</span><span className="brand-title">Manager<span className="brand-dot">.</span></span></span>
         </button>
         <div className="header-actions flex items-center gap-2">
-          <label className="year-control" htmlFor="record-year"><span className="hidden sm:inline">Record year</span><select id="record-year" aria-label="Record year" className="year-picker" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+          {!loading && <EstateGuide data={data} refresh={refresh} />}
+          {['Dashboard', 'Labour', 'Expenses', 'Production'].includes(page) && <label className="year-control" htmlFor="record-year"><span className="hidden sm:inline">Record year</span><select id="record-year" aria-label="Record year" className="year-picker" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>}
           <details className="header-menu" ref={menuRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}>
             <summary className="header-more" aria-label="More options"><AppIcon name="more" /></summary>
             <div className="header-menu-panel">
@@ -126,7 +133,7 @@ export default function App() {
       {!loading && !error && !hasRecords && page === 'Dashboard' && <div className="app-banner welcome-banner"><div><strong>Welcome to your estate desk.</strong><p>Add your first worker, expense or harvest to get started.</p></div><details><summary>Explore with sample records</summary><p className="mt-2 text-sm">This adds sample records to your account.</p><button className="button-secondary mt-2" disabled={loadingDemo} onClick={() => void loadDemo()}>{loadingDemo ? 'Adding records…' : 'Add sample records'}</button></details></div>}
       {loading ? <div className="loading-state" role="status"><span className="loading-leaf" aria-hidden="true">🌱</span><p>Gathering your estate records…</p></div> : <div className="page-transition" key={page}>{current()}</div>}
     </main>
-    {!loading && <EstateGuide data={data} refresh={refresh} />}
-    <nav aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.map((item) => <button key={item.page} className={`mobile-nav-item ${page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}</nav>
+    <nav aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses', 'Documents'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${['Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="More sections" aria-haspopup="dialog"><span className="mobile-nav-icon"><AppIcon name="more" /></span><span className="mobile-nav-label">More</span></button></nav>
+    <Sheet open={moreOpen} title="Your estate" onClose={() => setMoreOpen(false)}><nav className="more-navigation" aria-label="More sections">{navigation.filter(item => ['Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><AppIcon name={item.icon} /><span>{item.page === 'Production' ? 'Harvest & sales' : item.page}</span><AppIcon name="arrow" /></button>)}<button onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup & import</span><AppIcon name="arrow" /></button></nav></Sheet>
   </div>
 }
