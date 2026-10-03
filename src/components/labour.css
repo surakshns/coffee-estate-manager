@@ -95,6 +95,11 @@
 .labour-currency-input input { width: 100%; min-width: 0; height: 100%; padding: 12px 10px; border: 0; background: transparent; font-size: 18px; font-weight: 700; color: var(--labour-ink); outline: none; font-variant-numeric: tabular-nums; }
 .labour-currency-input input:focus-visible { outline: none; }
 .labour-currency-input:has(input:disabled) { background: #f3f5ef; }
+.labour-deduction-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 60px; padding: 12px 14px; border: 1px solid #bdcdb8; border-radius: 10px; background: #f5f9f0; color: var(--labour-green); text-align: left; }
+.labour-deduction-trigger > span:first-child { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.labour-deduction-trigger strong { font-size: 24px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.labour-deduction-trigger-hint { display: inline-flex; flex-shrink: 0; align-items: center; gap: 5px; font-size: 12px; }
+.labour-deduction-trigger:hover:not(:disabled) { border-color: var(--labour-green); background: #edf5e6; }
 .labour-calculated-pay { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; min-width: 0; padding-top: 16px; border-top: 1px solid #e5eadf; }
 .labour-calculated-pay > div { flex: 1 1 125px; min-width: 0; }
 .labour-calculated-pay span { display: block; color: #344c3b; font-size: 13px; font-weight: 650; }
@@ -113,6 +118,7 @@
 .workspace-sheet.labour-deck-sheet .sheet-heading h2 { font-size: 15px; line-height: 1.4; }
 .workspace-sheet.labour-deck-sheet .sheet-body { display: flex; flex: 1; min-height: 0; padding: 10px 14px max(12px, env(safe-area-inset-bottom)); overflow: hidden; }
 .labour-mobile-deck { --labour-green: #174e3c; --labour-ink: #23362d; --labour-muted: #647369; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; gap: 10px; color: var(--labour-ink); }
+.labour-mobile-deck[hidden] { display: none; }
 .labour-mobile-deck :is(button, input, select) { touch-action: manipulation; }
 .labour-mobile-deck :is(button, select, input):focus-visible { outline: 3px solid #8caa52; outline-offset: 3px; }
 .labour-mobile-deck button:disabled { cursor: default; opacity: .5; }
@@ -134,15 +140,32 @@
 .labour-deck-motion { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; box-shadow: 0 5px 18px #23463212; overflow: hidden; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); transition: transform 160ms ease; animation: labour-card-arrive 180ms ease-out; }
 .labour-deck-motion.is-dragging { transition: none; animation: none; }
 .labour-deck-motion.is-leaving { pointer-events: none; transition: none; animation: labour-card-dismiss 220ms ease-in forwards; }
+.labour-deck-motion.has-worker, .labour-deck-motion.has-worker .labour-deck-card-scroll { touch-action: pan-x pinch-zoom; }
 .labour-deck-swipe-handle { display: grid; flex-shrink: 0; justify-items: center; gap: 6px; padding: 9px 12px 7px; border-bottom: 1px solid #eff2e9; touch-action: none; }
 .labour-deck-swipe-handle > span { width: 34px; height: 4px; border-radius: 9px; background: #cbd8c0; }
+.labour-deck-swipe-handle > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 12px; }
 .labour-deck-swipe-handle p { display: flex; align-items: center; gap: 5px; color: #65795d; font-size: 11px; }
+.labour-deck-scroll-button { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 44px; padding: 7px 2px; color: var(--labour-green); font-size: 11px; font-weight: 650; }
 .labour-deck-card-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .labour-deck-card-scroll .labour-worker-payment { display: flex; flex-direction: column; min-height: 100%; padding: 16px; border: 0; border-radius: 0; gap: 18px; }
 .labour-deck-card-scroll .labour-calculated-pay { margin-top: auto; }
 .labour-deck-footer { flex-shrink: 0; display: grid; gap: 8px; }
 .labour-deck-footer > p { color: var(--labour-muted); font-size: 11px; text-align: center; }
-.labour-deck-footer > div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+.labour-deck-footer > div { display: grid; grid-template-columns: minmax(0, 1fr); }
+.labour-close-prompt { --labour-green: #174e3c; --labour-ink: #23362d; display: flex; flex-direction: column; flex: 1; align-items: stretch; min-width: 0; min-height: 0; overflow-y: auto; color: var(--labour-ink); }
+.labour-close-prompt-card { display: grid; flex-shrink: 0; gap: 18px; width: 100%; max-width: 420px; padding: 24px 20px; margin: auto; border: 1px solid #d4dfcb; border-radius: 16px; background: #fff; }
+.labour-close-prompt h3 { font-size: 21px; font-weight: 750; line-height: 1.4; }
+.labour-close-prompt-card > p { color: #647369; font-size: 14px; line-height: 1.6; }
+.labour-close-summary { display: grid; gap: 5px; padding-block: 14px; border-block: 1px solid #e5eadf; }
+.labour-close-summary > span, .labour-close-summary > p { color: #647369; font-size: 12px; line-height: 1.5; }
+.labour-close-summary strong { color: var(--labour-green); font-size: 29px; font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.labour-close-actions { display: grid; gap: 10px; }
+.labour-close-actions button { min-height: 48px; padding: 12px; border: 1px solid #d5dfce; border-radius: 10px; font-size: 14px; font-weight: 700; touch-action: manipulation; }
+.labour-close-actions .button-primary { color: #fff; background: var(--labour-green); border-color: var(--labour-green); }
+.labour-close-actions .button-secondary { color: var(--labour-green); background: #f5f8f1; }
+.labour-close-actions .labour-close-discard { color: #9a4635; background: #fff7f3; border-color: #e2c5bd; }
+.labour-close-actions button:focus-visible { outline: 3px solid #8caa52; outline-offset: 3px; }
+.labour-close-actions button:disabled { opacity: .5; cursor: default; }
 .labour-deck-review { display: grid; align-content: start; gap: 18px; min-height: 100%; padding: 22px 18px; }
 .labour-deck-review > svg { color: var(--labour-green); }
 .labour-deck-review h3 { font-size: 21px; font-weight: 750; }
@@ -153,6 +176,37 @@
 .labour-deck-review dl > div:last-child { margin-top: 4px; padding-top: 16px; border-top: 1px solid #e2e8db; color: var(--labour-green); }
 .labour-deck-review dl > div:last-child dd { font-size: 24px; }
 .labour-deck-error { flex-shrink: 0; padding: 10px 12px; border-radius: 9px; background: #fff0e9; color: #974b34; font-size: 12px; line-height: 1.5; }
+/* Loan entry gets the phone screen, without a browser keyboard covering it. */
+.labour-deduction-editor { display: flex; flex-direction: column; flex: 1; gap: 12px; min-width: 0; min-height: 0; padding: 16px; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; }
+.labour-deduction-editor-scroll { display: flex; flex-direction: column; flex: 1; gap: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.labour-deduction-display { position: sticky; z-index: 1; top: 0; display: grid; flex-shrink: 0; gap: 10px; padding-bottom: 10px; background: #fff; border-bottom: 1px solid #e5eadf; }
+.labour-deduction-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.labour-deduction-heading > div { min-width: 0; }
+.labour-deduction-heading p { margin-bottom: 2px; color: var(--labour-muted); font-size: 13px; overflow-wrap: anywhere; }
+.labour-deduction-heading h3 { font-size: 18px; font-weight: 750; line-height: 1.4; }
+.labour-deduction-heading > span { color: var(--labour-muted); font-size: 12px; }
+.labour-deduction-amount { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 8px 14px; border: 1px solid #c7d8bf; border-radius: 12px; background: #f1f7ea; color: var(--labour-green); }
+.labour-deduction-amount > span { font-size: 24px; }
+.labour-deduction-amount input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; background: transparent; color: var(--labour-green); font-size: 32px; font-weight: 750; line-height: 1.3; outline: none; font-variant-numeric: tabular-nums; caret-color: transparent; }
+.labour-mobile-deck .labour-deduction-amount input:focus-visible { outline: none; }
+.labour-deduction-amount.is-invalid { background: #fff3ed; border-color: #cc937e; }
+.labour-deduction-error { color: #974b34; font-size: 12px; line-height: 1.5; }
+.labour-deduction-pay { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--labour-muted); font-size: 13px; }
+.labour-deduction-pay span { overflow-wrap: anywhere; }
+.labour-deduction-pay strong { color: var(--labour-green); font-size: 21px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.labour-deduction-suggestions { display: grid; flex-shrink: 0; gap: 7px; }
+.labour-deduction-suggestions > p { color: var(--labour-muted); font-size: 11px; }
+.labour-deduction-shortcuts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.labour-deduction-shortcuts button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 65px; padding: 8px 5px; border: 1px solid #d6e0ce; border-radius: 9px; background: #f5f8f1; color: var(--labour-green); }
+.labour-deduction-shortcuts strong { font-size: 16px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
+.labour-deduction-shortcuts span { color: var(--labour-muted); font-size: 10px; line-height: 1.3; }
+.labour-deduction-shortcuts button.is-recommended { border-color: #7e9f68; background: #edf5e4; }
+.labour-deduction-shortcuts .labour-deduction-recommendation { color: var(--labour-green); font-size: 9px; font-weight: 750; }
+.labour-deduction-shortcuts button[aria-pressed=true] { border-color: var(--labour-green); background: #e7f1e0; box-shadow: inset 0 0 0 1px var(--labour-green); }
+.labour-deduction-keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; flex-shrink: 0; margin-top: auto; }
+.labour-deduction-keypad button { display: flex; align-items: center; justify-content: center; min-height: clamp(44px, 8dvh, 64px); padding: 8px; border: 1px solid #dae3d4; border-radius: 11px; background: #f7f9f4; color: var(--labour-ink); font-size: 25px; font-weight: 650; }
+.labour-deduction-keypad button:active:not(:disabled), .labour-deduction-shortcuts button:active:not(:disabled) { border-color: var(--labour-green); background: #e7f1e0; color: var(--labour-green); }
+.labour-deduction-actions { display: grid; flex-shrink: 0; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
 @keyframes labour-card-arrive { from { opacity: .4; transform: translateY(var(--card-enter-y, 12px)) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes labour-card-dismiss { from { opacity: 1; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); } to { opacity: 0; transform: translateY(var(--swipe-exit, -110%)) rotate(var(--swipe-rotation, -6deg)); } }
 @media (prefers-reduced-motion: reduce) { .labour-deck-motion { animation: none !important; transition: none !important; transform: none; } }

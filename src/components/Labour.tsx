@@ -8,7 +8,9 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { LabourLoans } from './LabourLoans'
 import { WeeklyPayCard } from './WeeklyPayCard'
 import { MobileWeeklyPayDeck } from './MobileWeeklyPayDeck'
+import { MobileLoanDeductionEditor } from './MobileLoanDeductionEditor'
 import { WEEKLY_REPAYMENT_NOTE, workerLoanAccounts } from '../lib/labourLoans'
+import { loanDeductionSuggestions } from '../lib/repaymentSuggestions'
 import './labour.css'
 
 const asNumber = (value: string | undefined) => Number((value ?? '').replace(/,/g, '') || 0)
@@ -173,6 +175,10 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
     markDraft()
     setDaysWorked(current => ({ ...current, [workerId]: value }))
   }
+  function updateDeduction(workerId: string, value: string) {
+    markDraft()
+    setRepayments(current => ({ ...current, [`${openWednesday}:${workerId}`]: formattedAmount(value) }))
+  }
   function applySelection(selection: WeekSelection) {
     const selectedYear = Number(selection.date.slice(0, 4))
     if (selectedYear !== year && onYearChange) {
@@ -312,12 +318,19 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
     setMessage('')
     setPhoneDeckOpen(true)
   }
-  function paymentCard(worker: Worker) {
+  function paymentCard(worker: Worker, onEditDeduction?: () => void) {
     const repaymentKey = `${openWednesday}:${worker.id}`
     return <WeeklyPayCard key={`${openWednesday}:${worker.id}`} worker={worker} days={daysWorked[worker.id] ?? String(worker.default_days_worked ?? 5)} dailyRate={rateForWorker(worker)} gross={grossForWorker(worker)} deduction={personalDeductionFor(worker)} deductionInput={repayments[repaymentKey] ?? ''} loanBalance={outstandingLoanByWorker[worker.id] ?? 0} skipped={!!removed[worker.id]} locked={weekLocked} busy={!!busy}
       onDaysChange={value => updateDays(worker.id, value)}
       onToggleIncluded={() => { markDraft(); setRemoved(current => ({ ...current, [worker.id]: !current[worker.id] })) }}
-      onDeductionChange={value => { markDraft(); setRepayments(current => ({ ...current, [repaymentKey]: formattedAmount(value) })) }} />
+      onDeductionChange={value => updateDeduction(worker.id, value)} onEditDeduction={onEditDeduction} />
+  }
+  function deductionEditor(worker: Worker, onDone: () => void) {
+    const repaymentKey = `${openWednesday}:${worker.id}`
+    const availableLoan = (outstandingLoanByWorker[worker.id] ?? 0) + (recordedRepaymentsByWeek[repaymentKey] ?? 0)
+    const maximum = Math.max(0, Math.min(grossForWorker(worker), availableLoan))
+    const suggestions = loanDeductionSuggestions({ workerId: worker.id, paymentDate: openWednesday, maximum, loans: data.workerLoans, payments: data.weeklyPayments })
+    return <MobileLoanDeductionEditor key={repaymentKey} workerName={worker.name} value={repayments[repaymentKey] ?? ''} wages={grossForWorker(worker)} maximum={maximum} suggestions={suggestions} busy={!!busy} onChange={value => updateDeduction(worker.id, value)} onDone={onDone} />
   }
   function openLoan(kind: 'advance' | 'repayment', workerId = '') {
     setLoanForm({ ...emptyLoan(), kind, worker_id: workerId })
@@ -367,14 +380,14 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
           <button type="button" className="button-primary" disabled={!!busy} onClick={startPhoneAdvance}>{hasSavedPayment ? 'Edit advance' : 'Start advance'}{hasSavedPayment ? <Pencil size={17} aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}</button>
           <p className="labour-phone-pay-hint">Swipe up: next · Swipe down: previous. Save after reviewing.</p>
           {hasSavedPayment && editingWeek && <button type="button" className="labour-phone-cancel" disabled={!!busy} onClick={() => dirtyDraft ? setDiscardingWeek(true) : cancelWeekEdit()}>Cancel editing</button>}
-        </section> : <div className="labour-payment-list">{paymentWorkers.length ? visiblePaymentWorkers.map(paymentCard) : <div className="labour-empty"><span aria-hidden="true">♧</span><h3>Add your first worker</h3><p>Set their default days once to make every payday easier.</p><button type="button" className="button-primary" onClick={() => setView('workers')}>Add a worker</button></div>}</div>}
+        </section> : <div className="labour-payment-list">{paymentWorkers.length ? visiblePaymentWorkers.map(worker => paymentCard(worker)) : <div className="labour-empty"><span aria-hidden="true">♧</span><h3>Add your first worker</h3><p>Set their default days once to make every payday easier.</p><button type="button" className="button-primary" onClick={() => setView('workers')}>Add a worker</button></div>}</div>}
         {!isPhone && <>
           <dl className="labour-pay-breakdown"><div><dt>Wages</dt><dd>{money(draftTotal)}</dd></div><div><dt>Loan deductions</dt><dd>{money(draftTotal - draftTakeHome)}</dd></div></dl>
           <div className="labour-save-bar"><div><p className="labour-total-label">Take-home to pay <strong>{money(Number.isFinite(draftTakeHome) ? draftTakeHome : 0)}</strong></p><p className="labour-total-detail">{includedWorkers} {includedWorkers === 1 ? 'worker' : 'workers'} · {daysLabel(draftWorkingDays)} days{dirtyDraft ? ' · Unsaved changes' : hasSavedPayment ? ' · Saved' : ' · Not saved'}</p></div>{weekLocked ? <button type="button" className="button-primary labour-save-button" disabled={!!busy} onClick={() => setEditingWeek(true)}>Edit this week</button> : <button type="submit" className="button-primary labour-save-button" disabled={!paymentWorkers.length || !!busy}>{busy === 'payments' ? 'Saving…' : hasSavedPayment ? 'Save updates' : 'Save weekly pay'}<Check size={18} /></button>}</div>
         </>}
         {hasSavedPayment && <details className="labour-reset"><summary>Correct a saved week</summary><p>Clear the saved payments and undo loan repayments recorded with this weekly payment.</p><button type="button" className="labour-danger-button" disabled={!!busy} onClick={() => setResettingWeek(openWednesday)}>{busy === 'reset' ? 'Clearing saved payments…' : 'Clear saved payments for this week'}</button></details>}
       </form>
-      {isPhone && phoneDeckOpen && paymentWorkers.length > 0 && <MobileWeeklyPayDeck key={openWednesday} dateLabel={friendlyDate(openWednesday)} workers={paymentWorkers} busy={!!busy} locked={weekLocked} saved={hasSavedPayment} error={messageError ? message : ''} includedCount={includedWorkers} workingDays={draftWorkingDays} wages={draftTotal} takeHome={draftTakeHome} renderWorker={paymentCard} workerError={workerErrorFor} onClose={() => setPhoneDeckOpen(false)} onSave={() => weeklyPayFormRef.current?.requestSubmit()} />}
+      {isPhone && phoneDeckOpen && paymentWorkers.length > 0 && <MobileWeeklyPayDeck key={openWednesday} dateLabel={friendlyDate(openWednesday)} workers={paymentWorkers} busy={!!busy} locked={weekLocked} saved={hasSavedPayment} dirty={dirtyDraft} error={messageError ? message : ''} includedCount={includedWorkers} workingDays={draftWorkingDays} wages={draftTotal} takeHome={draftTakeHome} renderWorker={paymentCard} renderDeduction={deductionEditor} workerError={workerErrorFor} onClose={() => setPhoneDeckOpen(false)} onDiscard={() => { cancelWeekEdit(); setPhoneDeckOpen(false) }} onSave={() => weeklyPayFormRef.current?.requestSubmit()} />}
     </>}
 
     {view === 'loans' && <LabourLoans data={data} busy={!!busy} onRecord={openLoan} onDelete={setDeletingLoan} onEditWeek={viewLoanWeek} />}

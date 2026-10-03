@@ -1,4 +1,4 @@
-import { Check, Minus, Plus } from 'lucide-react'
+import { Check, Minus, Pencil, Plus } from 'lucide-react'
 import { money } from '../lib/calculations'
 import type { Worker } from '../lib/types'
 
@@ -16,9 +16,10 @@ type WeeklyPayCardProps = {
   onDaysChange: (days: string) => void
   onToggleIncluded: () => void
   onDeductionChange: (amount: string) => void
+  onEditDeduction?: () => void
 }
 
-export function WeeklyPayCard({ worker, days, dailyRate, gross, deduction, deductionInput, loanBalance, skipped, locked, busy, onDaysChange, onToggleIncluded, onDeductionChange }: WeeklyPayCardProps) {
+export function WeeklyPayCard({ worker, days, dailyRate, gross, deduction, deductionInput, loanBalance, skipped, locked, busy, onDaysChange, onToggleIncluded, onDeductionChange, onEditDeduction }: WeeklyPayCardProps) {
   const dayCount = skipped ? 0 : Number(days)
   const dayDescription = `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`
   const headingId = `pay-worker-${worker.id}`
@@ -45,8 +46,8 @@ export function WeeklyPayCard({ worker, days, dailyRate, gross, deduction, deduc
     </div>
 
     <div className="labour-repayment">
-      <div className="labour-repayment-heading"><label htmlFor={deductionId}>Loan deduction</label><p>{money(loanBalance)} still owed</p></div>
-      <div className="labour-currency-input"><span aria-hidden="true">₹</span><input id={deductionId} type="text" inputMode="decimal" disabled={busy || locked || skipped} aria-label={`Personal loan deduction in rupees for ${worker.name}`} value={skipped ? '0' : deductionInput} placeholder="0" onChange={event => onDeductionChange(event.target.value)} /></div>
+      <div className="labour-repayment-heading">{onEditDeduction ? <span className="labour-amount-label">Loan deduction</span> : <label htmlFor={deductionId}>Loan deduction</label>}<p>{money(loanBalance)} still owed</p></div>
+      {onEditDeduction ? <button type="button" className="labour-deduction-trigger" data-loan-deduction-trigger aria-label={`Edit loan deduction for ${worker.name}`} aria-describedby={deductionId} disabled={busy || locked || skipped} onClick={onEditDeduction}><span id={deductionId}><span>₹</span><strong>{skipped ? '0' : deductionInput || '0'}</strong></span><span className="labour-deduction-trigger-hint"><Pencil size={15} aria-hidden="true" />Tap to enter</span></button> : <div className="labour-currency-input"><span aria-hidden="true">₹</span><input id={deductionId} type="text" inputMode="decimal" disabled={busy || locked || skipped} aria-label={`Personal loan deduction in rupees for ${worker.name}`} value={skipped ? '0' : deductionInput} placeholder="0" onChange={event => onDeductionChange(event.target.value)} /></div>}
     </div>
 
     <div className="labour-calculated-pay">
