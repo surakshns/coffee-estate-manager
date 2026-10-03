@@ -3,7 +3,7 @@ import { dashboardActivity } from './dashboardData'
 import type { EstateData } from './types'
 
 const emptyData: EstateData = {
-  workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], jointLoans: [], jointLoanRepayments: [], categories: [], expenses: [],
+  workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], categories: [], expenses: [],
   prices: [], monthlyGuideEntries: [], production: [], sales: [], documents: []
 }
 

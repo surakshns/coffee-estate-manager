@@ -3,6 +3,9 @@ import type { Session } from '@supabase/supabase-js'
 import { AppIcon } from './components/AppIcon'
 import { CoffeeCup } from './components/CoffeeCup'
 import { AuthScreen } from './components/AuthScreen'
+import { PasswordForm } from './components/PasswordForm'
+import { PasswordRecovery } from './components/PasswordRecovery'
+import { LockKeyhole } from 'lucide-react'
 import { Backup } from './components/Backup'
 import { Dashboard } from './components/Dashboard'
 import { Documents } from './components/Documents'
@@ -14,6 +17,7 @@ import { Production } from './components/Production'
 import { Rainfall } from './components/Rainfall'
 import { useEstateData } from './hooks/useEstateData'
 import { supabase } from './lib/supabase'
+import { isPasswordRecovery, passwordRecoveryError, setPasswordRecoveryUrl } from './lib/auth'
 import { Sheet } from './components/Workspace'
 
 type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup'
@@ -31,6 +35,10 @@ const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expens
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [checking, setChecking] = useState(true)
+  const [recoveringPassword, setRecoveringPassword] = useState(isPasswordRecovery)
+  const [recoveryError, setRecoveryError] = useState(passwordRecoveryError)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const [passwordBusy, setPasswordBusy] = useState(false)
   const [page, setPage] = useState<Page>('Dashboard')
   const [moreOpen, setMoreOpen] = useState(false)
   const [year, setYear] = useState(new Date().getFullYear())
@@ -42,12 +50,26 @@ export default function App() {
   const { data, loading, error, refresh } = useEstateData()
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => { setSession(data.session); setChecking(false) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    let active = true
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      setSession(data.session); setChecking(false)
+      if (error && recoveringPassword) setRecoveryError('This reset link could not be verified. Request a new link below.')
+    }).catch(() => {
+      if (!active) return
+      setChecking(false)
+      if (recoveringPassword) setRecoveryError('Could not open the reset link. Please check your connection and request a new link.')
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return
       setSession(nextSession); setChecking(false)
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveringPassword(true); setRecoveryError(''); setPasswordRecoveryUrl(true)
+      }
+      if (!nextSession) { setPasswordOpen(false); setPasswordBusy(false) }
       if (nextSession) void refresh()
     })
-    return () => listener.subscription.unsubscribe()
+    return () => { active = false; listener.subscription.unsubscribe() }
   }, [refresh])
 
   useEffect(() => {
@@ -80,7 +102,19 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' })
     requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }))
   }
+  function finishPasswordRecovery() {
+    setRecoveringPassword(false); setRecoveryError(''); setPasswordRecoveryUrl(false)
+  }
+  function openPasswordSettings() {
+    setMoreOpen(false)
+    if (menuRef.current) menuRef.current.open = false
+    setPasswordOpen(true)
+  }
   if (checking) return <main className="grid min-h-screen place-items-center"><p className="text-lg font-bold text-stone-600">Opening Coffee Estate Manager…</p></main>
+  if (recoveringPassword) {
+    if (!session || recoveryError) return <AuthScreen key="password-recovery" initialMode="forgot-password" initialMessage={recoveryError || 'This reset link is invalid or has expired. Request a new link below.'} onReturnToSignIn={finishPasswordRecovery} />
+    return <PasswordRecovery email={session.user.email} onComplete={finishPasswordRecovery} />
+  }
   if (!session) return <AuthScreen />
 
   const recordYears = [...data.production.map((item) => item.production_year), ...data.sales.map((item) => Number(item.sale_date.slice(0, 4))), ...data.expenses.map((item) => Number(item.expense_date.slice(0, 4))), ...data.weeklyPayments.map((item) => Number(item.week_start.slice(0, 4)))]
@@ -88,7 +122,7 @@ export default function App() {
   const current = () => {
     const props = { data, year, refresh }
     switch (page) {
-      case 'Labour': return <Labour {...props} />
+      case 'Labour': return <Labour {...props} onYearChange={setYear} />
       case 'Expenses': return <Expenses {...props} />
       case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
@@ -117,6 +151,7 @@ export default function App() {
             <div className="header-menu-panel">
               <p className="menu-caption">Your estate</p>
               <button onClick={() => navigate('Backup')}><AppIcon name="backup" /> Backup &amp; import</button>
+              <button onClick={openPasswordSettings}><LockKeyhole size={18} aria-hidden="true" />Change password</button>
               {installPrompt && <button onClick={() => void installApp()}>＋ Install app</button>}
               <button onClick={() => { if (menuRef.current) menuRef.current.open = false; void supabase.auth.signOut() }}>Sign out</button>
             </div>
@@ -134,6 +169,10 @@ export default function App() {
       {loading ? <div className="loading-state" role="status"><span className="loading-leaf" aria-hidden="true">🌱</span><p>Gathering your estate records…</p></div> : <div className="page-transition" key={page}>{current()}</div>}
     </main>
     <nav aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses', 'Documents'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${['Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="More sections" aria-haspopup="dialog"><span className="mobile-nav-icon"><AppIcon name="more" /></span><span className="mobile-nav-label">More</span></button></nav>
-    <Sheet open={moreOpen} title="Your estate" onClose={() => setMoreOpen(false)}><nav className="more-navigation" aria-label="More sections">{navigation.filter(item => ['Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><AppIcon name={item.icon} /><span>{item.page === 'Production' ? 'Harvest & sales' : item.page}</span><AppIcon name="arrow" /></button>)}<button onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup & import</span><AppIcon name="arrow" /></button></nav></Sheet>
+    <Sheet open={moreOpen} title="Your estate" onClose={() => setMoreOpen(false)}><nav className="more-navigation" aria-label="More sections">{navigation.filter(item => ['Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><AppIcon name={item.icon} /><span>{item.page === 'Production' ? 'Harvest & sales' : item.page}</span><AppIcon name="arrow" /></button>)}<button onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup & import</span><AppIcon name="arrow" /></button><button onClick={openPasswordSettings}><LockKeyhole size={18} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button></nav></Sheet>
+    <Sheet open={passwordOpen} title="Change password" busy={passwordBusy} onClose={() => setPasswordOpen(false)}>
+      <p className="password-intro">Confirm your current password, then choose a new one for your account.</p>
+      {passwordOpen && <PasswordForm email={session.user.email} verifyCurrent onBusyChange={setPasswordBusy} onCancel={() => setPasswordOpen(false)} onSuccess={() => { setPasswordOpen(false); setNotice('Your login password has been updated.') }} />}
+    </Sheet>
   </div>
 }

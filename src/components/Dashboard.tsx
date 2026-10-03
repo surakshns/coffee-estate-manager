@@ -76,7 +76,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
   const periodTakeHome = periodPayments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
   const periodOtherExpenses = validPeriod ? data.expenses.filter((expense) => expense.expense_date >= periodStart && expense.expense_date <= periodEnd).reduce((sum, expense) => sum + Number(expense.amount), 0) : 0
   const periodExpensesAndTakeHome = periodOtherExpenses + periodTakeHome
-  const periodLoansPaid = (validPeriod ? data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date >= periodStart && loan.loan_date <= periodEnd).reduce((sum, loan) => sum + Number(loan.amount), 0) + data.jointLoanRepayments.filter((repayment) => repayment.repayment_date >= periodStart && repayment.repayment_date <= periodEnd).reduce((sum, repayment) => sum + Number(repayment.amount), 0) : 0)
+  const periodLoansPaid = (validPeriod ? data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date >= periodStart && loan.loan_date <= periodEnd).reduce((sum, loan) => sum + Number(loan.amount), 0) : 0)
   const selectedWorker = workerDayRows.find((row) => row.worker.id === selectedWorkerId) ?? workerDayRows[0]
   const latestSpendingMonth = [...activity.monthly].reverse().find((month) => month.spending > 0)
   const spendingVsAverage = latestSpendingMonth && averageSpending ? latestSpendingMonth.spending - averageSpending : 0
@@ -88,15 +88,13 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
     return { month: month.month, takeHome: Math.max(0, month.labour - deductions), deductions }
   })
   const loanOpeningBalance = Math.max(0,
-    data.workerLoans.filter((loan) => loan.loan_date < `${year}-01-01`).reduce((sum, loan) => sum + (loan.kind === 'advance' ? Number(loan.amount) : -Number(loan.amount)), 0) +
-    data.jointLoans.filter((loan) => loan.loan_date < `${year}-01-01`).reduce((sum, loan) => sum + Number(loan.amount), 0) -
-    data.jointLoanRepayments.filter((repayment) => repayment.repayment_date < `${year}-01-01`).reduce((sum, repayment) => sum + Number(repayment.amount), 0)
+    data.workerLoans.filter((loan) => loan.loan_date < `${year}-01-01`).reduce((sum, loan) => sum + (loan.kind === 'advance' ? Number(loan.amount) : -Number(loan.amount)), 0)
   )
   let runningLoanBalance = loanOpeningBalance
   const loanTrendRows = activity.monthly.map((month, monthIndex) => {
     const prefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-    const given = data.workerLoans.filter((loan) => loan.kind === 'advance' && loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0) + data.jointLoans.filter((loan) => loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0)
-    const repaid = data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0) + data.jointLoanRepayments.filter((repayment) => repayment.repayment_date.startsWith(prefix)).reduce((sum, repayment) => sum + Number(repayment.amount), 0)
+    const given = data.workerLoans.filter((loan) => loan.kind === 'advance' && loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0)
+    const repaid = data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0)
     runningLoanBalance += given - repaid
     return { month: month.month, given, repaid, balance: Math.max(0, runningLoanBalance) }
   })
@@ -226,8 +224,8 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
           </ResponsiveContainer>
         </div>
         <div className="dashboard-loan-advice"><div><span>Current balance</span><strong>{money(story.balance)}</strong></div><div><span>Estimated payoff month & year</span><strong>{story.end}</strong></div><div><span>Historical repayment pace · all loans</span><strong>{money(story.pace)}</strong></div></div>
-        <p className="dashboard-description"><strong>How repayment pace is calculated:</strong> {money(story.totalRepaid)} repaid from 1 July 2025 to {story.asOf} ÷ {story.elapsedMonths.toLocaleString('en-IN', { maximumFractionDigits: 2 })} elapsed months = <strong>{money(story.pace)} per month across all loans</strong>. Each payoff below uses only that worker’s repayments, or repayments recorded against that specific joint loan. Weekly deductions and clearances are counted once. Zero-payment months count; the current month is prorated by days elapsed.</p>
-        <p className="dashboard-description">{story.unestimated ? `${story.unestimated} outstanding loan account(s) have no repayments since July 2025, so a date for clearing all loans cannot be estimated.` : story.balance > 0 ? `All loans may be cleared by ${story.end}, when the last individual or joint balance is expected to finish.` : 'All recorded loans are cleared.'} Estimates assume no new advances and each account keeps its own average pace. Repayments from cleared loans are never transferred to another worker.</p>
+        <p className="dashboard-description"><strong>How repayment pace is calculated:</strong> {money(story.totalRepaid)} repaid from 1 July 2025 to {story.asOf} ÷ {story.elapsedMonths.toLocaleString('en-IN', { maximumFractionDigits: 2 })} elapsed months = <strong>{money(story.pace)} per month across all loans</strong>. Each payoff below uses only that worker’s repayments. Weekly deductions and direct repayments are counted once. Zero-payment months count; the current month is prorated by days elapsed.</p>
+        <p className="dashboard-description">{story.unestimated ? `${story.unestimated} outstanding loan account(s) have no repayments since July 2025, so a date for clearing all loans cannot be estimated.` : story.balance > 0 ? `All loans may be cleared by ${story.end}, when the last worker’s balance is expected to finish.` : 'All recorded loans are cleared.'} Estimates assume no new advances and each account keeps its own average pace. Repayments from cleared loans are never transferred to another worker.</p>
         {story.accounts.length > 0 && <div className="dashboard-loan-accounts">{story.accounts.map(account => <article key={account.id}><h3>{account.name}</h3><p>{account.kind}</p><dl><div><dt>Outstanding</dt><dd>{money(account.balance)}</dd></div><div><dt>Own monthly pace</dt><dd>{money(account.pace)}</dd></div><div><dt>Estimated payoff</dt><dd>{account.end}</dd></div></dl><p>{money(account.repaid)} repaid ÷ {story.elapsedMonths.toLocaleString('en-IN', { maximumFractionDigits: 2 })} months. {account.months === null ? 'No repayment history in this period.' : `Balance ÷ own pace = about ${account.months} months remaining, rounded up.`}</p></article>)}</div>}
 
       </article>}

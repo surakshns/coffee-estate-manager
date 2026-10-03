@@ -138,6 +138,21 @@ body { color: var(--workspace-ink); }
 .workspace-empty button { margin-top: 6px; }
 .workspace-notice { padding: 12px 16px; margin-bottom: 16px; border: 1px solid #cfe3d4; background: #edf7ef; color: #336144; border-radius: 6px; font-size: 14px; overflow-wrap: anywhere; }
 .workspace-notice.is-error { color: #a64238; background: #fff1ee; border-color: #efd1c9; }
+.auth-shell .field, .password-form .field { min-height: 48px; font-size: 16px; }
+.auth-link { min-height: 44px; color: #25634a; font-size: 14px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.auth-link:focus-visible, .password-form button:focus-visible, .password-visibility:focus-within { outline: 3px solid #8cae9b; outline-offset: 3px; }
+.password-intro { margin-bottom: 20px; color: #647369; font-size: 14px; line-height: 1.6; }
+.password-form { display: grid; gap: 16px; }
+.password-account { color: #647369; font-size: 13px; overflow-wrap: anywhere; }
+.password-account strong { display: block; color: #23362d; margin-top: 4px; font-weight: 650; }
+.password-guidance { color: #647369; font-size: 12px; margin-top: -10px; }
+.password-visibility { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; color: #53665a; cursor: pointer; }
+.password-visibility input { width: 18px; height: 18px; accent-color: #25634a; }
+.password-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.password-actions button { min-height: 48px; flex: 1; }
+.password-form .workspace-notice { margin-bottom: 0; }
+.password-verification { display: grid; gap: 16px; padding: 16px; background: #f3f6ef; border-radius: 8px; }
+.password-recovery-success { display: grid; justify-items: center; gap: 20px; color: #25634a; text-align: center; }
 .workspace-sheet { position: fixed; inset: 0; width: min(560px, calc(100% - 40px)); max-width: none; max-height: calc(100dvh - 48px); margin: auto; padding: 0; background: #fff; color: #273b2e; border: 1px solid #dce5de; border-radius: 8px; box-shadow: 0 24px 100px #0e2a2733; overflow: hidden; }
 .workspace-sheet[open] { display: flex; flex-direction: column; }
 .workspace-sheet::backdrop { background: #182b2477; }
@@ -212,28 +227,6 @@ body { color: var(--workspace-ink); }
 .harvest-record p { color: #7b867e; font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
 .harvest-record .record-amount { color: #2f684a; font-size: 17px; }
 .labour-page { gap: 18px; }
-.labour-heading h1 { margin-top: 0; }
-.labour-panel h2 { letter-spacing: 0; }
-.labour-page .labour-panel { border: 0; border-radius: 0; padding: 16px 0; background: transparent; }
-.labour-page .labour-panel .labour-panel { padding: 0; }
-.labour-overview { border-bottom: 1px solid var(--workspace-line); }
-.labour-overview > summary { min-height: 44px; color: #617468; font-size: 13px; font-weight: 600; cursor: pointer; }
-.labour-summary { margin-bottom: 18px; }
-.labour-summary-card { padding: 14px; background: #fff; border-color: var(--workspace-line); border-radius: 6px; }
-.labour-summary-card strong { font-size: 22px; letter-spacing: 0; }
-.labour-page .labour-views { background: transparent; border: 0; border-bottom: 1px solid var(--workspace-line); border-radius: 0; padding: 0; gap: 10px; width: 100%; }
-.labour-views button { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; flex-direction: row; font-size: 13px; min-height: 48px; padding: 8px; }
-.labour-views button.is-active { background: transparent; border-color: #25634a; box-shadow: none; }
-.labour-weeks { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 8px; scrollbar-width: thin; }
-.labour-week { flex: 1 0 116px; min-height: 105px; padding: 12px; border-radius: 6px; background: #fff; }
-.labour-week strong { font-size: 20px; letter-spacing: 0; }
-.labour-week.is-selected { background: #25634a; border-color: #25634a; box-shadow: none; }
-.labour-page .labour-worker-payment, .labour-page .labour-save-bar, .labour-page .labour-edit-toolbar { border-radius: 8px; }
-.labour-team-list article, .labour-history-list article, .labour-joint-balance-list article { border-radius: 6px; }
-.labour-page .labour-loan-filters { padding: 0; border: 0; border-radius: 0; background: transparent; }
-.labour-loan-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.labour-page .labour-loan-records { order: -1; }
-.labour-page .labour-management-grid { display: block; }
 .workspace-sheet .labour-form { display: grid; gap: 18px; }
 .workspace-sheet .labour-form > h2, .workspace-sheet .labour-form > .labour-step { display: none; }
 .workspace-sheet .labour-form > p { color: #75877b; font-size: 13px; line-height: 1.6; }

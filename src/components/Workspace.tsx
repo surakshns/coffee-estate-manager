@@ -27,7 +27,7 @@ export function RecordActions({ name, onEdit, onDelete }: { name: string; onEdit
 }
 
 // A native modal supplies focus containment and makes the underlying page inert.
-export function Sheet({ open, title, onClose, children, wide = false, busy = false }: { open: boolean; title: string; onClose: () => void; children: ReactNode; wide?: boolean; busy?: boolean }) {
+export function Sheet({ open, title, onClose, children, wide = false, busy = false, className = '' }: { open: boolean; title: string; onClose: () => void; children: ReactNode; wide?: boolean; busy?: boolean; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   useEffect(() => {
@@ -40,7 +40,7 @@ export function Sheet({ open, title, onClose, children, wide = false, busy = fal
     return () => { dialog?.close(); document.documentElement.style.overflow = overflow; if (previous?.isConnected) previous.focus({ preventScroll: true }) }
   }, [open])
   if (!open) return null
-  return createPortal(<dialog ref={ref} className={`workspace-sheet ${wide ? 'is-wide' : ''}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}><div className="sheet-heading"><h2 id={titleId}>{title}</h2><button type="button" className="icon-button" aria-label="Close panel" title="Close" disabled={busy} onClick={onClose}><X size={22} /></button></div><div className="sheet-body">{children}</div></dialog>, document.body)
+  return createPortal(<dialog ref={ref} className={`workspace-sheet ${wide ? 'is-wide' : ''} ${className}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}><div className="sheet-heading"><h2 id={titleId}>{title}</h2><button type="button" className="icon-button" aria-label="Close panel" title="Close" disabled={busy} onClick={onClose}><X size={22} /></button></div><div className="sheet-body">{children}</div></dialog>, document.body)
 }
 
 export const displayDate = (value: string) => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`))

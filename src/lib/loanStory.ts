@@ -4,11 +4,7 @@ export function loanStory(data: EstateData, now = new Date()) {
   const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1
   const current = now.getFullYear() * 12 + now.getMonth()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const events = [
-    ...data.workerLoans.map(l => ({ date: l.loan_date, account: `worker:${l.worker_id}`, amount: Number(l.amount), advance: l.kind === 'advance' })),
-    ...data.jointLoans.map(l => ({ date: l.loan_date, account: `joint:${l.id}`, amount: Number(l.amount), advance: true })),
-    ...data.jointLoanRepayments.map(l => ({ date: l.repayment_date, account: `joint:${l.joint_loan_id}`, amount: Number(l.amount), advance: false }))
-  ].filter(e => e.date <= today)
+  const events = data.workerLoans.map(l => ({ date: l.loan_date, account: `worker:${l.worker_id}`, amount: Number(l.amount), advance: l.kind === 'advance' })).filter(e => e.date <= today)
   const balanceAt = (month: number) => {
     const accounts = new Map<string, number>()
     events.filter(e => monthIndex(e.date) <= month).forEach(e => accounts.set(e.account, (accounts.get(e.account) ?? 0) + (e.advance ? e.amount : -e.amount)))
@@ -33,9 +29,8 @@ export function loanStory(data: EstateData, now = new Date()) {
     const repaid = ownEvents.filter(event => !event.advance && event.date >= '2025-07-01').reduce((sum, event) => sum + event.amount, 0)
     const ownPace = elapsedMonths > 0 ? repaid / elapsedMonths : 0
     const remainingMonths = outstanding === 0 ? 0 : ownPace > 0 ? Math.ceil(outstanding / ownPace) : null
-    const joint = data.jointLoans.find(loan => `joint:${loan.id}` === id)
-    const name = joint ? `${workerName(joint.worker_one_id)} + ${workerName(joint.worker_two_id)}` : workerName(id.slice('worker:'.length))
-    return { id, name, kind: joint ? `Joint loan · ${joint.loan_date}` : 'Individual loans', balance: outstanding, repaid, pace: ownPace, months: remainingMonths,
+    const name = workerName(id.slice('worker:'.length))
+    return { id, name, kind: 'Worker loans', balance: outstanding, repaid, pace: ownPace, months: remainingMonths,
       end: outstanding === 0 ? 'Cleared' : remainingMonths === null ? 'No repayment pace' : label(current + remainingMonths) }
   }).filter(account => account.balance > 0)
   // A cleared account's repayments are never reassigned to another borrower.

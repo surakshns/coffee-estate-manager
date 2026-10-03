@@ -35,24 +35,6 @@ export interface LabourDailyRate {
   daily_rate: number
 }
 
-export interface JointLoan {
-  id: Id
-  worker_one_id: Id
-  worker_two_id: Id
-  loan_date: string
-  amount: number
-  notes: string
-}
-
-export interface JointLoanRepayment {
-  id: Id
-  joint_loan_id: Id
-  worker_id: Id | null
-  repayment_date: string
-  amount: number
-  notes: string
-}
-
 export interface ExpenseCategory {
   id: Id
   name: string
@@ -121,8 +103,6 @@ export interface EstateData {
   weeklyPayments: WeeklyPayment[]
   workerLoans: WorkerLoan[]
   labourRates: LabourDailyRate[]
-  jointLoans: JointLoan[]
-  jointLoanRepayments: JointLoanRepayment[]
   categories: ExpenseCategory[]
   expenses: Expense[]
   prices: CoffeePrice[]

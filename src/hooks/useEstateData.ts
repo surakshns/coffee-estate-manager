@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { EstateData } from '../lib/types'
 
-const empty: EstateData = { workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], jointLoans: [], jointLoanRepayments: [], categories: [], expenses: [], prices: [], monthlyGuideEntries: [], production: [], sales: [], documents: [] }
+const empty: EstateData = { workers: [], weeklyPayments: [], workerLoans: [], labourRates: [], categories: [], expenses: [], prices: [], monthlyGuideEntries: [], production: [], sales: [], documents: [] }
 
 export function useEstateData() {
   const [data, setData] = useState<EstateData>(empty)
@@ -14,13 +14,11 @@ export function useEstateData() {
     const initialLoad = !hasLoaded.current
     if (initialLoad) setLoading(true)
     setError('')
-    const [workers, weeklyPayments, workerLoans, labourRates, jointLoans, jointLoanRepayments, categories, expenses, prices, monthlyGuideEntries, production, sales, documents] = await Promise.all([
+    const [workers, weeklyPayments, workerLoans, labourRates, categories, expenses, prices, monthlyGuideEntries, production, sales, documents] = await Promise.all([
       supabase.from('workers').select('id,name,active,default_weekly_amount,default_days_worked,created_at').order('name'),
       supabase.from('weekly_payments').select('id,worker_id,week_start,amount,excluded,days_worked,daily_rate,loan_deduction').order('week_start', { ascending: false }),
       supabase.from('worker_loans').select('id,worker_id,loan_date,amount,kind,notes').order('loan_date', { ascending: false }),
       supabase.from('labour_daily_rates').select('id,rate_year,daily_rate').order('rate_year', { ascending: false }),
-      supabase.from('joint_loans').select('id,worker_one_id,worker_two_id,loan_date,amount,notes').order('loan_date', { ascending: false }),
-      supabase.from('joint_loan_repayments').select('id,joint_loan_id,worker_id,repayment_date,amount,notes').order('repayment_date', { ascending: false }),
       supabase.from('expense_categories').select('id,name,archived').order('name'),
       supabase.from('expenses').select('id,expense_date,category_id,description,amount,expense_categories(name)').order('expense_date', { ascending: false }),
       supabase.from('coffee_prices').select('id,price_date,coffee_type,grade,source,price_per_kg').order('price_date', { ascending: false }),
@@ -29,7 +27,7 @@ export function useEstateData() {
       supabase.from('sales').select('id,sale_date,production_year,bags_sold,selling_price_per_bag,buyer').order('sale_date', { ascending: false }),
       supabase.from('property_documents').select('id,title,document_date,category,notes,file_path,file_name,file_type,file_size,created_at').order('created_at', { ascending: false })
     ])
-    const firstError = [workers, weeklyPayments, workerLoans, labourRates, jointLoans, jointLoanRepayments, categories, expenses, prices, monthlyGuideEntries, production, sales, documents].find((result) => result.error)?.error
+    const firstError = [workers, weeklyPayments, workerLoans, labourRates, categories, expenses, prices, monthlyGuideEntries, production, sales, documents].find((result) => result.error)?.error
     if (firstError) setError(firstError.message)
     else {
       const normalizedExpenses: EstateData['expenses'] = (expenses.data ?? []).map((expense) => ({
@@ -38,7 +36,7 @@ export function useEstateData() {
       }))
       setData({
         workers: workers.data ?? [], weeklyPayments: weeklyPayments.data ?? [], workerLoans: workerLoans.data ?? [],
-        labourRates: labourRates.data ?? [], jointLoans: jointLoans.data ?? [], jointLoanRepayments: jointLoanRepayments.data ?? [], categories: categories.data ?? [],
+        labourRates: labourRates.data ?? [], categories: categories.data ?? [],
         expenses: normalizedExpenses, prices: prices.data ?? [], monthlyGuideEntries: monthlyGuideEntries.data ?? [], production: production.data ?? [], sales: sales.data ?? [], documents: documents.data ?? []
       })
     }
