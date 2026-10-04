@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { AppIcon } from './components/AppIcon'
-import { CoffeeCup } from './components/CoffeeCup'
 import { AuthScreen } from './components/AuthScreen'
 import { PasswordForm } from './components/PasswordForm'
 import { PasswordRecovery } from './components/PasswordRecovery'
@@ -139,12 +138,13 @@ export default function App() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <header className="app-header sticky top-0 z-20">
       <div className="app-header-inner mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <button className="brand-lockup text-left" onClick={() => navigate('Dashboard')} aria-label="Coffee Estate Manager — go to dashboard">
-          <span className="brand-cup" aria-hidden="true"><CoffeeCup className="brand-cup-icon" /></span>
-          <span><span className="brand-eyebrow">COFFEE ESTATE</span><span className="brand-title">Manager<span className="brand-dot">.</span></span></span>
-        </button>
+        <div className="brand-lockup">
+          <EstateGuide data={data} refresh={refresh} page={page} disabled={loading} />
+          <button type="button" className="brand-home" onClick={() => navigate('Dashboard')} aria-label="Coffee Estate Manager — go to dashboard">
+            <span className="brand-eyebrow">COFFEE ESTATE</span><span className="brand-title">Manager<span className="brand-dot">.</span></span>
+          </button>
+        </div>
         <div className="header-actions flex items-center gap-2">
-          {!loading && <EstateGuide data={data} refresh={refresh} />}
           {['Dashboard', 'Labour', 'Expenses', 'Production'].includes(page) && <label className="year-control" htmlFor="record-year"><span className="hidden sm:inline">Record year</span><select id="record-year" aria-label="Record year" className="year-picker" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>}
           <details className="header-menu" ref={menuRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}>
             <summary className="header-more" aria-label="More options"><AppIcon name="more" /></summary>

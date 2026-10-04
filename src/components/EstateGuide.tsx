@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { Info } from 'lucide-react'
 import { CoffeeCup } from './CoffeeCup'
 import { scrollToEditor } from '../lib/scroll'
 import { supabase } from '../lib/supabase'
@@ -29,7 +30,7 @@ const guide: GuideMonth[] = [
 
 const monthName = (month: number, short = false) => new Intl.DateTimeFormat('en-IN', { month: short ? 'short' : 'long' }).format(new Date(2024, month - 1, 1))
 
-export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () => Promise<void> }) {
+export function EstateGuide({ data, refresh, page = 'Dashboard', disabled = false }: { data: EstateData; refresh: () => Promise<void>; page?: string; disabled?: boolean }) {
   const currentMonth = new Date().getMonth() + 1
   const [open, setOpen] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
@@ -151,8 +152,11 @@ export function EstateGuide({ data, refresh }: { data: EstateData; refresh: () =
   }
 
   return <>
-    <button type="button" className="estate-guide-fab" onClick={() => setOpen(true)} aria-label="Open coffee estate guide" title="Coffee estate guide" aria-haspopup="dialog" aria-expanded={open} aria-controls="estate-guide-dialog">
-      <span className="estate-guide-fab-icon" aria-hidden="true"><CoffeeCup /></span>
+    <button type="button" className="brand-guide-trigger" onClick={() => setOpen(true)} disabled={disabled} aria-label="Open coffee estate guide and notes" title="Coffee estate guide & notes" aria-haspopup="dialog" aria-expanded={open} aria-controls="estate-guide-dialog">
+      <span key={page} className="brand-guide-turn" aria-hidden="true">
+        <span className="brand-guide-face"><CoffeeCup /></span>
+        <span className="brand-guide-face is-info"><Info size={24} strokeWidth={2} /></span>
+      </span>
     </button>
     {open && createPortal(
       <div className="estate-guide-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}>

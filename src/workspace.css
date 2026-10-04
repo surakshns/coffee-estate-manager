@@ -11,7 +11,26 @@ body { color: var(--workspace-ink); }
 .brand-title { color: #243c30; font: 750 20px/1.1 ui-sans-serif, system-ui, sans-serif; }
 .brand-eyebrow { color: #66766c; font-size: 9px; }
 .brand-dot { color: #307557; }
-.brand-cup { width: 36px; height: 36px; }
+.brand-lockup { gap: 8px; padding: 0; }
+.brand-lockup:hover { background: transparent; }
+.brand-lockup:active { transform: none; }
+.brand-home { min-width: 0; min-height: 44px; padding: 4px 2px; border-radius: 6px; text-align: left; }
+.brand-guide-trigger { display: grid; flex-shrink: 0; width: 44px; height: 44px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; perspective: 260px; }
+.brand-guide-trigger:hover:not(:disabled) { background: #edf3ef; }
+.brand-guide-trigger:disabled { cursor: default; opacity: .65; }
+.brand-guide-trigger:focus-visible, .brand-home:focus-visible { outline: 3px solid #84a593; outline-offset: 3px; }
+.brand-guide-turn { position: relative; display: block; width: 36px; height: 36px; transform-style: preserve-3d; animation: brand-guide-flip 22s cubic-bezier(.4, 0, .2, 1) infinite; }
+.brand-guide-face { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.brand-guide-face > svg { display: block; width: 100%; height: 100%; }
+.brand-guide-face.is-info { transform: rotateY(180deg); background: #00754a; color: #fff; }
+.brand-guide-face.is-info::before { position: absolute; inset: 3px; border: 1px solid #ffffff73; border-radius: 50%; content: ''; }
+.brand-guide-face.is-info > svg { width: 24px; height: 24px; }
+.brand-guide-trigger:is(:disabled, [aria-expanded=true]) .brand-guide-turn { animation-play-state: paused; }
+@keyframes brand-guide-flip {
+  0%, 1%, 12%, 100% { transform: rotateY(0deg); }
+  4%, 8% { transform: rotateY(180deg); }
+}
+@media (prefers-reduced-motion: reduce) { .brand-guide-turn { animation: none; transform: none; } }
 .year-control { color: #68756d; }
 .year-picker { background: #f5f7f5; border-color: var(--workspace-line); color: #35463b; border-radius: 6px; min-height: 44px; font-size: 14px; }
 .year-picker:hover, .year-picker:focus { background: #edf3ef; border-color: #84a593; box-shadow: none; }
@@ -24,9 +43,6 @@ body { color: var(--workspace-ink); }
 .desktop-nav-item { border-radius: 6px; background: transparent; color: #68736c; box-shadow: none; min-height: 44px; font-size: 13px; }
 .desktop-nav-item:hover { background: #f2f6f3; color: #25634a; }
 .desktop-nav-item.is-active { background: #e9f2ec; color: #25634a; transform: none; box-shadow: none; }
-.estate-guide-fab { position: static; flex-shrink: 0; width: 44px; height: 44px; min-height: 44px; border-radius: 6px; background: #f2f6f3; border: 1px solid var(--workspace-line); box-shadow: none; }
-.estate-guide-fab:hover { transform: none; background: #e9f2ec; box-shadow: none; }
-.estate-guide-fab-icon, .estate-guide-fab-icon svg { width: 30px; height: 30px; }
 .page { max-width: 1160px; padding-top: 28px; padding-bottom: 100px; }
 .page > header:not(.dashboard-hero) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
 .page > header:not(.dashboard-hero)::after { display: none; }
@@ -305,10 +321,9 @@ body { color: var(--workspace-ink); }
   .brand-title { font-size: 18px; }
   .brand-eyebrow { font-size: 8px; }
   .brand-lockup { gap: 8px; }
-  .brand-cup { width: 28px; height: 28px; }
   .header-actions { gap: 6px; }
   .year-picker { font-size: 13px; padding-inline: 8px 18px; }
-  .header-more, .estate-guide-fab { min-width: 40px; width: 40px; }
+  .header-more { min-width: 40px; width: 40px; }
   .workspace-sheet, .workspace-sheet.is-wide { width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
   .sheet-heading { padding: max(12px, env(safe-area-inset-top)) 16px 12px; min-height: 64px; }
   .sheet-body { padding: 20px; flex: 1; }
@@ -323,7 +338,6 @@ body { color: var(--workspace-ink); }
 }
 @media (max-width: 359px) {
   .page { padding-inline: 14px; }
-  .brand-cup { display: none; }
   .workspace-heading .button-primary { font-size: 12px; padding-inline: 10px; }
   .record-amount { font-size: 14px; }
 }

@@ -216,6 +216,7 @@ export function MobileWeeklyPayDeck({ dateLabel, workers, busy, locked, saved, d
   function requestClose() {
     if (busy) return
     if (closeRequested) { setCloseRequested(false); return }
+    if (editingDeduction) { finishDeduction(); return }
     if (!dirty) { onClose(); return }
     if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null }
     setLeaving(false)
@@ -224,7 +225,7 @@ export function MobileWeeklyPayDeck({ dateLabel, workers, busy, locked, saved, d
     setCloseRequested(true)
   }
 
-  return <Sheet open title={`Weekly pay · ${dateLabel}`} onClose={requestClose} busy={busy} className="labour-deck-sheet">
+  return <Sheet open title={`Weekly pay · ${dateLabel}`} onClose={requestClose} closeLabel={editingDeduction && !closeRequested ? 'Back to advance' : undefined} busy={busy} className={`labour-deck-sheet ${editingDeduction && !closeRequested ? 'is-editing-deduction' : ''}`}>
     <div className="labour-mobile-deck" hidden={closeRequested} inert={closeRequested}>
       {editingDeduction && worker ? renderDeduction(worker, finishDeduction) : <>
       <div className="labour-deck-progress">
@@ -243,7 +244,7 @@ export function MobileWeeklyPayDeck({ dateLabel, workers, busy, locked, saved, d
           event.stopPropagation()
         }
       }}>
-        <div className="labour-deck-preview" aria-hidden="true"><span>{direction === -1 ? 'Previous worker' : workers[index + 1] ? 'Next worker' : 'Next: week totals'}</span><strong>{direction === -1 ? workers[index - 1]?.name : workers[index + 1]?.name ?? 'Review & save'}</strong></div>
+        <div className={`labour-deck-preview ${direction === -1 ? 'is-previous' : 'is-next'}`} aria-hidden="true"><span>{direction === -1 ? 'Previous worker' : workers[index + 1] ? 'Next worker' : 'Next: week totals'}</span><strong>{direction === -1 ? workers[index - 1]?.name : workers[index + 1]?.name ?? 'Review & save'}</strong></div>
         <div key={worker?.id ?? 'review'} className={`labour-deck-motion ${worker ? 'has-worker' : ''} ${leaving ? 'is-leaving' : ''} ${dragY !== 0 ? 'is-dragging' : ''}`} style={{ '--swipe-y': `${dragY}px`, '--swipe-angle': `${dragY / 60}deg`, '--swipe-exit': direction === 1 ? '-110%' : '110%', '--swipe-rotation': direction === 1 ? '-6deg' : '6deg', '--card-enter-y': direction === 1 ? '12px' : '-12px' } as CSSProperties}>
           <div className="labour-deck-swipe-handle"><span aria-hidden="true" /><div><p>{reviewing ? 'Swipe down for previous worker' : index === 0 ? 'Swipe up for next worker' : 'Swipe up: next · Swipe down: previous'}</p>{worker && cardOverflows && <button type="button" className="labour-deck-scroll-button" disabled={busy || leaving} onClick={scrollCardDetails}>{cardAtBottom ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}{cardAtBottom ? 'Back to top' : 'More details'}</button>}</div></div>
           <div className="labour-deck-card-scroll" ref={scrollRef}>

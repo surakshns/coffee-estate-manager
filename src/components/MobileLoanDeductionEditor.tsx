@@ -70,17 +70,13 @@ export function MobileLoanDeductionEditor({ workerName, value, wages, maximum, s
   }
 
   return <section className="labour-deduction-editor" aria-labelledby="labour-deduction-title" onKeyDown={keyboardInput}>
-    <div className="labour-deduction-editor-scroll">
+    <div className="labour-deduction-editor-body">
       <div className="labour-deduction-display">
-        <div className="labour-deduction-heading"><div><p>{workerName}</p><h3 id="labour-deduction-title">Loan deduction</h3></div><span>Up to {rupees(maximum)}</span></div>
-        <div className={`labour-deduction-amount ${invalid ? 'is-invalid' : ''}`}><span aria-hidden="true">₹</span><input ref={amountRef} type="text" inputMode="none" readOnly aria-label={`Loan deduction in rupees for ${workerName}`} aria-invalid={invalid} aria-describedby={invalid ? 'labour-deduction-error' : undefined} value={value || '0'} /></div>
-        {invalid && <p id="labour-deduction-error" className="labour-deduction-error" role="alert">Deduction cannot exceed {rupees(maximum)} (wages and loan balance).</p>}
-        <div className="labour-deduction-pay" role="status" aria-live="polite"><span>Pay {workerName}</span><strong>{rupees(Math.max(0, wages - amount))}</strong></div>
+        <div className="labour-deduction-heading"><p title={workerName}>{workerName}</p><h3 id="labour-deduction-title">Loan deduction</h3></div>
+        <div className={`labour-deduction-amount ${invalid ? 'is-invalid' : ''}`}><span aria-hidden="true">₹</span><input ref={amountRef} type="text" inputMode="none" readOnly aria-label={`Loan deduction in rupees for ${workerName}`} aria-invalid={invalid} aria-describedby={invalid ? 'labour-deduction-error' : undefined} value={value || '0'} /><span className="labour-deduction-limit">Max {rupees(maximum)}</span></div>
+        {invalid ? <p id="labour-deduction-error" className="labour-deduction-error" role="alert">Deduction cannot exceed {rupees(maximum)}.</p> : <div className="labour-deduction-pay" role="status" aria-live="polite"><span>Pay {workerName}</span><strong>{rupees(Math.max(0, wages - amount))}</strong></div>}
       </div>
-      {suggestions.length > 0 && <div className="labour-deduction-suggestions">
-        <p>{suggestions.some(item => item.recommended) ? 'Suggested from past repayments' : 'Choose an amount'}</p>
-        <div className="labour-deduction-shortcuts" role="group" aria-label="Suggested deduction amounts">{suggestions.map(suggestion => <button type="button" key={suggestion.amount} className={suggestion.recommended ? 'is-recommended' : ''} disabled={busy} aria-label={`Set ${rupees(suggestion.amount)}`} aria-pressed={amount === suggestion.amount} onClick={() => setAmount(suggestion.amount)}><strong>{rupees(suggestion.amount)}</strong><span>{suggestion.reason}</span>{suggestion.recommended && <span className="labour-deduction-recommendation">Suggested</span>}</button>)}</div>
-      </div>}
+      {suggestions.length > 0 && <div className="labour-deduction-shortcuts" role="group" aria-label="Suggested deduction amounts">{suggestions.map(suggestion => <button type="button" key={suggestion.amount} className={suggestion.recommended ? 'is-recommended' : ''} disabled={busy} aria-label={`Set ${rupees(suggestion.amount)}`} aria-pressed={amount === suggestion.amount} onClick={() => setAmount(suggestion.amount)}><strong>{rupees(suggestion.amount)}</strong></button>)}</div>}
       <div className="labour-deduction-keypad" role="group" aria-label="Deduction number pad">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit => <button type="button" key={digit} disabled={busy} onClick={() => enter(String(digit))}>{digit}</button>)}
         <button type="button" aria-label="Decimal point" disabled={busy} onClick={() => enter('.')}>.</button>
