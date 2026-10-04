@@ -5,7 +5,8 @@ import { dashboardActivity } from '../lib/dashboardData'
 import type { EstateData } from '../lib/types'
 import './dashboard.css'
 import { ViewTabs } from './Workspace'
-import { Users, ReceiptText, CloudRain } from 'lucide-react'
+import { CalendarDays, ReceiptText, ArrowUpRight } from 'lucide-react'
+import { currentAdvanceWeek } from '../lib/estateDates'
 import { dashboardLoans } from '../lib/dashboardLoans'
 import { DashboardWorkerCards, type DashboardWorkerRow } from './DashboardWorkerCards'
 import { LoanTrendCharts } from './LoanTrendCharts'
@@ -22,10 +23,13 @@ function defaultRange(year: number) {
   return { from: `${year}-01`, to: `${year}-${year === currentYear ? currentMonth : '12'}` }
 }
 
-export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void }) {
+export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void; onStartAdvance?: (week: string) => void; onAddExpense?: () => void }) {
   const [dashboardView, setDashboardView] = useState<'overview' | 'team'>('overview')
   const [range, setRange] = useState(() => ({ ...defaultRange(year), year }))
   const { from, to } = range.year === year ? range : defaultRange(year)
+  const advanceWeek = currentAdvanceWeek()
+  const advanceSaved = data.weeklyPayments.some(payment => payment.week_start === advanceWeek)
+  const advanceDate = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date(`${advanceWeek}T12:00:00Z`))
   const updateRange = (next: { from: string; to: string }) => setRange({ ...next, year })
   const harvest = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
   const activity = dashboardActivity(data, year)
@@ -100,12 +104,20 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
         <p className="dashboard-eyebrow"><span aria-hidden="true" className="dashboard-season-dot" /> {year} overview</p>
         <h1>Estate overview</h1>
       </div>
-      {onNavigate && <div className="dashboard-quick-actions" aria-label="Quick actions">
-        <button className="dashboard-action-primary" onClick={() => onNavigate('Labour')}><Users size={17} /> Labour</button>
-        <button className="dashboard-action-secondary" onClick={() => onNavigate('Expenses')}><ReceiptText size={17} /> Expenses</button>
-        <button className="dashboard-action-secondary" onClick={() => onNavigate('Rainfall')}><CloudRain size={17} /> Rainfall</button>
-      </div>}
     </header>
+
+    {(onStartAdvance || onAddExpense) && <section className="dashboard-entry-actions" aria-label="Add your regular records">
+      {onStartAdvance && <button type="button" className="dashboard-entry-card is-advance" aria-label={advanceSaved ? 'Edit this week’s advance' : 'Start this week’s advance'} onClick={() => onStartAdvance(advanceWeek)}>
+        <span className="dashboard-entry-icon" aria-hidden="true"><CalendarDays size={23} /></span>
+        <span className="dashboard-entry-copy"><span className="dashboard-entry-label">This week’s advance</span><strong>{advanceSaved ? 'Edit advance' : 'Start advance'}</strong><span className="dashboard-entry-detail"><span>{advanceDate}</span><span className={`dashboard-entry-status${advanceSaved ? ' is-saved' : ''}`}>{advanceSaved ? 'Saved' : 'Not saved'}</span></span></span>
+        <ArrowUpRight size={21} aria-hidden="true" />
+      </button>}
+      {onAddExpense && <button type="button" className="dashboard-entry-card" aria-label="Add expense" onClick={onAddExpense}>
+        <span className="dashboard-entry-icon" aria-hidden="true"><ReceiptText size={23} /></span>
+        <span className="dashboard-entry-copy"><span className="dashboard-entry-label">Estate expenses</span><strong>Add expense</strong><span className="dashboard-entry-detail">Amount, category &amp; date</span></span>
+        <ArrowUpRight size={21} aria-hidden="true" />
+      </button>}
+    </section>}
 
     <ViewTabs<'overview' | 'team'> label="Dashboard views" value={dashboardView} onChange={setDashboardView} items={[{ value: 'overview', label: 'Overview' }, { value: 'team', label: 'Workers & loans' }]} />
     {dashboardView === 'overview' && <section aria-label={`${year} estate summary`} className="dashboard-summary">

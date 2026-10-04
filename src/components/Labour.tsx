@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { money, monthlyLabourTotal, wednesdaysInMonth, workersForPaymentDate, yearlyLabourTotal } from '../lib/calculations'
 import { ArrowUp, CalendarDays, Check, Pencil, Settings2, Users, Wallet } from 'lucide-react'
 import { PageHeading, Sheet, Notice, SearchField, EmptyState } from './Workspace'
+import { SelectionNav } from './SelectionNav'
 import { supabase } from '../lib/supabase'
 import type { EstateData, Worker, WorkerLoan } from '../lib/types'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -11,6 +12,7 @@ import { MobileWeeklyPayDeck } from './MobileWeeklyPayDeck'
 import { MobileLoanDeductionEditor } from './MobileLoanDeductionEditor'
 import { WEEKLY_REPAYMENT_NOTE, workerLoanAccounts } from '../lib/labourLoans'
 import { loanDeductionSuggestions } from '../lib/repaymentSuggestions'
+import { estateToday } from '../lib/estateDates'
 import './labour.css'
 
 const asNumber = (value: string | undefined) => Number((value ?? '').replace(/,/g, '') || 0)
@@ -26,21 +28,27 @@ const formattedAmount = (value: string) => {
 const monthName = (monthIndex: number) => new Intl.DateTimeFormat('en-IN', { month: 'long' }).format(new Date(2026, monthIndex, 1))
 const friendlyDate = (date: string) => new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`))
 const shortDate = (date: string) => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`))
-const today = () => new Date().toLocaleDateString('en-CA')
+const today = () => estateToday()
 const preferredWednesday = (year: number, month: number) => {
   const dates = wednesdaysInMonth(year, month)
   return [...dates].reverse().find((date) => date <= today()) ?? dates[0]
+}
+const advanceDate = (date?: string) => {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined
+  return wednesdaysInMonth(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1).includes(date) ? date : undefined
 }
 type LoanForm = { worker_id: string; loan_date: string; amount: string; kind: 'advance' | 'repayment'; notes: string }
 type View = 'payments' | 'loans' | 'workers'
 type WeekSelection = { month: number; date: string }
 const emptyLoan = (): LoanForm => ({ worker_id: '', loan_date: today(), amount: '', kind: 'advance', notes: '' })
 
-export function Labour({ data, year, refresh, onYearChange }: { data: EstateData; year: number; refresh: () => Promise<void>; onYearChange?: (year: number) => void }) {
+export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate }: { data: EstateData; year: number; refresh: () => Promise<void>; onYearChange?: (year: number) => void; initialAdvanceDate?: string }) {
+  const initialWeek = advanceDate(initialAdvanceDate)
+  const initialMonth = Number((initialWeek ?? today()).slice(5, 7)) - 1
   const [view, setView] = useState<View>('payments')
   const [editor, setEditor] = useState<'worker' | 'loan' | 'rate' | null>(null)
-  const [openMonth, setOpenMonth] = useState(new Date().getMonth())
-  const [openWednesday, setOpenWednesday] = useState(() => preferredWednesday(year, new Date().getMonth()))
+  const [openMonth, setOpenMonth] = useState(initialMonth)
+  const [openWednesday, setOpenWednesday] = useState(() => initialWeek ?? preferredWednesday(year, initialMonth))
   const [daysWorked, setDaysWorked] = useState<Record<string, string>>({})
   const [removed, setRemoved] = useState<Record<string, boolean>>({})
   const [repayments, setRepayments] = useState<Record<string, string>>({})
@@ -52,7 +60,7 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
   const [resettingWeek, setResettingWeek] = useState('')
   const [workerName, setWorkerName] = useState('')
   const [workerDays, setWorkerDays] = useState('5')
-  const [editingWeek, setEditingWeek] = useState(false)
+  const [editingWeek, setEditingWeek] = useState(Boolean(initialWeek))
   const [discardingWeek, setDiscardingWeek] = useState(false)
   const [workerActive, setWorkerActive] = useState(true)
   const [editing, setEditing] = useState<Worker | null>(null)
@@ -67,6 +75,7 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
   const previousYear = useRef(year)
   const requestedWeek = useRef<string | null>(null)
   const weeklyPayFormRef = useRef<HTMLFormElement>(null)
+  const openInitialAdvance = useRef(Boolean(initialWeek && isPhone && workersForPaymentDate(data.workers, data.weeklyPayments, initialWeek).length))
 
   const dates = useMemo(() => wednesdaysInMonth(year, openMonth), [year, openMonth])
   const loanAccounts = useMemo(() => workerLoanAccounts(data.workers, data.workerLoans), [data.workers, data.workerLoans])
@@ -161,6 +170,13 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
     setRemoved(nextRemoved)
     setRepayments(nextRepayments)
   }, [data.workers, data.weeklyPayments, openWednesday, annualRate, dirtyDraft, recordedRepaymentsByWeek, editingWeek])
+
+  useEffect(() => {
+    // Open once, after the selected week's draft has been filled from its records.
+    if (!openInitialAdvance.current) return
+    openInitialAdvance.current = false
+    setPhoneDeckOpen(true)
+  }, [])
 
   useEffect(() => {
     if (!dirtyDraft) return
@@ -352,9 +368,9 @@ export function Labour({ data, year, refresh, onYearChange }: { data: EstateData
       <SummaryCard label="Worker loan balance" value={money(totalLoanBalance)} detail="Advances less repayments" />
       {view === 'payments' && <><SummaryCard label="This week’s work days" value={daysLabel(savedWeeklyWorkingDays)} detail={hasSavedPayment ? 'Saved worker days in the selected week' : 'No saved payment for this week'} /><SummaryCard label={`${monthName(openMonth)} work days`} value={daysLabel(monthlyWorkingDays)} detail="All saved worker days this month" /><SummaryCard label={`${monthName(openMonth)} take-home`} value={money(monthlyTakeHome)} detail="Wages after loan deductions" /></>}
     </div></details>
-    <nav className="labour-views" aria-label="Labour sections">
+    <SelectionNav value={view} className="labour-views" aria-label="Labour sections">
       {([{ value: 'payments', label: 'Weekly pay', Icon: CalendarDays }, { value: 'loans', label: 'Loans', Icon: Wallet }, { value: 'workers', label: 'Workers', Icon: Users }] as const).map(({ value, label, Icon }) => <button key={value} type="button" className={view === value ? 'is-active' : ''} aria-current={view === value ? 'page' : undefined} onClick={() => setView(value)}><Icon size={18} aria-hidden="true" />{label}{value === 'payments' && dirtyDraft && <span className="labour-draft-dot" aria-label="Unsaved changes" />}</button>)}
-    </nav>
+    </SelectionNav>
     {message && <p className={`labour-message ${messageError ? 'is-error' : ''}`} role={messageError ? 'alert' : 'status'}>{messageError ? '' : '✓ '}{message}</p>}
 
     {view === 'payments' && <>

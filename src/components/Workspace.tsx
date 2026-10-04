@@ -1,13 +1,14 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X, Plus, Pencil, Trash2, FileSearch } from 'lucide-react'
+import { SelectionNav } from './SelectionNav'
 
 export function PageHeading({ title, detail, action, onAction }: { title: string; detail: string; action?: string; onAction?: () => void }) {
   return <header className="workspace-heading"><div><h1>{title}</h1><p>{detail}</p></div>{action && <button className="button-primary" onClick={onAction}><Plus size={18} />{action}</button>}</header>
 }
 
 export function ViewTabs<T extends string>({ label, value, onChange, items }: { label: string; value: T; onChange: (value: T) => void; items: { value: T; label: string; count?: number }[] }) {
-  return <nav className="workspace-tabs" aria-label={label}>{items.map(item => <button key={item.value} className={value === item.value ? 'is-active' : ''} aria-current={value === item.value ? 'page' : undefined} onClick={() => onChange(item.value)}>{item.label}{item.count !== undefined && <span>{item.count}</span>}</button>)}</nav>
+  return <SelectionNav value={value} className="workspace-tabs" aria-label={label}>{items.map(item => <button key={item.value} className={value === item.value ? 'is-active' : ''} aria-current={value === item.value ? 'page' : undefined} onClick={() => onChange(item.value)}>{item.label}{item.count !== undefined && <span>{item.count}</span>}</button>)}</SelectionNav>
 }
 
 export function SearchField({ value, onChange, label, placeholder = 'Search records' }: { value: string; onChange: (value: string) => void; label: string; placeholder?: string }) {

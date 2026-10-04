@@ -4,12 +4,13 @@ import { AppIcon } from './components/AppIcon'
 import { AuthScreen } from './components/AuthScreen'
 import { PasswordForm } from './components/PasswordForm'
 import { PasswordRecovery } from './components/PasswordRecovery'
-import { LockKeyhole } from 'lucide-react'
+import { Download, LockKeyhole, LogOut, Menu } from 'lucide-react'
 import { Backup } from './components/Backup'
 import { Dashboard } from './components/Dashboard'
 import { Documents } from './components/Documents'
 import { EstateGuide } from './components/EstateGuide'
 import { Expenses } from './components/Expenses'
+import { ExpenseEditor } from './components/ExpenseEditor'
 import { Labour } from './components/Labour'
 import { Prices } from './components/Prices'
 import { Production } from './components/Production'
@@ -18,8 +19,12 @@ import { useEstateData } from './hooks/useEstateData'
 import { supabase } from './lib/supabase'
 import { isPasswordRecovery, passwordRecoveryError, setPasswordRecoveryUrl } from './lib/auth'
 import { Sheet } from './components/Workspace'
+import { SelectionNav } from './components/SelectionNav'
+import { RecordLoading } from './components/RecordLoading'
+import { estateToday } from './lib/estateDates'
 
 type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup'
+type NavigationEntry = { advanceDate?: string; expenseView?: 'records' | 'breakdown' | 'categories' }
 type DeferredInstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'documents' | 'backup' }[] = [
   { page: 'Dashboard', short: 'Home', icon: 'home' },
@@ -40,7 +45,9 @@ export default function App() {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [page, setPage] = useState<Page>('Dashboard')
   const [moreOpen, setMoreOpen] = useState(false)
-  const [year, setYear] = useState(new Date().getFullYear())
+  const [entry, setEntry] = useState<NavigationEntry>({})
+  const [quickExpenseOpen, setQuickExpenseOpen] = useState(false)
+  const [year, setYear] = useState(() => Number(estateToday().slice(0, 4)))
   const [notice, setNotice] = useState('')
   const [loadingDemo, setLoadingDemo] = useState(false)
   const mainRef = useRef<HTMLElement>(null)
@@ -94,12 +101,17 @@ export default function App() {
     if (!error) await refresh()
     setLoadingDemo(false)
   }
-  function navigate(nextPage: Page) {
+  function navigate(nextPage: Page, nextEntry: NavigationEntry = {}) {
     setMoreOpen(false)
+    setEntry(nextEntry)
     if (menuRef.current) menuRef.current.open = false
     if (nextPage !== page) setPage(nextPage)
     window.scrollTo({ top: 0, behavior: 'instant' })
-    requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }))
+    requestAnimationFrame(() => { if (!document.querySelector('dialog[open]')) mainRef.current?.focus({ preventScroll: true }) })
+  }
+  function startAdvance(week: string) {
+    setYear(Number(week.slice(0, 4)))
+    navigate('Labour', { advanceDate: week })
   }
   function finishPasswordRecovery() {
     setRecoveringPassword(false); setRecoveryError(''); setPasswordRecoveryUrl(false)
@@ -109,26 +121,27 @@ export default function App() {
     if (menuRef.current) menuRef.current.open = false
     setPasswordOpen(true)
   }
-  if (checking) return <main className="grid min-h-screen place-items-center"><p className="text-lg font-bold text-stone-600">Opening Coffee Estate Manager…</p></main>
+  if (checking) return <main className="app-opening"><RecordLoading message="Opening Coffee Estate Manager…" compact /></main>
   if (recoveringPassword) {
     if (!session || recoveryError) return <AuthScreen key="password-recovery" initialMode="forgot-password" initialMessage={recoveryError || 'This reset link is invalid or has expired. Request a new link below.'} onReturnToSignIn={finishPasswordRecovery} />
     return <PasswordRecovery email={session.user.email} onComplete={finishPasswordRecovery} />
   }
   if (!session) return <AuthScreen />
 
+  const currentYear = Number(estateToday().slice(0, 4))
   const recordYears = [...data.production.map((item) => item.production_year), ...data.sales.map((item) => Number(item.sale_date.slice(0, 4))), ...data.expenses.map((item) => Number(item.expense_date.slice(0, 4))), ...data.weeklyPayments.map((item) => Number(item.week_start.slice(0, 4)))]
-  const years = [...new Set([year, ...Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 5 + index), ...recordYears])].filter(Number.isFinite).sort((a, b) => b - a)
+  const years = [...new Set([year, ...Array.from({ length: 11 }, (_, index) => currentYear - 5 + index), ...recordYears])].filter(Number.isFinite).sort((a, b) => b - a)
   const current = () => {
     const props = { data, year, refresh }
     switch (page) {
-      case 'Labour': return <Labour {...props} onYearChange={setYear} />
-      case 'Expenses': return <Expenses {...props} />
+      case 'Labour': return <Labour {...props} onYearChange={setYear} initialAdvanceDate={entry.advanceDate} />
+      case 'Expenses': return <Expenses {...props} initialView={entry.expenseView} />
       case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
       case 'Production': return <Production {...props} />
       case 'Documents': return <Documents data={data} refresh={refresh} />
       case 'Backup': return <Backup data={data} refresh={refresh} />
-      default: return <Dashboard data={data} year={year} onNavigate={navigate} />
+      default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} />
     }
   }
 
@@ -158,18 +171,22 @@ export default function App() {
           </details>
         </div>
       </div>
-      <nav aria-label="Main navigation" className="desktop-nav mx-auto hidden max-w-7xl gap-1 px-4 pb-2 sm:flex sm:px-6 lg:px-8">
+      <SelectionNav value={page} aria-label="Main navigation" className="desktop-nav mx-auto hidden max-w-7xl gap-1 px-4 pb-2 sm:flex sm:px-6 lg:px-8">
         {navigation.map((item) => <button key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined} className={page === item.page ? 'desktop-nav-item is-active' : 'desktop-nav-item'}><AppIcon name={item.icon} />{item.page === 'Production' ? 'Harvest & sales' : item.page}</button>)}
-      </nav>
+      </SelectionNav>
     </header>
     <main id="main-content" ref={mainRef} tabIndex={-1} className="main-content">
       {error && <div className="app-banner" role="alert"><strong>Your records could not be loaded.</strong><p>{error}</p><button className="button-secondary mt-3" onClick={() => void refresh()}>Try again</button></div>}
       {notice && <div className="app-banner notice-banner" role="status"><p>{notice}</p><button onClick={() => setNotice('')} aria-label="Dismiss notification">×</button></div>}
       {!loading && !error && !hasRecords && page === 'Dashboard' && <div className="app-banner welcome-banner"><div><strong>Welcome to your estate desk.</strong><p>Add your first worker, expense or harvest to get started.</p></div><details><summary>Explore with sample records</summary><p className="mt-2 text-sm">This adds sample records to your account.</p><button className="button-secondary mt-2" disabled={loadingDemo} onClick={() => void loadDemo()}>{loadingDemo ? 'Adding records…' : 'Add sample records'}</button></details></div>}
-      {loading ? <div className="loading-state" role="status"><span className="loading-leaf" aria-hidden="true">🌱</span><p>Gathering your estate records…</p></div> : <div className="page-transition" key={page}>{current()}</div>}
+      {loading ? <RecordLoading /> : <div className="page-transition" key={page}>{current()}</div>}
     </main>
-    <nav aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses', 'Documents'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${['Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="More sections" aria-haspopup="dialog"><span className="mobile-nav-icon"><AppIcon name="more" /></span><span className="mobile-nav-label">More</span></button></nav>
-    <Sheet open={moreOpen} title="Your estate" onClose={() => setMoreOpen(false)}><nav className="more-navigation" aria-label="More sections">{navigation.filter(item => ['Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><AppIcon name={item.icon} /><span>{item.page === 'Production' ? 'Harvest & sales' : item.page}</span><AppIcon name="arrow" /></button>)}<button onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup & import</span><AppIcon name="arrow" /></button><button onClick={openPasswordSettings}><LockKeyhole size={18} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button></nav></Sheet>
+    <SelectionNav value={moreOpen ? 'Menu' : page} aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${!moreOpen && page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${moreOpen || ['Documents', 'Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="Menu" aria-haspopup="dialog" aria-expanded={moreOpen}><span className="mobile-nav-icon"><Menu size={21} aria-hidden="true" /></span><span className="mobile-nav-label">Menu</span></button></SelectionNav>
+    <Sheet open={moreOpen} title="Menu" className="mobile-menu-sheet" onClose={() => setMoreOpen(false)}>
+      <nav className="mobile-menu-sections" aria-label="Other sections">{navigation.filter(item => ['Documents', 'Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button type="button" key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-menu-section-icon"><AppIcon name={item.icon} /></span><span>{item.page === 'Production' ? 'Harvest & sales' : item.page === 'Prices' ? 'Coffee prices' : item.page}</span></button>)}</nav>
+      <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => { setMoreOpen(false); void supabase.auth.signOut() }}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
+    </Sheet>
+    <ExpenseEditor data={data} refresh={refresh} open={quickExpenseOpen} onClose={() => setQuickExpenseOpen(false)} onSaved={setNotice} onManageCategories={() => navigate('Expenses', { expenseView: 'categories' })} />
     <Sheet open={passwordOpen} title="Change password" busy={passwordBusy} onClose={() => setPasswordOpen(false)}>
       <p className="password-intro">Confirm your current password, then choose a new one for your account.</p>
       {passwordOpen && <PasswordForm email={session.user.email} verifyCurrent onBusyChange={setPasswordBusy} onCancel={() => setPasswordOpen(false)} onSuccess={() => { setPasswordOpen(false); setNotice('Your login password has been updated.') }} />}

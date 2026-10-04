@@ -1,20 +1,19 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { CalendarDays, ChevronDown, Plus, Archive, RotateCcw, Pencil } from 'lucide-react'
 import { money } from '../lib/calculations'
+import { estateToday } from '../lib/estateDates'
 import { supabase } from '../lib/supabase'
 import type { EstateData, Expense } from '../lib/types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { EmptyState, Notice, PageHeading, RecordActions, SearchField, Sheet, ViewTabs, displayDate } from './Workspace'
+import { ExpenseEditor } from './ExpenseEditor'
+import { EmptyState, Notice, PageHeading, RecordActions, SearchField, ViewTabs, displayDate } from './Workspace'
 
-const today = () => new Date().toISOString().slice(0, 10)
-const emptyForm = () => ({ expense_date: today(), category_id: '', description: '', amount: '' })
 type View = 'records' | 'breakdown' | 'categories'
 
-export function Expenses({ data, year, refresh }: { data: EstateData; year: number; refresh: () => Promise<void> }) {
-  const [form, setForm] = useState(emptyForm)
+export function Expenses({ data, year, refresh, initialView = 'records' }: { data: EstateData; year: number; refresh: () => Promise<void>; initialView?: View }) {
   const [editing, setEditing] = useState<Expense | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
-  const [view, setView] = useState<View>('records')
+  const [view, setView] = useState<View>(initialView)
   const [categoryName, setCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const categoryEditorRef = useRef<HTMLInputElement>(null)
@@ -23,8 +22,6 @@ export function Expenses({ data, year, refresh }: { data: EstateData; year: numb
   const [search, setSearch] = useState('')
   const [deleting, setDeleting] = useState<Expense | null>(null)
   const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
   const [categoryBusy, setCategoryBusy] = useState(false)
   const from = range.from || `${year}-01-01`
   const to = range.to || `${year}-12-31`
@@ -39,22 +36,6 @@ export function Expenses({ data, year, refresh }: { data: EstateData; year: numb
   const labourCost = data.weeklyPayments.filter(p => validRange && !p.excluded && p.week_start >= from && p.week_start <= to).reduce((sum, p) => sum + Math.max(0, Number(p.amount) - Number(p.loan_deduction ?? 0)), 0)
   const resetFilters = () => { setRange({ from: '', to: '' }); setCategoryFilter(''); setSearch('') }
 
-  async function saveExpense(event: FormEvent) {
-    event.preventDefault()
-    if (saving) return
-    const amount = Number(form.amount)
-    if (!Number.isFinite(amount) || amount <= 0) { setError('Enter an amount greater than zero.'); return }
-    setSaving(true); setError('')
-    try {
-      const payload = { ...form, amount }
-      const { error } = await (editing ? supabase.from('expenses').update(payload).eq('id', editing.id) : supabase.from('expenses').insert(payload))
-      if (error) throw error
-      setMessage(editing ? 'Expense updated.' : 'Expense added.')
-      setForm(emptyForm()); setEditing(null); setEditorOpen(false)
-      await refresh()
-    } catch (error) { setError(error instanceof Error ? error.message : 'Could not save the expense. Please try again.') }
-    finally { setSaving(false) }
-  }
   async function addCategory(event: FormEvent) {
     event.preventDefault()
     if (!categoryName.trim() || categoryBusy) return
@@ -67,16 +48,16 @@ export function Expenses({ data, year, refresh }: { data: EstateData; year: numb
   }
   async function toggleCategory(id: string, archived: boolean) { const { error } = await supabase.from('expense_categories').update({ archived: !archived }).eq('id', id); setMessage(error ? error.message : archived ? 'Category restored.' : 'Category archived.'); if (!error) await refresh() }
   async function deleteExpense() { if (!deleting) return; const { error } = await supabase.from('expenses').delete().eq('id', deleting.id); setMessage(error ? error.message : 'Expense deleted.'); setDeleting(null); if (!error) await refresh() }
-  function startEdit(item: Expense) { setEditing(item); setForm({ expense_date: item.expense_date, category_id: item.category_id, description: item.description, amount: String(item.amount) }); setError(''); setEditorOpen(true) }
+  function startEdit(item: Expense) { setEditing(item); setEditorOpen(true) }
 
   return <div className="page workspace-page">
-    <PageHeading title="Expenses" detail={`Estate spending · ${year}`} action="Add expense" onAction={() => { setEditing(null); setForm(emptyForm()); setError(''); setEditorOpen(true) }} />
+    <PageHeading title="Expenses" detail={`Estate spending · ${year}`} action="Add expense" onAction={() => { setEditing(null); setEditorOpen(true) }} />
     <Notice>{message}</Notice>
     <ViewTabs<View> label="Expense views" value={view} onChange={setView} items={[{ value: 'records', label: 'Records' }, { value: 'breakdown', label: 'Breakdown' }, { value: 'categories', label: 'Categories' }]} />
     {view !== 'categories' && <>
       <section className="workspace-filters" aria-label="Expense filters">
         <div className="filter-row"><SearchField label="Search expenses" placeholder="Search expenses" value={search} onChange={setSearch} /><select className="field filter-select" aria-label="Filter expense category" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}><option value="">All categories</option>{data.categories.map(c => <option key={c.id} value={c.id}>{c.name}{c.archived ? ' (archived)' : ''}</option>)}</select></div>
-        <div className="period-row"><details className="date-filter"><summary><CalendarDays size={16} /><span>{displayDate(from)} - {displayDate(to)}</span><ChevronDown size={15} /></summary><div className="date-filter-fields"><label className="label">From<input className="field" type="date" value={from} onChange={e => setRange({ from: e.target.value, to })} /></label><label className="label">To<input className="field" type="date" value={to} onChange={e => setRange({ from, to: e.target.value })} /></label><button className="button-secondary" onClick={() => setRange({ from: today().slice(0, 7) + '-01', to: today() })}>This month</button></div></details>{(search || categoryFilter || range.from || range.to) && <button className="text-button" onClick={resetFilters}><RotateCcw size={14} />Reset</button>}</div>
+        <div className="period-row"><details className="date-filter"><summary><CalendarDays size={16} /><span>{displayDate(from)} - {displayDate(to)}</span><ChevronDown size={15} /></summary><div className="date-filter-fields"><label className="label">From<input className="field" type="date" value={from} onChange={e => setRange({ from: e.target.value, to })} /></label><label className="label">To<input className="field" type="date" value={to} onChange={e => setRange({ from, to: e.target.value })} /></label><button className="button-secondary" onClick={() => setRange({ from: estateToday().slice(0, 7) + '-01', to: estateToday() })}>This month</button></div></details>{(search || categoryFilter || range.from || range.to) && <button className="text-button" onClick={resetFilters}><RotateCcw size={14} />Reset</button>}</div>
         {!validRange && <Notice error>End date must be on or after the start date.</Notice>}
       </section>
       <div className="expense-result-summary" aria-live="polite"><div><span>Expenses in this view</span><strong>{money(nonLabourCost)}</strong></div><p>{filtered.length} {filtered.length === 1 ? 'record' : 'records'}<span>Excludes labour payments</span></p></div>
@@ -91,9 +72,7 @@ export function Expenses({ data, year, refresh }: { data: EstateData; year: numb
       </div>}
     </>}
     {view === 'categories' && <section className="workspace-section"><div className="section-heading"><div><h2>Expense categories</h2><p className="section-caption">{data.categories.filter(c => !c.archived).length} active · {data.categories.filter(c => c.archived).length} archived</p></div></div><form className="category-form" onSubmit={addCategory}><label className="label">{editingCategoryId ? 'Category name' : 'New category'}<input ref={categoryEditorRef} className="field" value={categoryName} onChange={e => setCategoryName(e.target.value)} placeholder="e.g. Repairs" required /></label><button className="button-primary" disabled={categoryBusy}><Plus size={17} />{editingCategoryId ? 'Save category' : 'Add category'}</button>{editingCategoryId && <button type="button" className="button-secondary" onClick={() => { setEditingCategoryId(null); setCategoryName('') }}>Cancel</button>}</form><div className="category-list">{data.categories.map(category => <div key={category.id} className="category-list-row"><div><strong>{category.name}</strong><span className={`status-label ${category.archived ? '' : 'is-active'}`}>{category.archived ? 'Archived' : 'Active'}</span></div><div className="record-actions"><button className="icon-button" aria-label={`Edit ${category.name}`} title="Edit category" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name); categoryEditorRef.current?.focus(); categoryEditorRef.current?.scrollIntoView({ block: 'center' }) }}><Pencil size={17} /></button><button className="icon-button" aria-label={`${category.archived ? 'Restore' : 'Archive'} ${category.name}`} title={category.archived ? 'Restore' : 'Archive'} onClick={() => void toggleCategory(category.id, category.archived)}>{category.archived ? <RotateCcw size={17} /> : <Archive size={17} />}</button></div></div>)}</div></section>}
-    <Sheet open={editorOpen} title={editing ? 'Edit expense' : 'Add expense'} onClose={() => setEditorOpen(false)} busy={saving}>
-      <form className="workspace-form" onSubmit={saveExpense}><Notice error>{error}</Notice><label className="label">Amount (₹)<input className="field amount-input" type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="0.00" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></label><div className="form-pair"><label className="label">Date<input className="field" type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required /></label><label className="label">Category<select className="field" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} required><option value="">Choose category</option>{data.categories.filter(c => !c.archived || c.id === form.category_id).map(c => <option key={c.id} value={c.id}>{c.name}{c.archived ? ' (archived)' : ''}</option>)}</select></label></div>{!data.categories.some(c => !c.archived) && <button type="button" className="text-button" onClick={() => { setEditorOpen(false); setView('categories') }}>Add a category first</button>}<label className="label">Description <span className="optional">(optional)</span><textarea className="field" rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="What was this expense for?" /></label><div className="sheet-footer"><button type="button" className="button-secondary" disabled={saving} onClick={() => setEditorOpen(false)}>Cancel</button><button className="button-primary" disabled={saving}>{saving ? 'Saving...' : 'Save expense'}</button></div></form>
-    </Sheet>
+    <ExpenseEditor data={data} refresh={refresh} open={editorOpen} editing={editing} onClose={() => setEditorOpen(false)} onSaved={setMessage} onManageCategories={() => setView('categories')} />
     <ConfirmDialog open={!!deleting} title="Delete expense?" onCancel={() => setDeleting(null)} onConfirm={() => void deleteExpense()}>This expense will be permanently removed from your totals.</ConfirmDialog>
   </div>
 }

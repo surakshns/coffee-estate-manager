@@ -1,35 +1,42 @@
+.labour-page, .labour-form, .labour-mobile-deck, .labour-close-prompt, .loan-statement {
+  --labour-green: var(--workspace-green, #235b45);
+  --labour-ink: var(--workspace-ink, #24362c);
+  --labour-muted: var(--workspace-muted, #657469);
+  --labour-line: var(--workspace-line, #dce5da);
+  --labour-soft: var(--workspace-sage, #eaf2e6);
+  --labour-shadow: var(--workspace-shadow, 0 5px 18px rgba(35, 65, 47, .045));
+  --labour-ease: cubic-bezier(.2, .8, .2, 1);
+}
 .labour-page {
-  --labour-green: #174e3c;
-  --labour-ink: #23362d;
-  --labour-muted: #647369;
-  --labour-line: #dce4da;
   display: grid;
   gap: 20px;
   color: var(--labour-ink);
 }
 .labour-page button, .labour-page input, .labour-page select, .labour-page summary { touch-action: manipulation; }
 .labour-page button, .labour-page summary { -webkit-tap-highlight-color: transparent; }
-.labour-page :is(button, summary, select, input):focus-visible { outline: 3px solid #8caa52; outline-offset: 3px; }
+.labour-page :is(button, input, select), .labour-mobile-deck :is(button, input, select), .labour-close-actions button, .loan-statement :is(button, select) { transition: background-color 140ms var(--labour-ease), border-color 140ms var(--labour-ease), color 140ms var(--labour-ease), box-shadow 140ms var(--labour-ease); }
+.labour-page :is(button, summary, select, input):focus-visible { outline: 3px solid #679075; outline-offset: 3px; }
 .labour-page button:disabled { cursor: default; opacity: .5; }
-.labour-page .field { min-height: 48px; width: 100%; padding: 11px 12px; border: 1px solid #ccd6c8; border-radius: 10px; background: #fff; color: var(--labour-ink); font-size: 16px; }
+.labour-page .field { min-height: 48px; width: 100%; padding: 11px 14px; border: 1px solid #ccd8ce; border-radius: 12px; background: #fff; color: var(--labour-ink); font-size: 16px; }
 .labour-page .field:disabled { opacity: 1; color: #4e6150; background: #f3f5ef; }
-.labour-page :is(.button-primary, .button-secondary), .labour-danger-button { min-height: 48px; border-radius: 10px; padding: 11px 15px; font-size: 14px; font-weight: 700; text-align: center; }
-.labour-page .button-primary { color: #fff; background: var(--labour-green); border: 1px solid var(--labour-green); }
-.labour-page .button-primary:hover { background: #113e2f; }
-.labour-page .button-secondary { color: var(--labour-green); background: #f3f6ef; border: 1px solid #d5dfce; box-shadow: none; }
+.labour-page :is(.button-primary, .button-secondary), .labour-danger-button { min-height: 48px; border-radius: 12px; padding: 11px 15px; font-size: 14px; font-weight: 700; text-align: center; }
+.labour-page .button-primary { color: #fff; background: var(--labour-green); border: 1px solid var(--labour-green); box-shadow: 0 3px 7px rgba(35, 91, 69, .1); }
+.labour-page .button-primary:hover { background: #1a4936; }
+.labour-page .button-secondary { color: var(--labour-green); background: #f6f8f3; border: 1px solid #d5dfd2; box-shadow: none; }
 .labour-step { color: #536d58; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .labour-overview { border-bottom: 1px solid var(--labour-line); padding-bottom: 8px; }
 .labour-overview summary { min-height: 44px; cursor: pointer; padding: 12px 0; color: var(--labour-muted); font-size: 13px; }
 .labour-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-block: 8px; }
-.labour-summary-card { min-width: 0; padding: 15px; background: #fffefb; border: 1px solid var(--labour-line); border-radius: 12px; }
+.labour-summary-card { min-width: 0; padding: 17px; background: #fff; border: 1px solid var(--labour-line); border-radius: 16px; box-shadow: var(--labour-shadow); }
 .labour-summary-card p { font-size: 12px; color: var(--labour-muted); }
 .labour-summary-card strong { display: block; margin: 7px 0; font-size: clamp(20px, 4vw, 28px); font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .labour-summary-card span { font-size: 11px; color: var(--labour-muted); }
-.labour-views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 5px; border: 1px solid #dfe5d9; border-radius: 13px; background: #e9ede4; }
-.labour-views button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 46px; padding: 8px 4px; border-radius: 9px; color: #637065; font-size: 13px; font-weight: 700; }
-.labour-views button.is-active { color: var(--labour-green); background: #fffefb; box-shadow: 0 1px 4px #25372012; }
+.labour-views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 5px; border: 1px solid #dfe5d9; border-radius: 16px; background: #edf1e9; }
+.labour-views button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 46px; padding: 8px 4px; border-radius: 11px; color: #637065; font-size: 13px; font-weight: 700; }
+.labour-views button.is-active { color: var(--labour-green); background: #fff; box-shadow: 0 2px 5px #25372012; }
 .labour-draft-dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: #b77b22; }
-.labour-panel { min-width: 0; padding: 18px; border: 1px solid var(--labour-line); border-radius: 16px; background: #fffefb; }
+.labour-panel { min-width: 0; padding: 18px; border: 1px solid var(--labour-line); border-radius: 18px; background: #fff; }
+.labour-page .labour-panel { border-color: var(--labour-line); border-radius: 18px; box-shadow: var(--labour-shadow); }
 .labour-panel h2, .loan-heading h2 { font-size: 19px; line-height: 1.35; font-weight: 750; }
 .labour-panel h3 { font-size: 16px; line-height: 1.45; font-weight: 750; overflow-wrap: anywhere; }
 .labour-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
@@ -39,9 +46,9 @@
 .labour-month-label { display: grid; width: 100%; gap: 5px; color: #536257; font-size: 12px; font-weight: 700; }
 .labour-month-label .field { margin: 0; }
 .labour-weeks { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(54px, 1fr); gap: 6px; overflow-x: auto; padding: 3px; margin: -3px; }
-.labour-week { display: flex; flex-direction: column; align-items: center; min-height: 96px; gap: 6px; padding: 12px 4px; background: #f7f8f2; border: 1px solid #e1e6dc; border-radius: 10px; text-align: center; }
+.labour-week { display: flex; flex-direction: column; align-items: center; min-height: 96px; gap: 6px; padding: 12px 4px; background: #f7f8f3; border: 1px solid #e1e6dc; border-radius: 12px; text-align: center; }
 .labour-week:hover { border-color: #9bb59e; }
-.labour-week.is-selected { background: var(--labour-green); border-color: var(--labour-green); color: white; }
+.labour-week.is-selected { background: var(--labour-green); border-color: var(--labour-green); color: white; box-shadow: 0 3px 8px rgba(35, 91, 69, .13); }
 .labour-week-day { font-size: 11px; color: #758175; }
 .labour-week strong { font-size: 15px; white-space: nowrap; font-weight: 750; }
 .labour-week-state { font-size: 10px; color: #737b6e; }
@@ -60,14 +67,14 @@
 /* A wide, quiet card with one attendance picker and a separate pay total. */
 .labour-payment-sheet { container-type: inline-size; }
 .labour-payment-list { display: grid; gap: 16px; }
-.labour-worker-payment { display: grid; gap: 20px; min-width: 0; padding: 18px; border: 1px solid #d9e3d6; border-radius: 16px; background: #fff; }
+.labour-worker-payment { display: grid; gap: 20px; min-width: 0; padding: 20px; border: 1px solid #d9e3d6; border-radius: 18px; background: #fff; box-shadow: var(--labour-shadow); }
 .labour-worker-payment.is-skipped { background: #f7f8f4; border-style: dashed; }
 .labour-worker-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 16px; }
 .labour-worker-identity { flex: 1 1 120px; min-width: 0; }
-.labour-worker-identity h3 { font-size: 19px; line-height: 1.4; }
+.labour-worker-identity h3 { color: var(--labour-ink); font-size: 20px; line-height: 1.4; letter-spacing: -.015em; }
 .labour-worker-identity p { margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--labour-muted); }
-.worker-avatar { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 12px; background: #edf2e8; color: #42634a; font-size: 16px; font-weight: 750; }
-.labour-week-action { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 6px; min-height: 44px; padding: 9px 11px; border: 1px solid #cbd7c3; border-radius: 8px; background: #fff; color: #536658; font-size: 13px; font-weight: 650; }
+.worker-avatar { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 14px; background: var(--labour-soft); color: var(--labour-green); font-size: 17px; font-weight: 750; }
+.labour-week-action { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 6px; min-height: 44px; padding: 9px 11px; border: 1px solid #d4ded0; border-radius: 11px; background: #f8faf6; color: #536658; font-size: 13px; font-weight: 650; }
 .labour-week-action:hover:not(:disabled) { border-color: #8ca780; background: #f4f7f0; }
 .labour-week-action.is-restore { border-color: var(--labour-green); background: var(--labour-green); color: #fff; }
 .labour-week-action.is-restore:hover:not(:disabled) { background: #113e2f; }
@@ -76,12 +83,12 @@
 .labour-attendance { display: grid; align-content: start; gap: 10px; }
 .labour-amount-label { font-size: 13px; color: #536658; font-weight: 650; }
 .labour-day-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.labour-day-options button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 56px; padding: 8px; border: 1px solid #dce4d7; border-radius: 10px; background: #f8faf5; color: #536658; }
+.labour-day-options button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 56px; padding: 8px; border: 1px solid #dce4d7; border-radius: 12px; background: #f8faf5; color: #536658; }
 .labour-day-options strong { font-size: 20px; line-height: 1.1; font-weight: 700; }
 .labour-day-options span { font-size: 11px; line-height: 1.3; }
 /* Touch browsers can keep hover active after a tap; keep it off selected days. */
 .labour-day-options button:hover:not(:disabled):not([aria-pressed=true]) { border-color: #87a37d; background: #eef5e8; }
-.labour-day-options button[aria-pressed=true] { background: #e7f1e0; border-color: var(--labour-green); color: var(--labour-green); box-shadow: inset 0 0 0 1px var(--labour-green); }
+.labour-day-options button[aria-pressed=true] { background: var(--labour-soft); border-color: var(--labour-green); color: var(--labour-green); box-shadow: inset 0 0 0 1px var(--labour-green), 0 2px 5px rgba(35, 91, 69, .045); }
 .labour-day-options button[aria-pressed=true] :is(strong, span) { color: var(--labour-green); }
 .labour-attendance-value { font-size: 18px; font-weight: 700; color: var(--labour-green); }
 .labour-attendance-value span, .labour-attendance-note { color: var(--labour-muted); font-size: 12px; font-weight: 400; line-height: 1.6; }
@@ -89,13 +96,13 @@
 .labour-repayment-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
 .labour-repayment label { color: #536658; font-size: 13px; font-weight: 650; }
 .labour-repayment p { color: var(--labour-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.labour-currency-input { display: flex; align-items: center; min-width: 0; height: 52px; border: 1px solid #bdcdb8; border-radius: 10px; background: #fff; }
-.labour-currency-input:focus-within { outline: 3px solid #8caa52; outline-offset: 2px; }
+.labour-currency-input { display: flex; align-items: center; min-width: 0; height: 52px; border: 1px solid #bdcdb8; border-radius: 12px; background: #fff; }
+.labour-currency-input:focus-within { outline: 3px solid #679075; outline-offset: 2px; }
 .labour-currency-input > span { padding-left: 14px; color: #7b8e73; font-size: 16px; }
 .labour-currency-input input { width: 100%; min-width: 0; height: 100%; padding: 12px 10px; border: 0; background: transparent; font-size: 18px; font-weight: 700; color: var(--labour-ink); outline: none; font-variant-numeric: tabular-nums; }
 .labour-currency-input input:focus-visible { outline: none; }
 .labour-currency-input:has(input:disabled) { background: #f3f5ef; }
-.labour-deduction-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 60px; padding: 12px 14px; border: 1px solid #bdcdb8; border-radius: 10px; background: #f5f9f0; color: var(--labour-green); text-align: left; }
+.labour-deduction-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 60px; padding: 12px 14px; border: 1px solid #c4d5bf; border-radius: 14px; background: #f4f8ef; color: var(--labour-green); text-align: left; }
 .labour-deduction-trigger > span:first-child { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .labour-deduction-trigger strong { font-size: 24px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .labour-deduction-trigger-hint { display: inline-flex; flex-shrink: 0; align-items: center; gap: 5px; font-size: 12px; }
@@ -106,23 +113,23 @@
 .labour-calculated-pay p { margin-top: 4px; color: var(--labour-muted); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; }
 .labour-calculated-pay > strong { min-width: 0; max-width: 100%; color: var(--labour-green); font-size: 26px; line-height: 1.25; font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 /* The phone deck is portalled outside the page, so it carries its own theme. */
-.labour-phone-pay-summary { display: grid; gap: 16px; padding: 20px; border: 1px solid #d4e1ca; border-radius: 16px; background: #fff; }
+.labour-phone-pay-summary { display: grid; gap: 16px; padding: 20px; border: 1px solid #d4e1ca; border-radius: 18px; background: #fff; box-shadow: var(--labour-shadow); }
 .labour-phone-pay-total > p:first-child { color: var(--labour-muted); font-size: 12px; }
 .labour-phone-pay-total > strong { display: block; margin-block: 5px; color: var(--labour-green); font-size: 32px; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .labour-phone-pay-summary .labour-pay-breakdown { margin: 0; padding: 14px 0; border-bottom: 1px solid var(--labour-line); }
 .labour-phone-pay-summary .button-primary { width: 100%; }
 .labour-phone-pay-hint { color: var(--labour-muted); font-size: 12px; line-height: 1.6; }
 .labour-phone-cancel { justify-self: start; min-height: 44px; padding: 9px 0; color: #536658; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
-.workspace-sheet.labour-deck-sheet { top: var(--labour-deck-top, 0px); bottom: auto; width: 100%; height: var(--labour-deck-height, 100dvh); max-height: var(--labour-deck-height, 100dvh); margin: 0; border: 0; border-radius: 0; background: #f2f5ee; }
+.workspace-sheet.labour-deck-sheet { top: var(--labour-deck-top, 0px); bottom: auto; width: 100%; height: var(--labour-deck-height, 100dvh); max-height: var(--labour-deck-height, 100dvh); margin: 0; border: 0; border-radius: 0; background: #f6f7f2; }
 .workspace-sheet.labour-deck-sheet .sheet-heading { min-height: 56px; padding: max(8px, env(safe-area-inset-top)) 16px 8px; background: #fff; }
 .workspace-sheet.labour-deck-sheet .sheet-heading h2 { font-size: 15px; line-height: 1.4; }
 .workspace-sheet.labour-deck-sheet .sheet-body { display: flex; flex: 1; min-height: 0; padding: 10px 14px max(12px, env(safe-area-inset-bottom)); overflow: hidden; }
-.labour-mobile-deck { --labour-green: #174e3c; --labour-ink: #23362d; --labour-muted: #647369; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; gap: 10px; color: var(--labour-ink); }
+.labour-mobile-deck { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; gap: 10px; color: var(--labour-ink); }
 .labour-mobile-deck[hidden] { display: none; }
 .labour-mobile-deck :is(button, input, select) { touch-action: manipulation; }
-.labour-mobile-deck :is(button, select, input):focus-visible { outline: 3px solid #8caa52; outline-offset: 3px; }
+.labour-mobile-deck :is(button, select, input):focus-visible { outline: 3px solid #679075; outline-offset: 3px; }
 .labour-mobile-deck button:disabled { cursor: default; opacity: .5; }
-.labour-mobile-deck :is(.button-primary, .button-secondary) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 11px 14px; border: 1px solid #d5dfce; border-radius: 10px; font-size: 14px; font-weight: 700; text-align: center; }
+.labour-mobile-deck :is(.button-primary, .button-secondary) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 11px 14px; border: 1px solid #d5dfce; border-radius: 12px; font-size: 14px; font-weight: 700; text-align: center; }
 .labour-mobile-deck .button-primary { color: #fff; background: var(--labour-green); border-color: var(--labour-green); }
 .labour-mobile-deck .button-secondary { color: var(--labour-green); background: #fff; box-shadow: none; }
 .labour-deck-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
@@ -130,17 +137,17 @@
 /* This status receives programmatic focus after a swipe, not keyboard tab focus. */
 .labour-deck-progress > p:focus { outline: none; box-shadow: none; }
 .labour-deck-progress label { display: grid; gap: 2px; min-width: 0; max-width: 185px; color: var(--labour-muted); font-size: 10px; }
-.labour-deck-progress select { width: 100%; min-height: 40px; padding: 6px 8px; border: 1px solid #cddbc5; border-radius: 8px; background: #fff; color: var(--labour-ink); font-size: 16px; }
+.labour-deck-progress select { width: 100%; min-height: 44px; padding: 6px 10px; border: 1px solid #cddbc5; border-radius: 10px; background: #fff; color: var(--labour-ink); font-size: 16px; }
 .labour-deck-progress progress { grid-column: 1 / -1; appearance: none; width: 100%; height: 4px; border: 0; border-radius: 4px; overflow: hidden; background: #dfe8d8; }
 .labour-deck-progress progress::-webkit-progress-bar { background: #dfe8d8; }
 .labour-deck-progress progress::-webkit-progress-value { background: #557e4b; border-radius: 4px; }
 .labour-deck-progress progress::-moz-progress-bar { background: #557e4b; border-radius: 4px; }
 .labour-deck-stage { position: relative; flex: 1; min-height: 0; isolation: isolate; overflow: hidden; padding-bottom: 8px; }
-.labour-deck-preview { position: absolute; z-index: 0; inset: 10px 6px 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 14px; border: 1px solid #cfdcc5; border-radius: 18px; background: #e8f0df; text-align: center; }
+.labour-deck-preview { position: absolute; z-index: 0; inset: 10px 6px 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 14px; border: 1px solid #cfdcc5; border-radius: 18px; background: var(--labour-soft); text-align: center; }
 .labour-deck-preview.is-previous { justify-content: flex-start; }
 .labour-deck-preview span { display: block; font-size: 12px; line-height: 1.4; color: #5e7453; }
 .labour-deck-preview strong { font-size: 22px; line-height: 1.2; color: var(--labour-green); overflow-wrap: anywhere; }
-.labour-deck-motion { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; box-shadow: 0 5px 18px #23463212; overflow: hidden; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); transition: transform 160ms ease; animation: labour-card-arrive 180ms ease-out; }
+.labour-deck-motion { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; box-shadow: 0 6px 20px rgba(35, 70, 50, .08); overflow: hidden; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); transition: transform 160ms var(--labour-ease); animation: labour-card-arrive 180ms ease-out; }
 .labour-deck-motion.is-dragging { transition: none; animation: none; }
 .labour-deck-motion.is-leaving { pointer-events: none; transition: none; animation: labour-card-dismiss 220ms ease-in forwards; }
 .labour-deck-motion.has-worker, .labour-deck-motion.has-worker .labour-deck-card-scroll { touch-action: pan-x pinch-zoom; }
@@ -150,24 +157,24 @@
 .labour-deck-swipe-handle p { display: flex; align-items: center; gap: 5px; color: #65795d; font-size: 11px; }
 .labour-deck-scroll-button { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 44px; padding: 7px 2px; color: var(--labour-green); font-size: 11px; font-weight: 650; }
 .labour-deck-card-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.labour-deck-card-scroll .labour-worker-payment { display: flex; flex-direction: column; min-height: 100%; padding: 16px; border: 0; border-radius: 0; gap: 18px; }
+.labour-deck-card-scroll .labour-worker-payment { display: flex; flex-direction: column; min-height: 100%; padding: 16px; border: 0; border-radius: 0; box-shadow: none; gap: 18px; }
 .labour-deck-card-scroll .labour-calculated-pay { margin-top: auto; }
 .labour-deck-footer { flex-shrink: 0; display: grid; gap: 8px; }
 .labour-deck-footer > p { color: var(--labour-muted); font-size: 11px; text-align: center; }
 .labour-deck-footer > div { display: grid; grid-template-columns: minmax(0, 1fr); }
-.labour-close-prompt { --labour-green: #174e3c; --labour-ink: #23362d; display: flex; flex-direction: column; flex: 1; align-items: stretch; min-width: 0; min-height: 0; overflow-y: auto; color: var(--labour-ink); }
-.labour-close-prompt-card { display: grid; flex-shrink: 0; gap: 18px; width: 100%; max-width: 420px; padding: 24px 20px; margin: auto; border: 1px solid #d4dfcb; border-radius: 16px; background: #fff; }
+.labour-close-prompt { display: flex; flex-direction: column; flex: 1; align-items: stretch; min-width: 0; min-height: 0; overflow-y: auto; color: var(--labour-ink); }
+.labour-close-prompt-card { display: grid; flex-shrink: 0; gap: 18px; width: 100%; max-width: 420px; padding: 24px 20px; margin: auto; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; box-shadow: var(--labour-shadow); animation: labour-surface-reveal 160ms ease-out; }
 .labour-close-prompt h3 { font-size: 21px; font-weight: 750; line-height: 1.4; }
 .labour-close-prompt-card > p { color: #647369; font-size: 14px; line-height: 1.6; }
 .labour-close-summary { display: grid; gap: 5px; padding-block: 14px; border-block: 1px solid #e5eadf; }
 .labour-close-summary > span, .labour-close-summary > p { color: #647369; font-size: 12px; line-height: 1.5; }
 .labour-close-summary strong { color: var(--labour-green); font-size: 29px; font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .labour-close-actions { display: grid; gap: 10px; }
-.labour-close-actions button { min-height: 48px; padding: 12px; border: 1px solid #d5dfce; border-radius: 10px; font-size: 14px; font-weight: 700; touch-action: manipulation; }
+.labour-close-actions button { min-height: 48px; padding: 12px; border: 1px solid #d5dfce; border-radius: 12px; font-size: 14px; font-weight: 700; touch-action: manipulation; }
 .labour-close-actions .button-primary { color: #fff; background: var(--labour-green); border-color: var(--labour-green); }
 .labour-close-actions .button-secondary { color: var(--labour-green); background: #f5f8f1; }
 .labour-close-actions .labour-close-discard { color: #9a4635; background: #fff7f3; border-color: #e2c5bd; }
-.labour-close-actions button:focus-visible { outline: 3px solid #8caa52; outline-offset: 3px; }
+.labour-close-actions button:focus-visible { outline: 3px solid #679075; outline-offset: 3px; }
 .labour-close-actions button:disabled { opacity: .5; cursor: default; }
 .labour-deck-review { display: grid; align-content: start; gap: 18px; min-height: 100%; padding: 22px 18px; }
 .labour-deck-review > svg { color: var(--labour-green); }
@@ -180,13 +187,13 @@
 .labour-deck-review dl > div:last-child dd { font-size: 24px; }
 .labour-deck-error { flex-shrink: 0; padding: 10px 12px; border-radius: 9px; background: #fff0e9; color: #974b34; font-size: 12px; line-height: 1.5; }
 /* Loan entry gets the phone screen, without a browser keyboard covering it. */
-.labour-deduction-editor { display: flex; flex-direction: column; flex: 1; gap: 12px; min-width: 0; min-height: 0; padding: 14px; border: 1px solid #dce4da; border-radius: 18px; background: #fff; overflow-y: auto; overscroll-behavior: contain; }
+.labour-deduction-editor { display: flex; flex-direction: column; flex: 1; gap: 12px; min-width: 0; min-height: 0; padding: 14px; border: 1px solid #dce4da; border-radius: 18px; background: #fff; overflow-y: auto; overscroll-behavior: contain; animation: labour-surface-reveal 160ms ease-out; }
 .labour-deduction-editor-body { display: flex; flex-direction: column; flex: 1; gap: 12px; min-height: min-content; }
 .labour-deduction-display { display: grid; flex-shrink: 0; gap: 8px; background: #fff; }
 .labour-deduction-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
-.labour-deduction-heading p { min-width: 0; color: var(--labour-ink); font-size: 18px; font-weight: 700; line-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.labour-deduction-heading p { min-width: 0; color: var(--labour-ink); font-size: 19px; font-weight: 750; line-height: 24px; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .labour-deduction-heading h3 { flex-shrink: 0; color: var(--labour-muted); font-size: 12px; font-weight: 550; line-height: 20px; }
-.labour-deduction-amount { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 12px; border: 1px solid #dbe6d7; border-radius: 12px; background: #f3f7ef; color: var(--labour-green); }
+.labour-deduction-amount { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 12px; border: 1px solid #dbe6d7; border-radius: 12px; background: #f4f8ef; color: var(--labour-green); }
 .labour-deduction-amount > span:first-child { font-size: 22px; font-weight: 550; }
 .labour-deduction-amount input { flex: 1; width: 0; min-width: 0; height: 40px; padding: 0; border: 0; background: transparent; color: var(--labour-green); font-size: 32px; font-weight: 750; line-height: 1.1; outline: none; font-variant-numeric: tabular-nums; caret-color: transparent; }
 .labour-deduction-limit { flex-shrink: 0; max-width: 40%; color: var(--labour-muted); font-size: 11px; line-height: 1.3; text-align: right; }
@@ -199,11 +206,11 @@
 .labour-deduction-shortcuts { display: grid; flex-shrink: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .labour-deduction-shortcuts button { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 6px 4px; border: 1px solid #dce4da; border-radius: 12px; background: #fff; color: var(--labour-green); }
 .labour-deduction-shortcuts strong { font-size: 15px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.labour-deduction-shortcuts button.is-recommended { border-color: #9ab18c; background: #f3f7ef; }
+.labour-deduction-shortcuts button.is-recommended { border-color: #9ab18c; background: #f1f6ec; }
 .labour-deduction-shortcuts button[aria-pressed=true] { border-color: var(--labour-green); background: var(--labour-green); color: #fff; }
 /* Keep spare screen space above the keypad, between it and the suggestions. */
 .labour-deduction-keypad { display: grid; flex: 1; min-height: 200px; max-height: 248px; margin-top: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(44px, 1fr)); gap: 8px; }
-.labour-deduction-keypad button { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 4px; border: 1px solid transparent; border-radius: 12px; background: #f2f5f0; color: var(--labour-ink); font-size: 18px; font-weight: 550; font-variant-numeric: tabular-nums; box-shadow: 0 1px 0 #dce4d7; }
+.labour-deduction-keypad button { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 4px; border: 1px solid #e3e9df; border-radius: 12px; background: #f5f7f1; color: var(--labour-ink); font-size: 18px; font-weight: 550; font-variant-numeric: tabular-nums; box-shadow: 0 1px 0 #dce4d7; }
 .labour-deduction-keypad button svg { width: 20px; height: 20px; }
 .labour-deduction-keypad button:active:not(:disabled), .labour-deduction-shortcuts button:active:not(:disabled):not([aria-pressed=true]) { border-color: #8fa584; background: #e7f1e0; color: var(--labour-green); }
 .labour-deduction-actions { display: grid; flex-shrink: 0; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
@@ -228,13 +235,14 @@
 }
 @keyframes labour-card-arrive { from { opacity: .4; transform: translateY(var(--card-enter-y, 12px)) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes labour-card-dismiss { from { opacity: 1; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); } to { opacity: 0; transform: translateY(var(--swipe-exit, -110%)) rotate(var(--swipe-rotation, -6deg)); } }
+@keyframes labour-surface-reveal { from { opacity: .5; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .labour-deck-motion { animation: none !important; transition: none !important; transform: none; } }
 .labour-footnote { margin-top: 16px; color: var(--labour-muted); font-size: 12px; line-height: 1.65; }
 .labour-pay-breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; padding: 16px 0; border-top: 1px solid var(--labour-line); }
 .labour-pay-breakdown > div { display: grid; gap: 5px; min-width: 0; color: var(--labour-muted); }
 .labour-pay-breakdown dt { font-size: 12px; }
 .labour-pay-breakdown dd { color: var(--labour-ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.labour-save-bar { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin: 6px -8px 0; padding: 14px 12px; border: 1px solid #cbdcc4; border-radius: 12px; background: #edf5e8; box-shadow: 0 4px 24px #173f2f15; }
+.labour-save-bar { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin: 6px -8px 0; padding: 14px 12px; border: 1px solid #cbdcc4; border-radius: 16px; background: #edf5e8; box-shadow: 0 4px 18px #173f2f12; }
 .labour-total-label { font-size: 11px; color: #536e50; }
 .labour-total-label strong { display: block; margin-top: 4px; font-size: clamp(21px, 4vw, 29px); color: var(--labour-green); font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .labour-total-detail { margin-top: 4px; color: #4e624b; font-size: 11px; line-height: 1.5; }
@@ -255,7 +263,7 @@
 .labour-optional { font-weight: 400; color: #8a9280; }
 .labour-form-pair, .labour-form-actions { display: grid; gap: 16px; }
 .labour-team-list { display: grid; gap: 12px; }
-.labour-team-list article { min-width: 0; padding: 16px; border: 1px solid #e0e5d9; border-radius: 12px; background: #fff; }
+.labour-team-list article { min-width: 0; padding: 18px; border: 1px solid #e0e5d9; border-radius: 16px; background: #fff; box-shadow: var(--labour-shadow); }
 .labour-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .labour-record-heading > div { min-width: 0; }
 .labour-record-heading p { color: #76806d; font-size: 12px; line-height: 1.6; margin-top: 4px; }
@@ -266,61 +274,61 @@
 /* Accounts show the balance first; their transactions live in a separate sheet. */
 .worker-loans { display: grid; gap: 20px; min-width: 0; }
 .loan-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.loan-overview > div { min-width: 0; padding: 18px 16px; border: 1px solid #dce4da; border-radius: 14px; background: #fffefb; }
-.loan-overview > div:first-child { background: #eaf2e7; border-color: #d2e1ca; }
+.loan-overview > div { min-width: 0; padding: 18px 16px; border: 1px solid #dce4da; border-radius: 18px; background: #fff; box-shadow: var(--labour-shadow); }
+.loan-overview > div:first-child { background: var(--labour-soft); border-color: #d2e1ca; }
 .loan-overview span { display: block; color: #536e50; font-size: 12px; }
-.loan-overview strong { display: block; margin-block: 8px; color: #174e3c; font-size: clamp(23px, 4vw, 32px); font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.loan-overview strong { display: block; margin-block: 8px; color: var(--labour-green); font-size: clamp(23px, 4vw, 30px); font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .loan-overview p, .loan-credit-note { font-size: 12px; line-height: 1.5; color: #647369; }
 .loan-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; }
 .loan-heading p { margin-top: 5px; color: #647369; font-size: 13px; line-height: 1.6; }
 .loan-heading > div > span { display: block; margin-top: 6px; font-size: 11px; color: #7b867a; }
 .loan-filters { display: grid; gap: 12px; }
-.loan-status-tabs { display: flex; gap: 5px; }
-.loan-status-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 1px solid #dce4da; border-radius: 9px; color: #647369; font-size: 12px; }
-.loan-status-tabs button[aria-pressed=true] { background: #174e3c; border-color: #174e3c; color: #fff; }
+.loan-status-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.loan-status-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 1px solid #dce4da; border-radius: 11px; background: #fff; color: #627168; font-size: 12px; }
+.loan-status-tabs button[aria-pressed=true] { background: var(--labour-green); border-color: var(--labour-green); color: #fff; }
 .loan-status-tabs span { padding: 2px 5px; border-radius: 5px; background: #64736912; font-size: 10px; }
 .loan-status-tabs button[aria-pressed=true] span { background: #ffffff24; }
 .loan-results { color: #647369; font-size: 12px; }
 .loan-accounts { display: grid; gap: 14px; }
-.loan-account { min-width: 0; display: grid; align-content: start; gap: 16px; padding: 18px; border: 1px solid #dce4da; border-radius: 14px; background: #fffefb; }
+.loan-account { min-width: 0; display: grid; align-content: start; gap: 16px; padding: 20px; border: 1px solid #dce4da; border-radius: 18px; background: #fff; box-shadow: var(--labour-shadow); }
 .loan-account-heading { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
-.loan-account-heading > div { min-width: 0; flex: 1; }
-.loan-account-heading h3 { font-size: 16px; font-weight: 750; overflow-wrap: anywhere; }
-.loan-account-heading p { margin-top: 3px; font-size: 11px; color: #647369; }
-.loan-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 5px 7px; border-radius: 6px; color: #42634a; background: #edf2e8; }
-.loan-badge.is-due { color: #956039; background: #f6edde; }
-.loan-account-balance { padding-bottom: 14px; border-bottom: 1px solid #e4e9de; }
-.loan-account-balance span { font-size: 12px; color: #647369; }
-.loan-account-balance strong { display: block; font-size: 30px; font-weight: 750; color: #174e3c; margin-top: 4px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.loan-account-heading > div { min-width: 0; flex: 1 1 110px; }
+.loan-account-heading h3 { color: var(--labour-ink); font-size: 18px; line-height: 1.35; letter-spacing: -.015em; font-weight: 750; overflow-wrap: anywhere; }
+.loan-account-heading p { margin-top: 4px; font-size: 12px; color: var(--labour-muted); }
+.loan-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 6px 8px; border-radius: 8px; color: #42634a; background: var(--labour-soft); }
+.loan-badge.is-due { color: #8b5c3e; background: #f7eee5; }
+.loan-account-balance { padding: 14px 16px; border: 1px solid #e2e9dc; border-radius: 14px; background: #f5f8f0; }
+.loan-account-balance span { font-size: 12px; color: var(--labour-muted); }
+.loan-account-balance strong { display: block; font-size: 28px; line-height: 1.25; font-weight: 750; color: var(--labour-green); margin-top: 6px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .loan-account-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .loan-account-totals dt { font-size: 12px; color: #647369; }
-.loan-account-totals dd { margin-top: 5px; font-weight: 700; font-size: 16px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.loan-account-totals dd { margin-top: 6px; color: var(--labour-ink); font-weight: 700; font-size: 16px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .loan-progress { appearance: none; width: 100%; height: 5px; border: 0; border-radius: 5px; overflow: hidden; background: #e6ecdf; }
 .loan-progress::-webkit-progress-bar { background: #e6ecdf; }
 .loan-progress::-webkit-progress-value { background: #628b59; border-radius: 5px; }
 .loan-progress::-moz-progress-bar { background: #628b59; border-radius: 5px; }
 .loan-last-entry { font-size: 11px; line-height: 1.5; color: #647369; }
 .loan-account-actions, .loan-statement-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.labour-page .loan-account-actions button { flex: 1; padding: 10px; font-size: 12px; }
+.labour-page .loan-account-actions button { flex: 1 1 128px; padding: 10px; font-size: 13px; }
 .loan-load-more { justify-self: center; }
-.loan-statement { display: grid; gap: 22px; min-width: 0; color: #23362d; }
-.loan-statement-balance { display: flex; align-items: center; gap: 14px; padding: 20px; border-radius: 12px; background: #eaf2e7; color: #174e3c; }
+.loan-statement { display: grid; gap: 22px; min-width: 0; color: var(--labour-ink); }
+.loan-statement-balance { display: flex; align-items: center; gap: 14px; padding: 20px; border: 1px solid #d9e5d4; border-radius: 16px; background: var(--labour-soft); color: var(--labour-green); }
 .loan-statement-balance > div { min-width: 0; }
 .loan-statement-balance span { font-size: 12px; }
-.loan-statement-balance strong { display: block; margin-top: 5px; font-size: 30px; font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.loan-explanation { padding: 12px; background: #f5f7f1; border-radius: 8px; color: #647369; font-size: 13px; line-height: 1.6; }
+.loan-statement-balance strong { display: block; margin-top: 6px; font-size: 28px; line-height: 1.25; font-weight: 750; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.loan-explanation { padding: 14px; background: #f5f7f1; border-radius: 12px; color: var(--labour-muted); font-size: 13px; line-height: 1.6; }
 .loan-statement-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .loan-statement-heading h3 { font-size: 16px; font-weight: 750; }
 .loan-statement-heading select { width: auto; min-height: 44px; margin: 0; font-size: 16px; }
 .loan-transactions { display: grid; list-style: none; }
-.loan-transactions li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 16px 0; border-bottom: 1px solid #e4e9de; }
-.loan-transaction-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: #f6edde; color: #956039; }
-.loan-transaction-icon.is-repaid { background: #eaf2e7; color: #42634a; }
+.loan-transactions li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 18px 0; border-bottom: 1px solid #e4e9de; }
+.loan-transaction-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #f7eee5; color: #8b5c3e; }
+.loan-transaction-icon.is-repaid { background: var(--labour-soft); color: #42634a; }
 .loan-transaction-copy { min-width: 0; }
-.loan-transaction-copy strong { font-size: 13px; font-weight: 700; }
-.loan-transaction-copy time { display: block; margin-top: 5px; color: #647369; font-size: 11px; }
+.loan-transaction-copy strong { font-size: 14px; line-height: 1.4; font-weight: 700; }
+.loan-transaction-copy time { display: block; margin-top: 6px; color: var(--labour-muted); font-size: 12px; }
 .loan-transaction-copy p { margin-top: 6px; font-size: 12px; line-height: 1.6; color: #647369; overflow-wrap: anywhere; }
-.loan-week-link { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: #174e3c; font-size: 12px; text-align: left; }
+.loan-week-link { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: var(--labour-green); font-size: 12px; text-align: left; }
 .loan-transaction-amount { display: grid; justify-items: end; gap: 6px; }
 .loan-transaction-amount strong { font-size: 14px; font-weight: 750; font-variant-numeric: tabular-nums; color: #956039; }
 .loan-transaction-amount strong.is-repaid { color: #42634a; }
@@ -371,4 +379,12 @@
   .loan-transaction-icon { display: none; }
   .labour-page .labour-save-button { max-width: 120px; }
 }
-@media (prefers-reduced-motion: reduce) { .labour-page *, .labour-page *::before, .labour-page *::after { scroll-behavior: auto; transition-duration: .01ms; } }
+@media (hover: hover) and (pointer: fine) {
+  .labour-worker-payment:not(.is-skipped), .loan-account, .labour-team-list article { transition: border-color 180ms var(--labour-ease), box-shadow 180ms var(--labour-ease); }
+  .labour-worker-payment:not(.is-skipped):hover, .loan-account:hover, .labour-team-list article:hover { border-color: #bdceba; }
+  .labour-deduction-shortcuts button:hover:not(:disabled):not([aria-pressed=true]), .labour-deduction-keypad button:hover:not(:disabled) { border-color: #b1c6a9; background: #edf4e6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .labour-page *, .labour-page *::before, .labour-page *::after, .labour-mobile-deck *, .labour-close-prompt *, .loan-statement * { scroll-behavior: auto; transition-duration: .01ms; }
+  .labour-deduction-editor, .labour-close-prompt-card { animation: none; }
+}

@@ -72,6 +72,33 @@ function workerMetric(worker: HTMLElement, label: string) {
   return within(worker).getByText(label, { exact: true }).parentElement?.textContent ?? ''
 }
 
+describe('home record shortcuts', () => {
+  it('opens the actual current pay week even when the overview shows a historical year', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-01T12:00:00Z'))
+    const onStartAdvance = vi.fn()
+    const onAddExpense = vi.fn()
+    const user = userEvent.setup()
+    render(<Dashboard data={data} year={2024} onStartAdvance={onStartAdvance} onAddExpense={onAddExpense} />)
+    const advance = screen.getByRole('button', { name: 'Start this week’s advance' })
+    expect(advance.textContent).toMatch(/31 Dec,? 2025/)
+    expect(advance.textContent).toContain('Not saved')
+    await user.click(advance)
+    expect(onStartAdvance).toHaveBeenCalledWith('2025-12-31')
+    await user.click(screen.getByRole('button', { name: 'Add expense' }))
+    expect(onAddExpense).toHaveBeenCalledOnce()
+  })
+
+  it('offers editing only for saved records in the current Wednesday week', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-08T12:00:00Z'))
+    const view = render(<Dashboard data={data} year={2026} onStartAdvance={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Edit this week’s advance' }).textContent).toContain('Saved')
+    view.rerender(<Dashboard data={{ ...data, weeklyPayments: data.weeklyPayments.filter(payment => payment.week_start !== '2026-01-07') }} year={2026} onStartAdvance={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Start this week’s advance' })).toBeTruthy()
+  })
+})
+
 describe('combined workers and loans dashboard', () => {
   it('keeps pay and loans in one view and removes the estimated payoff chart', async () => {
     await openWorkers()

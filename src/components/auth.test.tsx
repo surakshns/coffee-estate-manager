@@ -173,7 +173,7 @@ describe('password updates', () => {
 })
 
 describe('account navigation and recovery callbacks', () => {
-  it('opens password settings from both the header and phone More menu', async () => {
+  it('opens password settings from both the header and phone Menu', async () => {
     api.getSession.mockResolvedValue({ data: { session }, error: null })
     const user = userEvent.setup()
     render(<App />)
@@ -182,7 +182,7 @@ describe('account navigation and recovery callbacks', () => {
     await user.click(screen.getByRole('button', { name: 'Change password' }))
     expect(within(screen.getByRole('dialog', { name: 'Change password' })).getByLabelText('Current password')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    await user.click(screen.getByRole('button', { name: 'More sections' }))
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Change password' }))
     expect(screen.getByRole('dialog', { name: 'Change password' })).toBeTruthy()
   })
