@@ -294,6 +294,45 @@ describe('phone weekly-pay cards', () => {
     expect((screen.getByLabelText('Month') as HTMLSelectElement).value).toBe('8')
   })
 
+  it('protects an existing phone draft when a notification asks to open another week', async () => {
+    phoneViewport()
+    const user = userEvent.setup()
+    const { rerender } = render(<Labour data={data} year={2026} refresh={refresh} initialAdvanceDate="2026-09-02" advanceRequest={1} />)
+    const currentDeck = () => within(screen.getByRole('dialog', { name: 'Weekly pay · Wednesday, 2 Sept' }))
+    await user.click(currentDeck().getByRole('button', { name: '3 days for Ravi' }))
+    rerender(<Labour data={data} year={2026} refresh={refresh} initialAdvanceDate="2026-09-09" advanceRequest={2} />)
+    let prompt = within(screen.getByRole('alertdialog', { name: 'Leave this unsaved payment?' }))
+    expect(currentDeck().getByRole('button', { name: '3 days for Ravi' }).getAttribute('aria-pressed')).toBe('true')
+    await user.click(prompt.getByRole('button', { name: 'Cancel' }))
+    expect(currentDeck().getByRole('button', { name: '3 days for Ravi' }).getAttribute('aria-pressed')).toBe('true')
+    rerender(<Labour data={data} year={2026} refresh={refresh} initialAdvanceDate="2026-09-09" advanceRequest={3} />)
+    prompt = within(screen.getByRole('alertdialog', { name: 'Leave this unsaved payment?' }))
+    await user.click(prompt.getByRole('button', { name: 'Discard changes' }))
+    const next = within(await screen.findByRole('dialog', { name: 'Weekly pay · Wednesday, 9 Sept' }))
+    expect(next.getByRole('button', { name: '5 days for Ravi' }).getAttribute('aria-pressed')).toBe('true')
+    expect(next.getByRole('button', { name: 'Edit loan deduction for Ravi' }).textContent).toContain('₹0')
+    expect(api.rpc).not.toHaveBeenCalled()
+  })
+
+  it('handles a notification for a previous-year week without losing its exact date or phone editing state', async () => {
+    phoneViewport()
+    const cleanData = { ...data, weeklyPayments: [], workerLoans: [] }
+    function Editor({ request }: { request: number }) {
+      const [recordYear, setRecordYear] = useState(2026)
+      return <Labour data={cleanData} year={recordYear} refresh={refresh} onYearChange={setRecordYear} initialAdvanceDate={request === 1 ? '2026-09-02' : '2025-12-31'} advanceRequest={request} />
+    }
+    const { rerender } = render(<Editor request={1} />)
+    rerender(<Editor request={2} />)
+    const next = within(await screen.findByRole('dialog', { name: 'Weekly pay · Wednesday, 31 Dec' }))
+    expect((screen.getByLabelText('Month') as HTMLSelectElement).value).toBe('11')
+    expect((next.getByRole('button', { name: '3 days for Ravi' }) as HTMLButtonElement).disabled).toBe(false)
+    const user = userEvent.setup()
+    await user.click(next.getByRole('button', { name: '3 days for Ravi' }))
+    await user.click(next.getByRole('button', { name: 'Review week' }))
+    await user.click(await next.findByRole('button', { name: 'Save weekly pay' }))
+    expect(api.rpc).toHaveBeenCalledWith('save_weekly_labour', expect.objectContaining({ p_week_start: '2025-12-31' }))
+  })
+
   it('shows one worker, retains entries after swiping and returning, and saves the full week only on review', async () => {
     phoneViewport()
     const user = userEvent.setup()

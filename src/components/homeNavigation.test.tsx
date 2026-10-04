@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { EstateData } from '../lib/types'
 import App from '../App'
@@ -14,6 +14,8 @@ vi.mock('./Documents', () => ({ Documents: () => <h1>Estate documents</h1> }))
 
 beforeEach(() => {
   vi.resetAllMocks()
+  window.history.replaceState({}, '', '/')
+  localStorage.clear()
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-01-01T12:00:00Z'))
   api.data = {
@@ -29,7 +31,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value() { this.removeAttribute('open') } })
   window.scrollTo = vi.fn()
 })
-afterEach(() => { cleanup(); vi.useRealTimers() })
+afterEach(() => { cleanup(); vi.useRealTimers(); window.history.replaceState({}, '', '/') })
 
 describe('home entries and phone menu', () => {
   it('adds an expense from Home and returns to the dashboard after saving', async () => {
@@ -65,12 +67,43 @@ describe('home entries and phone menu', () => {
     expect(within(nav).getAllByRole('button').map(button => button.textContent)).toEqual(['Home', 'Labour', 'Expenses', 'Menu'])
     await user.click(within(nav).getByRole('button', { name: 'Menu' }))
     const menu = screen.getByRole('dialog', { name: 'Menu' })
-    for (const name of ['Documents', 'Harvest & sales', 'Rainfall', 'Coffee prices', 'Backup & import', 'Change password', 'Sign out']) expect(within(menu).getByRole('button', { name })).toBeTruthy()
+    for (const name of ['Documents', 'Harvest & sales', 'Rainfall', 'Coffee prices', 'Backup & import', 'Advance reminder', 'Change password', 'Sign out']) expect(within(menu).getByRole('button', { name })).toBeTruthy()
     await user.click(within(menu).getByRole('button', { name: 'Documents' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Estate documents' })).toBeTruthy()
     expect(within(nav).getByRole('button', { name: 'Menu' }).classList.contains('is-active')).toBe(true)
     await user.click(within(nav).getByRole('button', { name: 'Home' }))
     expect(screen.getByRole('heading', { name: 'Estate overview' })).toBeTruthy()
+  })
+
+  it('edits the reminder schedule from Home before delivery is configured', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Edit reminder' }))
+    const panel = within(screen.getByRole('dialog', { name: 'Weekly advance reminder' }))
+    await user.selectOptions(panel.getByLabelText('Reminder day'), '4')
+    fireEvent.change(panel.getByLabelText('Time'), { target: { value: '21:30' } })
+    await user.click(panel.getByRole('button', { name: 'Save schedule' }))
+    expect(panel.getByText('Setup required')).toBeTruthy()
+    expect(localStorage.getItem('coffee-estate-advance-reminder:user')).toContain('"weekday":4')
+    expect(localStorage.getItem('coffee-estate-advance-reminder:user')).toContain('"time":"21:30"')
+    await user.click(panel.getByRole('button', { name: 'Close' }))
+    expect(screen.getByText('Thu · 9:30 PM')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Estate overview' })).toBeTruthy()
+  })
+
+  it('opens the notification week across a year boundary and consumes only its query parameter', async () => {
+    window.history.replaceState({}, '', '/?advanceWeek=2025-12-31&keep=value')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Weekly advance editor' })).toBeTruthy()
+    expect(screen.getByText('2025-12-31 · 2025')).toBeTruthy()
+    expect(window.location.search).toBe('?keep=value')
+  })
+
+  it('ignores an invalid advance notification date', async () => {
+    window.history.replaceState({}, '', '/?advanceWeek=2026-01-01')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Estate overview' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Weekly advance editor' })).toBeNull()
   })
 })

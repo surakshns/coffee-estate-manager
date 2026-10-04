@@ -5,11 +5,12 @@ import { dashboardActivity } from '../lib/dashboardData'
 import type { EstateData } from '../lib/types'
 import './dashboard.css'
 import { ViewTabs } from './Workspace'
-import { CalendarDays, ReceiptText, ArrowUpRight } from 'lucide-react'
+import { Bell, CalendarDays, ReceiptText, ArrowUpRight } from 'lucide-react'
 import { currentAdvanceWeek } from '../lib/estateDates'
 import { dashboardLoans } from '../lib/dashboardLoans'
 import { DashboardWorkerCards, type DashboardWorkerRow } from './DashboardWorkerCards'
 import { LoanTrendCharts } from './LoanTrendCharts'
+import { reminderScheduleLabel, type AdvanceWeekStatus, type ReminderSchedule } from '../lib/advanceReminders'
 
 type DashboardPage = 'Labour' | 'Expenses' | 'Production' | 'Rainfall'
 const quantity = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 1 })
@@ -23,12 +24,15 @@ function defaultRange(year: number) {
   return { from: `${year}-01`, to: `${year}-${year === currentYear ? currentMonth : '12'}` }
 }
 
-export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void; onStartAdvance?: (week: string) => void; onAddExpense?: () => void }) {
+type DashboardReminder = { settings: ReminderSchedule; loading: boolean; ready: boolean; activeHere: boolean; error: boolean; weekStart?: string; weekStatus?: AdvanceWeekStatus }
+export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense, onEditReminder, reminder }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void; onStartAdvance?: (week: string) => void; onAddExpense?: () => void; onEditReminder?: () => void; reminder?: DashboardReminder }) {
   const [dashboardView, setDashboardView] = useState<'overview' | 'team'>('overview')
   const [range, setRange] = useState(() => ({ ...defaultRange(year), year }))
   const { from, to } = range.year === year ? range : defaultRange(year)
   const advanceWeek = currentAdvanceWeek()
   const advanceSaved = data.weeklyPayments.some(payment => payment.week_start === advanceWeek)
+  const advanceStatus = reminder?.weekStart === advanceWeek && reminder.weekStatus ? ({ complete: 'Saved', needs_review: 'Needs review', not_saved: 'Not saved', no_workers: 'No workers' }[reminder.weekStatus]) : advanceSaved ? reminder?.error || reminder?.loading ? 'Recorded' : 'Saved' : 'Not saved'
+  const reminderState = !reminder ? 'Not enabled' : reminder.loading ? 'Checking…' : reminder.error ? 'Unavailable' : !reminder.ready ? 'Setup required' : !reminder.settings.enabled ? 'Off' : reminder.activeHere ? 'On' : 'Connect this phone'
   const advanceDate = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date(`${advanceWeek}T12:00:00Z`))
   const updateRange = (next: { from: string; to: string }) => setRange({ ...next, year })
   const harvest = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
@@ -109,7 +113,7 @@ export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense
     {(onStartAdvance || onAddExpense) && <section className="dashboard-entry-actions" aria-label="Add your regular records">
       {onStartAdvance && <button type="button" className="dashboard-entry-card is-advance" aria-label={advanceSaved ? 'Edit this week’s advance' : 'Start this week’s advance'} onClick={() => onStartAdvance(advanceWeek)}>
         <span className="dashboard-entry-icon" aria-hidden="true"><CalendarDays size={23} /></span>
-        <span className="dashboard-entry-copy"><span className="dashboard-entry-label">This week’s advance</span><strong>{advanceSaved ? 'Edit advance' : 'Start advance'}</strong><span className="dashboard-entry-detail"><span>{advanceDate}</span><span className={`dashboard-entry-status${advanceSaved ? ' is-saved' : ''}`}>{advanceSaved ? 'Saved' : 'Not saved'}</span></span></span>
+        <span className="dashboard-entry-copy"><span className="dashboard-entry-label">This week’s advance</span><strong>{advanceSaved ? 'Edit advance' : 'Start advance'}</strong><span className="dashboard-entry-detail"><span>{advanceDate}</span><span className={`dashboard-entry-status${advanceStatus === 'Saved' ? ' is-saved' : ''}`}>{advanceStatus}</span></span></span>
         <ArrowUpRight size={21} aria-hidden="true" />
       </button>}
       {onAddExpense && <button type="button" className="dashboard-entry-card" aria-label="Add expense" onClick={onAddExpense}>
@@ -118,6 +122,7 @@ export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense
         <ArrowUpRight size={21} aria-hidden="true" />
       </button>}
     </section>}
+    {onEditReminder && <div className="dashboard-reminder-row"><Bell size={18} aria-hidden="true" /><div><strong>{reminderScheduleLabel(reminder?.settings ?? { enabled: false, weekday: 3, time: '20:00' })}</strong><span>{reminderState}</span></div><button type="button" onClick={onEditReminder}>Edit reminder<ArrowUpRight size={16} aria-hidden="true" /></button></div>}
 
     <ViewTabs<'overview' | 'team'> label="Dashboard views" value={dashboardView} onChange={setDashboardView} items={[{ value: 'overview', label: 'Overview' }, { value: 'team', label: 'Workers & loans' }]} />
     {dashboardView === 'overview' && <section aria-label={`${year} estate summary`} className="dashboard-summary">

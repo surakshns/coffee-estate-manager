@@ -1,0 +1,7 @@
+# Both functions authenticate inside the handler. User actions validate the
+# session with Auth.getUser; the scheduled sender accepts only its cron secret.
+[functions.estate-reminders]
+verify_jwt = false
+
+[functions.send-estate-reminders]
+verify_jwt = false

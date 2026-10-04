@@ -144,3 +144,9 @@ The app builds this URL from its origin and Vite base path, so it keeps the GitH
 Weekly pay has attendance buttons, worker search, and a sticky save bar. Search only changes which workers are visible; saving still includes the entire week. Saved payments stay locked until you choose **Edit this week**. Worker loans show one account per worker with outstanding/settled filters and a separate statement for advances, direct repayments, and weekly deductions.
 
 Before using this version, run `supabase/migrations/202610040001_remove_joint_loans.sql` in the Supabase SQL Editor after all earlier migrations. It replaces the weekly payment save function, adds an atomic clear-week function, and removes the unused joint-loan tables and validation function. It stops without changing anything if either joint-loan table contains records. Individual worker loans, yearly daily rates, and saved wages are preserved.
+
+## Editable advance reminders
+
+Home has **Edit reminder**, and the phone Menu and desktop More options have **Advance reminder**. Choose the weekday and time in India time, turn the account reminder on or off, and connect or test each phone separately. The default is Wednesday at 8 PM. Notifications open the exact Wednesday and protect any existing unsaved weekly-pay draft.
+
+Scheduled delivery requires the new migration, deployed Edge Functions, server push keys and a Supabase Cron job. Follow [the reminder setup guide](docs/advance-reminders-setup.md). Until setup is complete, the app shows that delivery is unavailable and lets you save a disabled schedule preference. Checkout/build alone does not enable notifications.

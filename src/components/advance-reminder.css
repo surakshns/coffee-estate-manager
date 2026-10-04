@@ -1,0 +1,40 @@
+.advance-reminder-form { display: grid; gap: 18px; }
+.advance-reminder-form .workspace-notice { margin-bottom: 0; }
+.advance-reminder-status { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--workspace-line); border-radius: var(--workspace-radius); background: #f6f8f2; color: var(--workspace-muted); }
+.advance-reminder-status > svg { flex-shrink: 0; margin-top: 2px; }
+.advance-reminder-status strong { display: block; color: var(--workspace-ink); font-size: 15px; font-weight: 650; line-height: 1.4; }
+.advance-reminder-status p { margin-top: 5px; font-size: 13px; line-height: 1.5; }
+.advance-reminder-status.is-active { background: var(--workspace-sage); border-color: #cadfc4; color: var(--workspace-green); }
+.advance-reminder-switch { display: flex; align-items: center; gap: 16px; min-height: 64px; cursor: pointer; }
+.advance-reminder-switch-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.advance-reminder-switch-copy strong { font-size: 14px; font-weight: 650; color: var(--workspace-ink); }
+.advance-reminder-switch-copy > span { font-size: 12px; line-height: 1.5; color: var(--workspace-muted); }
+.advance-reminder-switch-control { position: relative; display: inline-block; flex: 0 0 48px; width: 48px; height: 30px; border-radius: 99px; }
+.advance-reminder-switch-control input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.advance-reminder-switch-track { display: block; width: 100%; height: 100%; border: 1px solid #ccd8cb; border-radius: inherit; background: #e2e9df; transition: background 160ms ease, border-color 160ms ease; }
+.advance-reminder-switch-track::after { content: ''; position: absolute; top: 5px; left: 5px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #263d2c1f; transition: transform 160ms var(--estate-ease); }
+.advance-reminder-switch-control input:checked + .advance-reminder-switch-track { background: var(--workspace-green); border-color: var(--workspace-green); }
+.advance-reminder-switch-control input:checked + .advance-reminder-switch-track::after { transform: translateX(18px); }
+.advance-reminder-switch-control input:disabled { cursor: not-allowed; }
+.advance-reminder-switch-control input:disabled + .advance-reminder-switch-track { opacity: .6; }
+.advance-reminder-switch-control:focus-within { outline: 3px solid var(--workspace-focus); outline-offset: 3px; }
+.advance-reminder-schedule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.advance-reminder-schedule .label { min-width: 0; }
+.advance-reminder-schedule .field { display: block; width: 100%; min-height: 48px; margin-top: 8px; font-size: 16px; }
+.advance-reminder-preview { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--workspace-radius); background: #edf4e8; color: var(--workspace-green); }
+.advance-reminder-preview > svg { flex-shrink: 0; }
+.advance-reminder-preview strong { display: block; font-size: 15px; font-weight: 650; line-height: 1.4; }
+.advance-reminder-preview span { display: block; margin-top: 4px; color: var(--workspace-muted); font-size: 12px; line-height: 1.4; }
+.advance-reminder-guidance { color: var(--workspace-muted); font-size: 12px; line-height: 1.65; }
+.advance-reminder-device { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--workspace-line); }
+.advance-reminder-device-heading { display: flex; align-items: center; gap: 8px; color: var(--workspace-ink); font-size: 14px; }
+.advance-reminder-device dl { display: grid; gap: 8px; font-size: 12px; line-height: 1.5; }
+.advance-reminder-device dl > div { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.advance-reminder-device dt { color: var(--workspace-muted); }
+.advance-reminder-device dd { color: var(--workspace-ink); font-weight: 600; }
+.advance-reminder-device p { font-size: 12px; line-height: 1.65; color: var(--workspace-muted); }
+.advance-reminder-device button, .advance-reminder-footer button { min-height: 48px; }
+.advance-reminder-test { width: 100%; }
+.advance-reminder-footer { margin-top: 0; }
+@media (max-width: 359px) { .advance-reminder-schedule { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .advance-reminder-switch-track, .advance-reminder-switch-track::after { transition: none; } }

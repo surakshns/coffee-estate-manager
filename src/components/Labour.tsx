@@ -39,10 +39,10 @@ const advanceDate = (date?: string) => {
 }
 type LoanForm = { worker_id: string; loan_date: string; amount: string; kind: 'advance' | 'repayment'; notes: string }
 type View = 'payments' | 'loans' | 'workers'
-type WeekSelection = { month: number; date: string }
+type WeekSelection = { month: number; date: string; startAdvance?: boolean }
 const emptyLoan = (): LoanForm => ({ worker_id: '', loan_date: today(), amount: '', kind: 'advance', notes: '' })
 
-export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate }: { data: EstateData; year: number; refresh: () => Promise<void>; onYearChange?: (year: number) => void; initialAdvanceDate?: string }) {
+export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate, advanceRequest }: { data: EstateData; year: number; refresh: () => Promise<void>; onYearChange?: (year: number) => void; initialAdvanceDate?: string; advanceRequest?: number }) {
   const initialWeek = advanceDate(initialAdvanceDate)
   const initialMonth = Number((initialWeek ?? today()).slice(5, 7)) - 1
   const [view, setView] = useState<View>('payments')
@@ -74,6 +74,8 @@ export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate }
   const busyRef = useRef(false)
   const previousYear = useRef(year)
   const requestedWeek = useRef<string | null>(null)
+  const requestedEditing = useRef(false)
+  const handledAdvance = useRef({ date: initialAdvanceDate, request: advanceRequest })
   const weeklyPayFormRef = useRef<HTMLFormElement>(null)
   const openInitialAdvance = useRef(Boolean(initialWeek && isPhone && workersForPaymentDate(data.workers, data.weeklyPayments, initialWeek).length))
 
@@ -141,7 +143,8 @@ export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate }
     previousYear.current = year
     setOpenWednesday(requestedWeek.current ?? preferredWednesday(year, openMonth))
     requestedWeek.current = null
-    setEditingWeek(false)
+    setEditingWeek(requestedEditing.current)
+    requestedEditing.current = false
     setDirtyDraft(false)
     setMessage('')
   }, [year, openMonth])
@@ -176,7 +179,18 @@ export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate }
     if (!openInitialAdvance.current) return
     openInitialAdvance.current = false
     setPhoneDeckOpen(true)
-  }, [])
+  }, [openWednesday, editingWeek])
+
+  useEffect(() => {
+    const date = advanceDate(initialAdvanceDate)
+    if (!date || busy || (handledAdvance.current.date === date && handledAdvance.current.request === advanceRequest)) return
+    handledAdvance.current = { date, request: advanceRequest }
+    setView('payments')
+    if (date === openWednesday) {
+      setEditingWeek(true)
+      if (isPhone && paymentWorkers.length) setPhoneDeckOpen(true)
+    } else chooseWeek({ date, month: Number(date.slice(5, 7)) - 1, startAdvance: true })
+  }, [initialAdvanceDate, advanceRequest, busy, isPhone])
 
   useEffect(() => {
     if (!dirtyDraft) return
@@ -199,9 +213,11 @@ export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate }
     const selectedYear = Number(selection.date.slice(0, 4))
     if (selectedYear !== year && onYearChange) {
       requestedWeek.current = selection.date
+      requestedEditing.current = Boolean(selection.startAdvance)
       onYearChange(selectedYear)
     }
-    setEditingWeek(false)
+    setEditingWeek(Boolean(selection.startAdvance))
+    openInitialAdvance.current = Boolean(selection.startAdvance && isPhone && workersForPaymentDate(data.workers, data.weeklyPayments, selection.date).length)
     setOpenMonth(selection.month)
     setOpenWednesday(selection.date)
     setDirtyDraft(false)

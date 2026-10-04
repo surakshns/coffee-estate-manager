@@ -4,7 +4,7 @@ import { AppIcon } from './components/AppIcon'
 import { AuthScreen } from './components/AuthScreen'
 import { PasswordForm } from './components/PasswordForm'
 import { PasswordRecovery } from './components/PasswordRecovery'
-import { Download, LockKeyhole, LogOut, Menu } from 'lucide-react'
+import { Bell, Download, LockKeyhole, LogOut, Menu } from 'lucide-react'
 import { Backup } from './components/Backup'
 import { Dashboard } from './components/Dashboard'
 import { Documents } from './components/Documents'
@@ -22,9 +22,12 @@ import { Sheet } from './components/Workspace'
 import { SelectionNav } from './components/SelectionNav'
 import { RecordLoading } from './components/RecordLoading'
 import { estateToday } from './lib/estateDates'
+import { AdvanceReminderSettings } from './components/AdvanceReminderSettings'
+import { useAdvanceReminders } from './hooks/useAdvanceReminders'
+import { advanceWeekFromUrl, applicationUrl, validAdvanceWeek } from './lib/advanceReminders'
 
 type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup'
-type NavigationEntry = { advanceDate?: string; expenseView?: 'records' | 'breakdown' | 'categories' }
+type NavigationEntry = { advanceDate?: string; advanceRequest?: number; expenseView?: 'records' | 'breakdown' | 'categories' }
 type DeferredInstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'documents' | 'backup' }[] = [
   { page: 'Dashboard', short: 'Home', icon: 'home' },
@@ -47,6 +50,9 @@ export default function App() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [entry, setEntry] = useState<NavigationEntry>({})
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false)
+  const [reminderOpen, setReminderOpen] = useState(false)
+  const [notificationWeek, setNotificationWeek] = useState(() => advanceWeekFromUrl(window.location.href, applicationUrl()))
+  const advanceRequest = useRef(0)
   const [year, setYear] = useState(() => Number(estateToday().slice(0, 4)))
   const [notice, setNotice] = useState('')
   const [loadingDemo, setLoadingDemo] = useState(false)
@@ -54,6 +60,7 @@ export default function App() {
   const menuRef = useRef<HTMLDetailsElement>(null)
   const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null)
   const { data, loading, error, refresh } = useEstateData()
+  const reminders = useAdvanceReminders(session?.user.id ?? null, JSON.stringify([data.weeklyPayments, data.workers]))
 
   useEffect(() => {
     let active = true
@@ -72,7 +79,7 @@ export default function App() {
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveringPassword(true); setRecoveryError(''); setPasswordRecoveryUrl(true)
       }
-      if (!nextSession) { setPasswordOpen(false); setPasswordBusy(false) }
+      if (!nextSession) { setPasswordOpen(false); setPasswordBusy(false); setReminderOpen(false) }
       if (nextSession) void refresh()
     })
     return () => { active = false; listener.subscription.unsubscribe() }
@@ -85,6 +92,26 @@ export default function App() {
     window.addEventListener('appinstalled', onInstalled)
     return () => { window.removeEventListener('beforeinstallprompt', onBeforeInstall); window.removeEventListener('appinstalled', onInstalled) }
   }, [])
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const openReminder = (event: MessageEvent) => {
+      if (event.data?.type === 'OPEN_ADVANCE' && validAdvanceWeek(event.data.weekStart)) setNotificationWeek(event.data.weekStart)
+    }
+    navigator.serviceWorker.addEventListener('message', openReminder)
+    return () => navigator.serviceWorker.removeEventListener('message', openReminder)
+  }, [])
+
+  useEffect(() => {
+    // Keep a notification link through sign-in and record loading. Existing weekly
+    // drafts use Labour's save/discard guard when a different week is requested.
+    if (!notificationWeek || !session || checking || loading || error || recoveringPassword || passwordOpen || quickExpenseOpen || reminderOpen || moreOpen) return
+    startAdvance(notificationWeek)
+    setNotificationWeek(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('advanceWeek')
+    window.history.replaceState(window.history.state, '', url.href)
+  }, [notificationWeek, session, checking, loading, error, recoveringPassword, passwordOpen, quickExpenseOpen, reminderOpen, moreOpen])
 
   async function installApp() {
     if (!installPrompt) return
@@ -110,8 +137,9 @@ export default function App() {
     requestAnimationFrame(() => { if (!document.querySelector('dialog[open]')) mainRef.current?.focus({ preventScroll: true }) })
   }
   function startAdvance(week: string) {
-    setYear(Number(week.slice(0, 4)))
-    navigate('Labour', { advanceDate: week })
+    if (!validAdvanceWeek(week)) return
+    if (page !== 'Labour') setYear(Number(week.slice(0, 4)))
+    navigate('Labour', { advanceDate: week, advanceRequest: ++advanceRequest.current })
   }
   function finishPasswordRecovery() {
     setRecoveringPassword(false); setRecoveryError(''); setPasswordRecoveryUrl(false)
@@ -120,6 +148,19 @@ export default function App() {
     setMoreOpen(false)
     if (menuRef.current) menuRef.current.open = false
     setPasswordOpen(true)
+  }
+  function openReminderSettings() {
+    setMoreOpen(false)
+    if (menuRef.current) menuRef.current.open = false
+    setReminderOpen(true)
+    void reminders.refreshStatus()
+  }
+  async function signOut() {
+    setMoreOpen(false)
+    if (menuRef.current) menuRef.current.open = false
+    await reminders.disconnectDevice()
+    const { error } = await supabase.auth.signOut()
+    if (error) setNotice(error.message)
   }
   if (checking) return <main className="app-opening"><RecordLoading message="Opening Coffee Estate Manager…" compact /></main>
   if (recoveringPassword) {
@@ -134,14 +175,14 @@ export default function App() {
   const current = () => {
     const props = { data, year, refresh }
     switch (page) {
-      case 'Labour': return <Labour {...props} onYearChange={setYear} initialAdvanceDate={entry.advanceDate} />
+      case 'Labour': return <Labour {...props} onYearChange={setYear} initialAdvanceDate={entry.advanceDate} advanceRequest={entry.advanceRequest} />
       case 'Expenses': return <Expenses {...props} initialView={entry.expenseView} />
       case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
       case 'Production': return <Production {...props} />
       case 'Documents': return <Documents data={data} refresh={refresh} />
       case 'Backup': return <Backup data={data} refresh={refresh} />
-      default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} />
+      default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} onEditReminder={openReminderSettings} reminder={{ settings: reminders.settings, loading: reminders.loading, ready: reminders.ready, activeHere: reminders.deviceSubscribed && reminders.permission === 'granted', error: Boolean(reminders.error), weekStart: reminders.status?.weekStart, weekStatus: reminders.status?.weekStatus }} />
     }
   }
 
@@ -165,8 +206,9 @@ export default function App() {
               <p className="menu-caption">Your estate</p>
               <button onClick={() => navigate('Backup')}><AppIcon name="backup" /> Backup &amp; import</button>
               <button onClick={openPasswordSettings}><LockKeyhole size={18} aria-hidden="true" />Change password</button>
+              <button onClick={openReminderSettings}><Bell size={18} aria-hidden="true" />Advance reminder</button>
               {installPrompt && <button onClick={() => void installApp()}>＋ Install app</button>}
-              <button onClick={() => { if (menuRef.current) menuRef.current.open = false; void supabase.auth.signOut() }}>Sign out</button>
+              <button onClick={() => void signOut()}>Sign out</button>
             </div>
           </details>
         </div>
@@ -184,9 +226,10 @@ export default function App() {
     <SelectionNav value={moreOpen ? 'Menu' : page} aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${!moreOpen && page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${moreOpen || ['Documents', 'Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="Menu" aria-haspopup="dialog" aria-expanded={moreOpen}><span className="mobile-nav-icon"><Menu size={21} aria-hidden="true" /></span><span className="mobile-nav-label">Menu</span></button></SelectionNav>
     <Sheet open={moreOpen} title="Menu" className="mobile-menu-sheet" onClose={() => setMoreOpen(false)}>
       <nav className="mobile-menu-sections" aria-label="Other sections">{navigation.filter(item => ['Documents', 'Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button type="button" key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-menu-section-icon"><AppIcon name={item.icon} /></span><span>{item.page === 'Production' ? 'Harvest & sales' : item.page === 'Prices' ? 'Coffee prices' : item.page}</span></button>)}</nav>
-      <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => { setMoreOpen(false); void supabase.auth.signOut() }}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
+      <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openReminderSettings}><Bell size={19} aria-hidden="true" /><span>Advance reminder</span><AppIcon name="arrow" /></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => void signOut()}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
     </Sheet>
     <ExpenseEditor data={data} refresh={refresh} open={quickExpenseOpen} onClose={() => setQuickExpenseOpen(false)} onSaved={setNotice} onManageCategories={() => navigate('Expenses', { expenseView: 'categories' })} />
+    <AdvanceReminderSettings open={reminderOpen} onClose={() => setReminderOpen(false)} settings={reminders.settings} loading={reminders.loading} saving={reminders.saving} testing={reminders.testing} support={reminders.support} permission={reminders.permission} deviceSubscribed={reminders.deviceSubscribed} setupReady={reminders.ready} message={reminders.message} error={reminders.error} onSave={reminders.save} onTest={reminders.test} />
     <Sheet open={passwordOpen} title="Change password" busy={passwordBusy} onClose={() => setPasswordOpen(false)}>
       <p className="password-intro">Confirm your current password, then choose a new one for your account.</p>
       {passwordOpen && <PasswordForm email={session.user.email} verifyCurrent onBusyChange={setPasswordBusy} onCancel={() => setPasswordOpen(false)} onSuccess={() => { setPasswordOpen(false); setNotice('Your login password has been updated.') }} />}

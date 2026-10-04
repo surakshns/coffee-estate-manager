@@ -3,7 +3,10 @@
 ## Scope
 
 Redesign Home around the owner's weekly advance workflow and a concise view of
-the estate. This document is a plan; notification delivery is not enabled yet.
+the estate. This document records the original plan. The reminder implementation
+now exists in the repository, but hosted delivery requires the setup in
+[advance-reminders-setup.md](advance-reminders-setup.md) and is not enabled merely
+by deploying the frontend.
 The audit covers the repository's data model and current dashboard calculations.
 No live account records were accessed, so there are no claims about actual estate
 amounts, trends, or repayment performance.
@@ -94,27 +97,27 @@ including a valid zero-pay or skipped row. A normal atomic weekly save writes al
 eligible workers. CSV imports can create partial weeks, and the existing tables
 cannot reliably distinguish those from a completed save.
 
-For reliable reminders, introduce an account-and-Wednesday completion marker,
+The reminder migration now adds an account-and-Wednesday completion marker,
 updated in the same transaction as save_weekly_labour and removed by
-clear_weekly_labour. Use the same status rule in Home and the scheduled sender.
-Legacy/imported weeks without an established complete save should be identified
-as needing review rather than silently declared complete. A zero-total completed
-week is still complete; an unsaved draft never is. Define migration/backfill rules
-against existing records before applying any schema change.
+clear_weekly_labour. Home uses the server's verified status when available, as
+does the scheduled sender. Legacy/imported weeks without an established complete
+save need review; the migration never backfills them as complete. A zero-total
+completed week is still complete; an unsaved draft never is. See the setup guide
+for migration and verification details.
 
 ### Delivery
 
-The existing manifest already supports installation, but sw.js only caches files.
-Add Web Push subscription storage protected by account-level RLS, service-worker
-push and notification-click handlers, and a protected scheduled server function.
-Supabase Cron can invoke the function; private push signing keys and server
-credentials stay in hosted secrets, never the frontend bundle. Hosted configuration
-and phone notification permission are required before claiming reminders work.
+The manifest supports installation, and sw.js now handles push notifications and
+notification taps. The new functions manage account-protected subscriptions and
+scheduled delivery. Supabase Cron invokes the sender; private push signing keys
+and server credentials stay in hosted secrets, never the frontend bundle. Hosted
+configuration and phone notification permission are required for live delivery.
 
 On iPhone, Web Push requires the web app to be added to the Home Screen and the
 user to allow notifications. Notification sound follows device settings; the web
 app does not provide a continuous clock alarm or override silent/Focus settings.
-Phone platform/setup is pending the user's answer.
+The user uses both Android and iPhone. One account schedule applies to both;
+connect notification permission and subscriptions separately on each phone.
 
 References:
 
