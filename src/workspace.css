@@ -262,13 +262,8 @@ body { color: var(--workspace-ink); }
 .dashboard-panel h2, .dashboard-insights-panel h2 { font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .dashboard-charts { gap: 24px; }
 .dashboard-description, .dashboard-footnote { font-size: 13px; }
-.dashboard-insight-grid > div, .dashboard-loan-advice > div, .dashboard-expense-insights > div { border-radius: 0; border: 0; border-left: 2px solid #cadacf; background: transparent; box-shadow: none; }
+.dashboard-insight-grid > div, .dashboard-expense-insights > div { border-radius: 0; border: 0; border-left: 2px solid #cadacf; background: transparent; box-shadow: none; }
 .dashboard-insight-grid strong { font-size: 22px; }
-.dashboard-loan-accounts article { border-radius: 6px; border-color: var(--workspace-line); }
-.dashboard-period-controls { padding: 0; background: transparent; border: 0; }
-.dashboard-period-controls select { min-height: 44px; font-size: 14px; background: #fff; border-radius: 6px; }
-.dashboard-period-summary > button { border-radius: 6px; box-shadow: none; background: #fff; }
-.dashboard-worker-table-card { border-radius: 6px; }
 .dashboard-worker-sort select, .dashboard-worker-sort button { min-height: 44px; }
 .estate-dashboard .workspace-tabs { margin-bottom: 0; }
 @media (max-width: 1023px) {

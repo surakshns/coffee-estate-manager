@@ -1,31 +1,32 @@
 import { useMemo, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { money, productionMetrics } from '../lib/calculations'
 import { dashboardActivity } from '../lib/dashboardData'
 import type { EstateData } from '../lib/types'
 import './dashboard.css'
 import { ViewTabs } from './Workspace'
 import { Users, ReceiptText, CloudRain } from 'lucide-react'
-import { loanStory } from '../lib/loanStory'
+import { dashboardLoans } from '../lib/dashboardLoans'
+import { DashboardWorkerCards, type DashboardWorkerRow } from './DashboardWorkerCards'
+import { LoanTrendCharts } from './LoanTrendCharts'
 
 type DashboardPage = 'Labour' | 'Expenses' | 'Production' | 'Rainfall'
 const quantity = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 1 })
 const compactMoney = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 }).format(value)
-const monthName = (month: number) => new Intl.DateTimeFormat('en-IN', { month: 'long' }).format(new Date(2026, month, 1))
 const expenseColors = ['#d1a24d', '#6f8f63', '#c37947', '#7895a4', '#a77b9b']
 
-const workerSortColumns = [{ key: 'name', label: 'Worker' }, { key: 'weeks', label: 'Weeks' }, { key: 'days', label: 'Days' }, { key: 'gross', label: 'Gross' }, { key: 'takeHome', label: 'Take-home' }, { key: 'deducted', label: 'Loan deducted' }] as const
-type WorkerSortKey = typeof workerSortColumns[number]['key']
+function defaultRange(year: number) {
+  const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit' }).formatToParts(new Date())
+  const currentYear = Number(parts.find(part => part.type === 'year')?.value)
+  const currentMonth = parts.find(part => part.type === 'month')?.value ?? '12'
+  return { from: `${year}-01`, to: `${year}-${year === currentYear ? currentMonth : '12'}` }
+}
 
 export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: number; onNavigate?: (page: DashboardPage) => void }) {
-  const [dashboardView, setDashboardView] = useState<'overview' | 'team' | 'loans'>('overview')
-  const [periodFromYear, setPeriodFromYear] = useState(year)
-  const [periodFromMonth, setPeriodFromMonth] = useState(0)
-  const [periodToYear, setPeriodToYear] = useState(year)
-  const [periodToMonth, setPeriodToMonth] = useState(new Date().getMonth())
-  const [workerSort, setWorkerSort] = useState<{ key: WorkerSortKey; ascending: boolean }>({ key: 'name', ascending: true })
-  const sortWorkers = (key: WorkerSortKey) => setWorkerSort(previous => ({ key, ascending: previous.key === key ? !previous.ascending : key === 'name' }))
-  const [selectedWorkerId, setSelectedWorkerId] = useState('')
+  const [dashboardView, setDashboardView] = useState<'overview' | 'team'>('overview')
+  const [range, setRange] = useState(() => ({ ...defaultRange(year), year }))
+  const { from, to } = range.year === year ? range : defaultRange(year)
+  const updateRange = (next: { from: string; to: string }) => setRange({ ...next, year })
   const harvest = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
   const activity = dashboardActivity(data, year)
   const hasSpending = Boolean(activity.spending)
@@ -54,53 +55,37 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
   const categoryRows = activity.categories.length > 5
     ? [...activity.categories.slice(0, 4), { id: '__other_categories', name: 'Other categories', amount: activity.categories.slice(4).reduce((sum, category) => sum + category.amount, 0) }]
     : activity.categories
-  const periodStart = `${periodFromYear}-${String(periodFromMonth + 1).padStart(2, '0')}-01`
-  const periodEndDay = new Date(periodToYear, periodToMonth + 1, 0).getDate()
-  const periodEnd = `${periodToYear}-${String(periodToMonth + 1).padStart(2, '0')}-${String(periodEndDay).padStart(2, '0')}`
-  const validPeriod = periodStart <= periodEnd
-  const periodYears = [...new Set([periodFromYear, periodToYear, year, ...Array.from({ length: 11 }, (_, index) => year - 5 + index), ...data.weeklyPayments.map((payment) => Number(payment.week_start.slice(0, 4)))])].filter(Number.isFinite).sort((a, b) => b - a)
-  const periodPayments = validPeriod ? data.weeklyPayments.filter((payment) => !payment.excluded && payment.week_start >= periodStart && payment.week_start <= periodEnd) : []
-  const workerDayRows = data.workers.map((worker) => {
-    const payments = periodPayments.filter((payment) => payment.worker_id === worker.id)
-    const gross = payments.reduce((total, payment) => total + Number(payment.amount), 0)
-    const deductions = payments.reduce((total, payment) => total + Number(payment.loan_deduction ?? 0), 0)
-    return { worker, days: payments.reduce((total, payment) => total + Number(payment.days_worked ?? 0), 0), weeks: payments.length, gross, takeHome: Math.max(0, gross - deductions) }
-  }).filter(({ worker, weeks }) => worker.active || weeks > 0)
-  const sortedWorkerRows = [...workerDayRows].sort((a, b) => {
-    const value = (row: typeof a) => workerSort.key === 'deducted' ? Math.max(0, row.gross - row.takeHome) : workerSort.key === 'name' ? 0 : row[workerSort.key]
-    const difference = workerSort.key === 'name' ? a.worker.name.localeCompare(b.worker.name, 'en-IN', { sensitivity: 'base', numeric: true }) : value(a) - value(b)
-    return (workerSort.ascending ? difference : -difference) || a.worker.name.localeCompare(b.worker.name) || a.worker.id.localeCompare(b.worker.id)
+  const loans = useMemo(() => dashboardLoans(data, from, to), [data, from, to])
+  const periodPayments = loans.valid ? data.weeklyPayments.filter(payment => !payment.excluded && payment.week_start.slice(0, 7) >= from && payment.week_start.slice(0, 7) <= to) : []
+  const workerRows: DashboardWorkerRow[] = loans.accounts.map(account => {
+    const payments = periodPayments.filter(payment => payment.worker_id === account.workerId)
+    const gross = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+    const deducted = payments.reduce((sum, payment) => sum + Number(payment.loan_deduction ?? 0), 0)
+    const takeHome = payments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
+    const days = payments.some(payment => payment.days_worked == null) ? null : payments.reduce((sum, payment) => sum + Number(payment.days_worked), 0)
+    return { ...account, days, weeks: payments.length, gross, deducted, takeHome }
   })
-  const periodWorkingDays = workerDayRows.reduce((sum, item) => sum + item.days, 0)
-  const periodGrossPay = periodPayments.reduce((sum, payment) => sum + Number(payment.amount), 0)
-  const periodTakeHome = periodPayments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0)
-  const periodOtherExpenses = validPeriod ? data.expenses.filter((expense) => expense.expense_date >= periodStart && expense.expense_date <= periodEnd).reduce((sum, expense) => sum + Number(expense.amount), 0) : 0
-  const periodExpensesAndTakeHome = periodOtherExpenses + periodTakeHome
-  const periodLoansPaid = (validPeriod ? data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date >= periodStart && loan.loan_date <= periodEnd).reduce((sum, loan) => sum + Number(loan.amount), 0) : 0)
-  const selectedWorker = workerDayRows.find((row) => row.worker.id === selectedWorkerId) ?? workerDayRows[0]
+  const periodWorkingDays = periodPayments.reduce((sum, payment) => sum + Number(payment.days_worked ?? 0), 0)
+  const missingAttendance = periodPayments.filter(payment => payment.days_worked == null).length
+  const periodGrossPay = workerRows.reduce((sum, worker) => sum + worker.gross, 0)
+  const periodDeductions = workerRows.reduce((sum, worker) => sum + worker.deducted, 0)
+  const periodTakeHome = workerRows.reduce((sum, worker) => sum + worker.takeHome, 0)
+  const savedWeeks = new Set(periodPayments.map(payment => payment.week_start)).size
+  const recordedMonths = [...data.weeklyPayments.filter(payment => !payment.excluded).map(payment => payment.week_start.slice(0, 7)), ...data.workerLoans.map(loan => loan.loan_date.slice(0, 7))].filter(month => /^\d{4}-(0[1-9]|1[0-2])$/.test(month)).sort()
+  const lastTwelveMonths = () => {
+    const end = defaultRange(year).to
+    const start = new Date(`${end}-01T00:00:00Z`)
+    start.setUTCMonth(start.getUTCMonth() - 11)
+    updateRange({ from: start.toISOString().slice(0, 7), to: end })
+  }
   const latestSpendingMonth = [...activity.monthly].reverse().find((month) => month.spending > 0)
   const spendingVsAverage = latestSpendingMonth && averageSpending ? latestSpendingMonth.spending - averageSpending : 0
   const loanDeductions = data.weeklyPayments.filter((payment) => Number(payment.week_start.slice(0, 4)) === year && !payment.excluded).reduce((sum, payment) => sum + Number(payment.loan_deduction ?? 0), 0)
   const takeHomeYear = Math.max(0, harvest.labour - loanDeductions)
-  const payrollSplitRows = activity.monthly.map((month, monthIndex) => {
-    const prefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-    const deductions = data.weeklyPayments.filter((payment) => !payment.excluded && payment.week_start.startsWith(prefix)).reduce((sum, payment) => sum + Number(payment.loan_deduction ?? 0), 0)
-    return { month: month.month, takeHome: Math.max(0, month.labour - deductions), deductions }
+  const payrollSplitRows = loans.monthly.map(month => {
+    const payments = periodPayments.filter(payment => payment.week_start.startsWith(month.month))
+    return { month: month.label, takeHome: payments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0), deductions: payments.reduce((sum, payment) => sum + Number(payment.loan_deduction ?? 0), 0) }
   })
-  const loanOpeningBalance = Math.max(0,
-    data.workerLoans.filter((loan) => loan.loan_date < `${year}-01-01`).reduce((sum, loan) => sum + (loan.kind === 'advance' ? Number(loan.amount) : -Number(loan.amount)), 0)
-  )
-  let runningLoanBalance = loanOpeningBalance
-  const loanTrendRows = activity.monthly.map((month, monthIndex) => {
-    const prefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-    const given = data.workerLoans.filter((loan) => loan.kind === 'advance' && loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0)
-    const repaid = data.workerLoans.filter((loan) => loan.kind === 'repayment' && loan.loan_date.startsWith(prefix)).reduce((sum, loan) => sum + Number(loan.amount), 0)
-    runningLoanBalance += given - repaid
-    return { month: month.month, given, repaid, balance: Math.max(0, runningLoanBalance) }
-  })
-  const yearLoansGiven = loanTrendRows.reduce((sum, row) => sum + row.given, 0)
-  const yearLoansRepaid = loanTrendRows.reduce((sum, row) => sum + row.repaid, 0)
-  const story = loanStory(data)
   const insightCards = [
     latestSpendingMonth ? { label: 'Latest spend pulse', value: money(latestSpendingMonth.spending), detail: averageSpending ? `${latestSpendingMonth.month} is ${money(Math.abs(spendingVsAverage))} ${spendingVsAverage >= 0 ? 'above' : 'below'} the usual month.` : `${latestSpendingMonth.month} has recorded spending.` } : null,
     activity.categories[0] ? { label: 'Largest cost head', value: activity.categories[0].name, detail: `${money(activity.categories[0].amount)} recorded in ${year}.` } : null,
@@ -122,14 +107,14 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
       </div>}
     </header>
 
-    <section aria-label={`${year} estate summary`} className="dashboard-summary">
+    <ViewTabs<'overview' | 'team'> label="Dashboard views" value={dashboardView} onChange={setDashboardView} items={[{ value: 'overview', label: 'Overview' }, { value: 'team', label: 'Workers & loans' }]} />
+    {dashboardView === 'overview' && <section aria-label={`${year} estate summary`} className="dashboard-summary">
       <SummaryTile label="Harvest" value={quantity(harvest.bagsProduced)} unit="bags" detail={`${quantity(harvest.weightKg)} kg · ${year} crop`} icon="harvest" />
       <SummaryTile label="Recorded sales" value={money(activity.sales)} detail={`Sales dated in ${year}`} icon="sales" />
       <SummaryTile label="Total spending" value={money(activity.spending)} detail="Labour + estate expenses" icon="spending" />
       <SummaryTile label="Recorded balance" value={money(activity.balance)} detail="Sales minus spending" icon="balance" emphasis={activity.balance >= 0 ? 'positive' : 'negative'} />
-    </section>
+    </section>}
 
-    <ViewTabs<'overview' | 'team' | 'loans'> label="Dashboard views" value={dashboardView} onChange={setDashboardView} items={[{ value: 'overview', label: 'Overview' }, { value: 'team', label: 'Workers & pay' }, { value: 'loans', label: 'Loans' }]} />
     <section className="dashboard-charts" aria-label="Estate insights">
       {dashboardView === 'overview' && <>
       <article className="dashboard-panel dashboard-activity-panel">
@@ -169,77 +154,50 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
       </article>
 
       </>}
-      {dashboardView === 'team' && harvest.labour > 0 && <article className="dashboard-panel dashboard-payroll-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Pay flow</p><h2>Take-home and loan deductions</h2></div><span className="dashboard-year-badge">Jan-Dec {year}</span></div>
-        <p className="dashboard-description">See how saved wages split between cash to pay and loan deductions each month.</p>
-        <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-take-home" /> Take-home</span><span><i className="is-loan" /> Loan deductions</span></div>
-        <div className="dashboard-payroll-chart" role="group" aria-label={`Monthly take-home pay and loan deductions for ${year}.`}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart data={payrollSplitRows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
-              <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
-              <YAxis width={48} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 10 }} tickFormatter={compactMoney} tickCount={5} />
-              <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(month) => `${month} ${year}`} contentStyle={{ borderRadius: 12, borderColor: '#dce5da', fontSize: 12, boxShadow: '0 6px 20px #23362d12' }} />
-              <Bar dataKey="takeHome" name="Take-home" stackId="pay" fill="#174e3c" radius={[0, 0, 3, 3]} isAnimationActive={false} />
-              <Bar dataKey="deductions" name="Loan deductions" stackId="pay" fill="#c37947" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </article>}
-
-      {dashboardView === 'loans' && (yearLoansGiven > 0 || yearLoansRepaid > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Worker loans</p><h2>Loan trend and repayments</h2></div><span className="dashboard-year-badge">Jan-Dec {year}</span></div>
-        <p className="dashboard-description">Monthly advances, repayments and outstanding balance for the selected year.</p>
-        <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span></div>
-        <div className="dashboard-loan-trend-chart" role="group" aria-label={`Worker loan trend for ${year}.`}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <ComposedChart data={loanTrendRows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
-              <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
-              <YAxis width={48} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 10 }} tickFormatter={compactMoney} tickCount={5} />
-              <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(month) => `${month} ${year}`} contentStyle={{ borderRadius: 12, borderColor: '#dce5da', fontSize: 12, boxShadow: '0 6px 20px #23362d12' }} />
-              <Bar dataKey="given" name="Loans given" fill="#b86e3d" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-              <Bar dataKey="repaid" name="Repaid" fill="#628a65" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-              <Line dataKey="balance" name="Running balance" type="linear" stroke="#173f2f" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#173f2f' }} connectNulls={false} isAnimationActive={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </article>}
-
-      {dashboardView === 'loans' && (story.rows.some(row => (row.given ?? 0) > 0 || (row.repaid ?? 0) > 0) || story.balance > 0) && <article className="dashboard-panel dashboard-loan-trend-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Worker loans</p><h2>Loan journey & estimated payoff</h2></div><span className="dashboard-year-badge">July 2025 → {story.asOf}</span></div>
-        <p className="dashboard-description">Monthly loans, repayments and outstanding balance from July 2025 through {story.asOf}. Earlier outstanding loans are included in the opening balance; the last point shows this month so far.</p>
-        <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-loan-given" /> Loans given</span><span><i className="is-loan-repaid" /> Repaid</span><span><i className="is-loan-balance" /> Balance</span></div>
-        <div className="dashboard-loan-trend-chart" role="group" aria-label="Worker loans from July 2025 to the current date">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <ComposedChart data={story.rows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
-              <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
-              <YAxis width={48} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 10 }} tickFormatter={compactMoney} tickCount={5} />
-              <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(month) => String(month)} contentStyle={{ borderRadius: 12, borderColor: '#dce5da', fontSize: 12, boxShadow: '0 6px 20px #23362d12' }} />
-              <Bar dataKey="given" name="Loans given" fill="#b86e3d" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-              <Bar dataKey="repaid" name="Repaid" fill="#628a65" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-              <Line dataKey="balance" name="Running balance" type="linear" stroke="#173f2f" strokeWidth={3} dot={{ r: 3, strokeWidth: 0, fill: '#173f2f' }} connectNulls={false} isAnimationActive={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="dashboard-loan-advice"><div><span>Current balance</span><strong>{money(story.balance)}</strong></div><div><span>Estimated payoff month & year</span><strong>{story.end}</strong></div><div><span>Historical repayment pace · all loans</span><strong>{money(story.pace)}</strong></div></div>
-        <p className="dashboard-description"><strong>How repayment pace is calculated:</strong> {money(story.totalRepaid)} repaid from 1 July 2025 to {story.asOf} ÷ {story.elapsedMonths.toLocaleString('en-IN', { maximumFractionDigits: 2 })} elapsed months = <strong>{money(story.pace)} per month across all loans</strong>. Each payoff below uses only that worker’s repayments. Weekly deductions and direct repayments are counted once. Zero-payment months count; the current month is prorated by days elapsed.</p>
-        <p className="dashboard-description">{story.unestimated ? `${story.unestimated} outstanding loan account(s) have no repayments since July 2025, so a date for clearing all loans cannot be estimated.` : story.balance > 0 ? `All loans may be cleared by ${story.end}, when the last worker’s balance is expected to finish.` : 'All recorded loans are cleared.'} Estimates assume no new advances and each account keeps its own average pace. Repayments from cleared loans are never transferred to another worker.</p>
-        {story.accounts.length > 0 && <div className="dashboard-loan-accounts">{story.accounts.map(account => <article key={account.id}><h3>{account.name}</h3><p>{account.kind}</p><dl><div><dt>Outstanding</dt><dd>{money(account.balance)}</dd></div><div><dt>Own monthly pace</dt><dd>{money(account.pace)}</dd></div><div><dt>Estimated payoff</dt><dd>{account.end}</dd></div></dl><p>{money(account.repaid)} repaid ÷ {story.elapsedMonths.toLocaleString('en-IN', { maximumFractionDigits: 2 })} months. {account.months === null ? 'No repayment history in this period.' : `Balance ÷ own pace = about ${account.months} months remaining, rounded up.`}</p></article>)}</div>}
-
-      </article>}
-
-      {dashboardView === 'team' && <article className="dashboard-panel dashboard-working-days-panel">
-        <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Your team</p><h2>Working days &amp; pay</h2></div></div>
-        <p className="dashboard-description">Choose a start and end month. Every worker total and payment figure below uses saved records inside that inclusive period.</p>
-        <div className="dashboard-period-controls"><div><label>From<select aria-label="Period start year" value={periodFromYear} onChange={(event) => setPeriodFromYear(Number(event.target.value))}>{periodYears.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label="Period start month" value={periodFromMonth} onChange={(event) => setPeriodFromMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label><label>To<select aria-label="Period end year" value={periodToYear} onChange={(event) => setPeriodToYear(Number(event.target.value))}>{periodYears.map((item) => <option key={item} value={item}>{item}</option>)}</select><select aria-label="Period end month" value={periodToMonth} onChange={(event) => setPeriodToMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{monthName(month)}</option>)}</select></label></div></div>
-        {!validPeriod && <p className="dashboard-period-error" role="alert">Choose a From month before the To month.</p>}
-        <div className="dashboard-period-summary" aria-live="polite"><button type="button"><span>Working days</span><strong>{quantity(periodWorkingDays)} <em>days</em></strong><p>All workers</p></button><button type="button"><span>Gross payment</span><strong>{money(periodGrossPay)}</strong><p>Before loan deductions</p></button><button type="button"><span>Take-home to pay</span><strong>{money(periodTakeHome)}</strong><p>After weekly loan deductions</p></button><button type="button"><span>Loans paid</span><strong>{money(periodLoansPaid)}</strong><p>Weekly deductions and clearances</p></button><button type="button"><span>Expense cost</span><strong>{money(periodOtherExpenses)}</strong><p>Only estate expenses</p></button><button type="button"><span>Expense + labour</span><strong>{money(periodExpensesAndTakeHome)}</strong><p>Expenses plus take-home</p></button></div>
-        <div className="dashboard-worker-period-heading"><h3>Worker working days</h3><p>{monthName(periodFromMonth).slice(0, 3)} {periodFromYear} to {monthName(periodToMonth).slice(0, 3)} {periodToYear}</p></div>
-        <div className="dashboard-worker-sort"><label>Sort by<select value={workerSort.key} onChange={event => setWorkerSort({ key: event.target.value as WorkerSortKey, ascending: event.target.value === 'name' })}>{workerSortColumns.map(column => <option key={column.key} value={column.key}>{column.label}</option>)}</select></label><button type="button" onClick={() => setWorkerSort(previous => ({ ...previous, ascending: !previous.ascending }))}>{workerSort.key === 'name' ? workerSort.ascending ? 'A → Z' : 'Z → A' : workerSort.ascending ? 'Lowest first ↑' : 'Highest first ↓'}</button></div>
-        {workerDayRows.length ? <div className="dashboard-worker-table-card"><div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Worker working days and pay table"><table className="dashboard-worker-table"><caption className="sr-only">Worker working days and pay for selected range</caption><thead><tr>{workerSortColumns.map(column => <th key={column.key} scope="col" aria-sort={workerSort.key === column.key ? workerSort.ascending ? 'ascending' : 'descending' : 'none'}><button type="button" onClick={() => sortWorkers(column.key)}>{column.label} <span aria-hidden="true">{workerSort.key === column.key ? workerSort.ascending ? '↑' : '↓' : '↕'}</span></button></th>)}</tr></thead><tbody>{sortedWorkerRows.map(({ worker, days, weeks, gross, takeHome }) => <tr key={worker.id} className={selectedWorker?.worker.id === worker.id ? 'is-selected' : ''} onClick={() => setSelectedWorkerId(worker.id)}><th scope="row"><button type="button" onClick={() => setSelectedWorkerId(worker.id)}><strong>{worker.name}</strong><span>{worker.active ? 'Active worker' : 'Inactive worker'}</span></button></th><td data-label="Weeks">{weeks}</td><td data-label="Working days" className="is-days">{quantity(days)}</td><td data-label="Gross pay">{money(gross)}</td><td data-label="Take-home" className="is-take-home">{money(takeHome)}</td><td data-label="Loan deducted">{money(Math.max(0, gross - takeHome))}</td></tr>)}</tbody></table></div>{selectedWorker && <div className="dashboard-worker-detail"><div><span>Selected worker</span><strong>{selectedWorker.worker.name}</strong></div><div><span>Average take-home / week</span><strong>{money(selectedWorker.weeks ? selectedWorker.takeHome / selectedWorker.weeks : 0)}</strong></div><div><span>Loan deducted</span><strong>{money(Math.max(0, selectedWorker.gross - selectedWorker.takeHome))}</strong></div></div>}</div> : <p className="dashboard-working-days-empty">No saved worker payments in this period.</p>}
-      </article>}
+      {dashboardView === 'team' && <>
+        <article className="dashboard-panel dashboard-range-panel">
+          <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Pay &amp; loans together</p><h2>Choose your range</h2></div></div>
+          <div className="dashboard-range-inputs">
+            <label>From<input type="month" aria-label="Period start month" value={from} onChange={event => updateRange({ from: event.target.value, to })} /></label>
+            <label>To<input type="month" aria-label="Period end month" value={to} onChange={event => updateRange({ from, to: event.target.value })} /></label>
+          </div>
+          <div className="dashboard-range-presets" aria-label="Date range shortcuts">
+            <button type="button" onClick={() => updateRange(defaultRange(year))}>{year}</button>
+            <button type="button" onClick={lastTwelveMonths}>Last 12 months</button>
+            {recordedMonths.length > 0 && <button type="button" onClick={() => updateRange({ from: recordedMonths[0], to: recordedMonths[recordedMonths.length - 1] })}>All recorded</button>}
+          </div>
+          {!loans.valid && <p className="dashboard-range-error" role="alert">Choose both months, with the From month before or equal to the To month.</p>}
+          {loans.valid && <div className="dashboard-range-summary" aria-live="polite">
+            <div><span>Take-home pay</span><strong>{money(periodTakeHome)}</strong><p>{money(periodGrossPay)} gross · {money(periodDeductions)} deducted</p></div>
+            <div><span>Recorded workdays</span><strong>{quantity(periodWorkingDays)} <em>days</em></strong><p>{savedWeeks} saved {savedWeeks === 1 ? 'week' : 'weeks'}{missingAttendance > 0 ? ` · ${missingAttendance} ${missingAttendance === 1 ? 'entry has' : 'entries have'} no attendance` : ''}</p></div>
+            <div><span>Loan balance at range end</span><strong>{money(loans.closingBalance)}</strong><p>{loans.monthly.at(-1)?.label} · includes earlier loans</p></div>
+          </div>}
+        </article>
+        {loans.valid && <>
+          <LoanTrendCharts loans={loans} />
+          <DashboardWorkerCards rows={workerRows} from={from} to={to} />
+          {periodGrossPay > 0 && <details className="dashboard-panel dashboard-payroll-panel dashboard-payroll-details">
+            <summary>Monthly pay breakdown</summary>
+            <p className="dashboard-description">Saved wages split between take-home pay and loan deductions.</p>
+            <div className="dashboard-chart-legend" aria-hidden="true"><span><i className="is-take-home" /> Take-home</span><span><i className="is-loan" /> Loan deductions</span></div>
+            <div className="dashboard-loan-chart-viewport" tabIndex={payrollSplitRows.length > 18 ? 0 : undefined} role="group" aria-label="Monthly take-home pay and loan deductions">
+              <div className="dashboard-payroll-chart" style={{ minWidth: payrollSplitRows.length > 18 ? payrollSplitRows.length * 28 + 52 : 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <BarChart data={payrollSplitRows} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} accessibilityLayer>
+                    <CartesianGrid stroke="#e8ede7" strokeDasharray="3 4" vertical={false} />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} minTickGap={20} tickMargin={10} />
+                    <YAxis domain={[0, 'auto']} width={54} axisLine={false} tickLine={false} tick={{ fill: '#68766d', fontSize: 11 }} tickFormatter={compactMoney} tickCount={5} />
+                    <Tooltip formatter={value => money(Number(value))} contentStyle={{ borderRadius: 12, borderColor: '#dce5da', fontSize: 13 }} />
+                    <Bar dataKey="takeHome" name="Take-home" stackId="pay" fill="#174e3c" isAnimationActive={false} />
+                    <Bar dataKey="deductions" name="Loan deductions" stackId="pay" fill="#c37947" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-table-scroll" tabIndex={0} role="region" aria-label="Monthly pay amounts"><table><caption className="sr-only">Monthly take-home pay and wage deductions in the selected range</caption><thead><tr><th scope="col">Month</th><th scope="col">Take-home</th><th scope="col">Loan deductions</th></tr></thead><tbody>{payrollSplitRows.map(row => <tr key={row.month}><th scope="row">{row.month}</th><td>{money(row.takeHome)}</td><td>{money(row.deductions)}</td></tr>)}</tbody></table></div>
+          </details>}
+        </>}
+      </>}
 
       {dashboardView === 'overview' && <><article className="dashboard-panel dashboard-expense-rhythm-panel">
         <div className="dashboard-panel-heading"><div><p className="dashboard-eyebrow">Spending rhythm</p><h2>Labour versus estate costs</h2></div><span className="dashboard-year-badge">Jan–Dec {year}</span></div>
@@ -283,7 +241,7 @@ export function Dashboard({ data, year, onNavigate }: { data: EstateData; year: 
           <p className="dashboard-footnote">Only the {year} production crop, including its sales in other years. This can differ from calendar-year sales above.</p>
         </div>
       </article></>}
-      {dashboardView === 'loans' && !yearLoansGiven && !yearLoansRepaid && !story.balance && !story.rows.some(row => (row.given ?? 0) > 0 || (row.repaid ?? 0) > 0) && <EmptyChart symbol="₹" title="No loan records yet" description="Worker advances and repayments will appear here." action={onNavigate ? () => onNavigate('Labour') : undefined} actionLabel="Open Labour" />}
+
     </section>
   </div>
 }
