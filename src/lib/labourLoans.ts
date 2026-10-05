@@ -15,9 +15,14 @@ export interface WorkerLoanAccount {
 
 export function workerLoanAccounts(workers: Worker[], loans: WorkerLoan[]): WorkerLoanAccount[] {
   const grouped = new Map<string, WorkerLoan[]>()
-  for (const loan of loans) grouped.set(loan.worker_id, [...(grouped.get(loan.worker_id) ?? []), loan])
+  const workerNames = new Map(workers.map(worker => [worker.id, worker]))
+  for (const loan of loans) {
+    const records = grouped.get(loan.worker_id)
+    if (records) records.push(loan)
+    else grouped.set(loan.worker_id, [loan])
+  }
   return [...grouped].map(([workerId, records]) => {
-    const worker = workers.find(item => item.id === workerId)
+    const worker = workerNames.get(workerId)
     const advanced = records.filter(item => item.kind === 'advance').reduce((sum, item) => sum + Math.round(Number(item.amount) * 100), 0)
     const repaid = records.filter(item => item.kind === 'repayment').reduce((sum, item) => sum + Math.round(Number(item.amount) * 100), 0)
     return {

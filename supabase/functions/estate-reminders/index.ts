@@ -1,5 +1,6 @@
 import { adminClient, corsHeaders, json, pushConfiguration, readBody } from '../_shared/reminderRuntime.ts'
 import { DEFAULT_REMINDER, isPushEndpoint, latestWednesday, readSchedule, readSubscription } from '../_shared/reminderRules.ts'
+import { RequestBodyError } from '../_shared/requestBody.ts'
 
 const SETUP_MESSAGE = 'Phone reminder delivery needs server setup. You can still save your preferred day and time.'
 type Admin = ReturnType<typeof adminClient>
@@ -11,16 +12,16 @@ async function statusFor(admin: Admin, userId: string, endpoint?: unknown) {
     admin.from('advance_reminder_settings').select('enabled,weekday,reminder_time,timezone').eq('user_id', userId).maybeSingle(),
     admin.from('advance_push_subscriptions').select('endpoint,expiration_time,connected_at').eq('user_id', userId),
     admin.from('weekly_pay_runs').select('week_start').eq('user_id', userId).eq('week_start', weekStart).maybeSingle(),
-    admin.from('weekly_payments').select('worker_id').eq('user_id', userId).eq('week_start', weekStart),
-    admin.from('workers').select('id,active').eq('user_id', userId),
+    admin.from('weekly_payments').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('week_start', weekStart),
+    admin.from('workers').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('active', true),
     admin.from('advance_reminder_weeks').select('user_id', { head: true }).limit(1),
     pushConfiguration()
   ])
   const missingSchema = [settings, subscriptions, run].some(result => schemaMissing(result.error))
   if (payments.error || workers.error || (repeatingSchema.error && !schemaMissing(repeatingSchema.error)) || (!missingSchema && [settings, subscriptions, run].some(result => result.error))) throw new Error('Could not load your reminder settings. Please try again.')
   const ready = !missingSchema && !schemaMissing(repeatingSchema.error) && !!config?.ready
-  const paidWorkers = new Set((payments.data ?? []).map(row => row.worker_id))
-  const eligible = (workers.data ?? []).some(worker => worker.active || paidWorkers.has(worker.id))
+  const paidCount = payments.count ?? 0
+  const eligible = (workers.count ?? 0) > 0 || paidCount > 0
   const currentSubscriptions = (subscriptions.data ?? []).filter(subscription => !subscription.expiration_time || new Date(subscription.expiration_time).getTime() > Date.now())
   const reminderSettings = settings.data ? { enabled: settings.data.enabled, weekday: settings.data.weekday, time: settings.data.reminder_time.slice(0, 5), timezone: 'Asia/Kolkata' } : DEFAULT_REMINDER
   return {
@@ -31,7 +32,7 @@ async function statusFor(admin: Admin, userId: string, endpoint?: unknown) {
     subscribed: typeof endpoint === 'string' && currentSubscriptions.some(subscription => subscription.endpoint === endpoint),
     subscriptionCount: currentSubscriptions.length,
     weekStart,
-    weekStatus: run.data ? 'complete' : !eligible ? 'no_workers' : paidWorkers.size ? 'needs_review' : 'not_saved',
+    weekStatus: run.data ? 'complete' : !eligible ? 'no_workers' : paidCount ? 'needs_review' : 'not_saved',
     ...(!ready ? { setupMessage: SETUP_MESSAGE } : {})
   }
 }
@@ -106,6 +107,6 @@ Deno.serve(async request => {
     return json({ error: 'Unknown reminder action.' }, 400)
   } catch (error) {
     const message = error instanceof SyntaxError ? 'Invalid reminder request.' : error instanceof Error ? error.message : 'Could not update reminders. Please try again.'
-    return json({ error: message }, error instanceof SyntaxError ? 400 : 500)
+    return json({ error: message }, error instanceof RequestBodyError ? error.status : error instanceof SyntaxError ? 400 : 500)
   }
 })

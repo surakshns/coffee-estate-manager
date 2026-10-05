@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ArrowUp, Check, ChevronDown, ChevronUp, Wallet } from 'lucide-react'
 import type { Worker } from '../lib/types'
 import { money } from '../lib/calculations'
@@ -219,7 +219,8 @@ export function MobileWeeklyPayDeck({ dateLabel, workers, busy, locked, saved, d
   // Every worker-card surface accepts a swipe, including controls. A tap still
   // activates its control; dragging suppresses the resulting compatibility click.
   // Review totals retain normal scrolling until the matching scroll boundary.
-  useEffect(() => {
+  // Attach before paint so the first touch on an arriving card is not lost.
+  useLayoutEffect(() => {
     const stage = stageRef.current
     if (!stage || busy || leaving || editingDeduction || closeRequested) return
     let origin: { x: number; y: number; startedAt: number; next: boolean; previous: boolean; target: Element | null } | null = null

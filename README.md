@@ -1,20 +1,22 @@
 # Coffee Estate Manager
 
-A responsive, mobile-first coffee estate bookkeeping application. It manages labour payments, other expenses, daily coffee prices, production, sales, profit, and local CSV backups. It is a React + TypeScript + Vite + Tailwind CSS frontend that connects directly to Supabase—there is no custom backend server.
+A responsive coffee estate bookkeeping application for labour payments, expenses, market prices, harvests, sales and CSV backups. The React + TypeScript + Vite + Tailwind CSS frontend uses Supabase Auth, a database with account-level Row Level Security, private document storage, and Edge Functions for scheduled reminders.
 
 ## Included features
 
-- Current-year dashboard: labour, other costs, coffee production, revenue, profit, and charts
+- Dashboard: harvest quantities, calendar-year sales, spending, recorded balance, worker loans and charts
 - Floating Coffee Estate Guide: a reusable January–December seasonal reference with your own notes and CSV backup
 - Weekly labour tracker: historical weekly payment snapshots, worker defaults, and active/inactive workers
 - Configurable expense categories with monthly, annual, and per-category totals
-- Daily coffee-price records, latest price, and a five-year price chart
-- Harvest and sales records with calculated revenue, costs, profit, cost per bag, and profit per bag
-- CSV export per dataset and guarded CSV imports for workers, expenses, prices, production, and sales
+- Coffee benchmark futures prices with saved history, live refresh and CSV download
+- Harvest and sales records with remaining stock, crop revenue and separate calendar-year activity
+- CSV backups with multiline notes, validation and review before import
 - Email/password sign-in, password changes, and email password recovery via Supabase Auth
 - Supabase Row Level Security policies so each account can only access its own records
+- Encrypted property document vault with a separate password, encrypted file details and automatic locking
 - Destructive-action confirmations and large, clear mobile controls
-- Centralised calculation module with Vitest unit tests
+- Lazy-loaded screens, background record refresh, progressive lists and reduced-motion support
+- Calculation, workflow, account-isolation and security regression tests
 
 ## Requirements
 
@@ -65,11 +67,15 @@ npm test
 npm run build
 ```
 
-The unit tests cover weekly payment defaults/history, yearly expenses, revenue, profit, and cost per bag.
+Tests cover weekly pay, linked loan deductions, account changes, paginated data loading, financial periods, CSV imports, documents, reminders, public offline caching and request validation. Deployment runs the tests before building. SQL regression checks in `supabase/tests` are intended for a local/test database with all migrations applied.
 
 ## CSV backup and import
 
-The **Backup** screen downloads each record type as a CSV file. Keep those files in a safe place. Importing is additive and does not remove existing records. When restoring, import workers first, then categories, then weekly payments and expenses so their matching names are available.
+The **Backup & import** screen exports all years for each record type. Document files are downloaded separately from Documents. CSVs preserve multiline notes and escape formula-like text for spreadsheet opening; app imports restore that text.
+
+Choose a CSV to validate and review before importing (up to 5 MB and 10,000 records). Matching worker/category names, worker-and-Wednesday payments, and yearly daily rates update existing records; the preview reports those updates. Other record types append records, so importing the same file twice creates duplicates.
+
+Restore workers and categories first, then worker loans, then weekly payments and expenses. Weekly imports reconcile linked loan deductions atomically and leave the imported week ready for review in Labour. Import matching worker names only when each name identifies one worker.
 
 ## Deploy to Cloudflare Pages
 
@@ -119,7 +125,9 @@ Install Capacitor packages only when you are ready to produce a mobile store bui
 
 - The app uses the public Supabase anon/publishable key by design. Security comes from Supabase Auth and the RLS policies in the migration.
 - Do not disable RLS and do not expose a service-role key in `VITE_*` variables.
+- Property documents use client-side encryption plus private storage. Apply the vault migration before publishing this version, then create your vault password and encrypt existing files. Save the vault password: login password recovery cannot recover encrypted documents. Follow [the document vault setup and security notes](docs/document-vault-security.md).
 - Currency display is Indian Rupees (`₹`). Change the `money` helper in `src/lib/calculations.ts` if your estate uses another currency.
+- Fractional rupees retain paise. Crop revenue includes all sales assigned to a harvest year; calendar-year activity uses sale and expense dates. Recorded balance excludes inventory valuation, unpaid invoices, depreciation and crop cost allocation.
 
 ## Worker days and editing saved weeks
 
@@ -147,6 +155,16 @@ Before using this version, run `supabase/migrations/202610040001_remove_joint_lo
 
 ## Editable advance reminders
 
-The phone Menu has **Advance reminder**, and the desktop Labour page has **Edit reminder**. Choose the weekday and time in India time, turn the account reminder on or off, and connect each phone separately. The default is Wednesday at 8 PM. Reminders start on the selected day and repeat daily at the selected time until the full weekly payment is saved. Rescheduling sends a confirmation to connected phones. Notifications open the exact Wednesday and protect any existing unsaved weekly-pay draft.
+The phone Menu and desktop More options have **Advance reminder**, and the desktop Labour page has **Edit reminder**. Choose the weekday and time in India time, turn the account reminder on or off, and connect each phone separately. The default is Wednesday at 8 PM. Reminders start on the selected day and repeat daily at the selected time until the full weekly payment is saved. Rescheduling sends a confirmation to connected phones. Notifications open the exact Wednesday and protect any existing unsaved weekly-pay draft.
 
 Scheduled delivery requires the new migration, deployed Edge Functions, server push keys and a Supabase Cron job. Follow [the reminder setup guide](docs/advance-reminders-setup.md). Until setup is complete, the app shows that delivery is unavailable and lets you save a disabled schedule preference. Checkout/build alone does not enable notifications.
+
+## Record integrity update — 5 October 2026
+
+Apply `supabase/migrations/202610050004_record_integrity.sql` after all earlier migrations before deploying this frontend. It adds financial/document checks, two record indexes, and the atomic `import_weekly_payments` function. Existing legacy records remain untouched; new or updated records must satisfy the checks.
+
+Redeploy both reminder Edge Functions to include bounded request parsing and complete status counts, then publish the new frontend and service worker. See [the code review](docs/code-review-2026-10-05.md) for the changes, verification and operational limits.
+
+## Encrypted property documents — 5 October 2026
+
+Also apply `supabase/migrations/202610050005_encrypted_document_vault.sql` before publishing the frontend. It creates owner-only vault settings, enforces encrypted document writes, keeps storage private, and queues original-file removal durably. Existing documents require conversion after creating a vault password in Documents; the migration preserves them for that step. Read [the activation steps and security limits](docs/document-vault-security.md) before treating existing files as encrypted.

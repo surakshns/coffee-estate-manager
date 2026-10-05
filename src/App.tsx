@@ -1,20 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, useTransition } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { AppIcon } from './components/AppIcon'
 import { AuthScreen } from './components/AuthScreen'
 import { PasswordForm } from './components/PasswordForm'
 import { PasswordRecovery } from './components/PasswordRecovery'
-import { Bell, Download, LockKeyhole, LogOut, Menu } from 'lucide-react'
-import { Backup } from './components/Backup'
-import { Dashboard } from './components/Dashboard'
-import { Documents } from './components/Documents'
+import { Bell, Download, LockKeyhole, LogOut, Menu, RefreshCw } from 'lucide-react'
 import { EstateGuide } from './components/EstateGuide'
 import { Expenses } from './components/Expenses'
 import { ExpenseEditor } from './components/ExpenseEditor'
-import { Labour } from './components/Labour'
-import { Prices } from './components/Prices'
-import { Production } from './components/Production'
-import { Rainfall } from './components/Rainfall'
 import { useEstateData } from './hooks/useEstateData'
 import { supabase } from './lib/supabase'
 import { isPasswordRecovery, passwordRecoveryError, setPasswordRecoveryUrl } from './lib/auth'
@@ -25,6 +18,15 @@ import { estateToday } from './lib/estateDates'
 import { AdvanceReminderSettings } from './components/AdvanceReminderSettings'
 import { useAdvanceReminders } from './hooks/useAdvanceReminders'
 import { advanceWeekFromUrl, applicationUrl, validAdvanceWeek } from './lib/advanceReminders'
+import { PageBoundary } from './components/PageBoundary'
+
+const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })))
+const Labour = lazy(() => import('./components/Labour').then(module => ({ default: module.Labour })))
+const Prices = lazy(() => import('./components/Prices').then(module => ({ default: module.Prices })))
+const Production = lazy(() => import('./components/Production').then(module => ({ default: module.Production })))
+const Rainfall = lazy(() => import('./components/Rainfall').then(module => ({ default: module.Rainfall })))
+const Documents = lazy(() => import('./components/Documents').then(module => ({ default: module.Documents })))
+const Backup = lazy(() => import('./components/Backup').then(module => ({ default: module.Backup })))
 
 type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup'
 type NavigationEntry = { advanceDate?: string; advanceRequest?: number; expenseView?: 'records' | 'breakdown' | 'categories' }
@@ -47,6 +49,7 @@ export default function App() {
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [page, setPage] = useState<Page>('Dashboard')
+  const [navigating, startTransition] = useTransition()
   const [moreOpen, setMoreOpen] = useState(false)
   const [entry, setEntry] = useState<NavigationEntry>({})
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false)
@@ -56,34 +59,42 @@ export default function App() {
   const [year, setYear] = useState(() => Number(estateToday().slice(0, 4)))
   const [notice, setNotice] = useState('')
   const [loadingDemo, setLoadingDemo] = useState(false)
+  const [uiOwner, setUiOwner] = useState<string | null>(null)
   const mainRef = useRef<HTMLElement>(null)
   const menuRef = useRef<HTMLDetailsElement>(null)
   const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null)
-  const { data, loading, error, refresh } = useEstateData()
+  const { data, loading, refreshing, loadedAt, error, refresh } = useEstateData(session?.user.id ?? null)
   const reminders = useAdvanceReminders(session?.user.id ?? null, JSON.stringify([data.weeklyPayments, data.workers]))
 
   useEffect(() => {
     let active = true
+    let authEventReceived = false
     void supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return
+      if (!active || authEventReceived) return
       setSession(data.session); setChecking(false)
       if (error && recoveringPassword) setRecoveryError('This reset link could not be verified. Request a new link below.')
     }).catch(() => {
-      if (!active) return
+      if (!active || authEventReceived) return
       setChecking(false)
       if (recoveringPassword) setRecoveryError('Could not open the reset link. Please check your connection and request a new link.')
     })
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return
+      authEventReceived = true
       setSession(nextSession); setChecking(false)
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveringPassword(true); setRecoveryError(''); setPasswordRecoveryUrl(true)
       }
       if (!nextSession) { setPasswordOpen(false); setPasswordBusy(false); setReminderOpen(false) }
-      if (nextSession) void refresh()
     })
     return () => { active = false; listener.subscription.unsubscribe() }
-  }, [refresh])
+  }, [])
+
+  useEffect(() => {
+    setPage('Dashboard'); setEntry({}); setNotice(''); setMoreOpen(false)
+    setPasswordOpen(false); setPasswordBusy(false); setQuickExpenseOpen(false); setReminderOpen(false)
+    setUiOwner(session?.user.id ?? null)
+  }, [session?.user.id])
 
   useEffect(() => {
     const onBeforeInstall = (event: Event) => { event.preventDefault(); setInstallPrompt(event as DeferredInstallPrompt) }
@@ -132,7 +143,7 @@ export default function App() {
     setMoreOpen(false)
     setEntry(nextEntry)
     if (menuRef.current) menuRef.current.open = false
-    if (nextPage !== page) setPage(nextPage)
+    if (nextPage !== page) startTransition(() => setPage(nextPage))
     window.scrollTo({ top: 0, behavior: 'instant' })
     requestAnimationFrame(() => { if (!document.querySelector('dialog[open]')) mainRef.current?.focus({ preventScroll: true }) })
   }
@@ -155,6 +166,11 @@ export default function App() {
     setReminderOpen(true)
     void reminders.refreshStatus()
   }
+  function refreshFromMenu() {
+    setMoreOpen(false)
+    if (menuRef.current) menuRef.current.open = false
+    void refresh()
+  }
   async function signOut() {
     setMoreOpen(false)
     if (menuRef.current) menuRef.current.open = false
@@ -168,6 +184,7 @@ export default function App() {
     return <PasswordRecovery email={session.user.email} onComplete={finishPasswordRecovery} />
   }
   if (!session) return <AuthScreen />
+  if (uiOwner !== session.user.id) return <main className="app-opening"><RecordLoading compact /></main>
 
   const currentYear = Number(estateToday().slice(0, 4))
   const recordYears = [...data.production.map((item) => item.production_year), ...data.sales.map((item) => Number(item.sale_date.slice(0, 4))), ...data.expenses.map((item) => Number(item.expense_date.slice(0, 4))), ...data.weeklyPayments.map((item) => Number(item.week_start.slice(0, 4)))]
@@ -180,7 +197,7 @@ export default function App() {
       case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
       case 'Production': return <Production {...props} />
-      case 'Documents': return <Documents data={data} refresh={refresh} />
+      case 'Documents': return <Documents key={session.user.id} userId={session.user.id} data={data} refresh={refresh} />
       case 'Backup': return <Backup data={data} refresh={refresh} />
       default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} advance={{ loading: reminders.loading, error: Boolean(reminders.error), weekStart: reminders.status?.weekStart, weekStatus: reminders.status?.weekStatus }} />
     }
@@ -205,6 +222,8 @@ export default function App() {
             <div className="header-menu-panel">
               <p className="menu-caption">Your estate</p>
               <button onClick={() => navigate('Backup')}><AppIcon name="backup" /> Backup &amp; import</button>
+              <button onClick={openReminderSettings}><Bell size={18} aria-hidden="true" />Advance reminder</button>
+              <button disabled={refreshing} onClick={refreshFromMenu}><RefreshCw size={18} aria-hidden="true" />Refresh records</button>
               <button onClick={openPasswordSettings}><LockKeyhole size={18} aria-hidden="true" />Change password</button>
               {installPrompt && <button onClick={() => void installApp()}>＋ Install app</button>}
               <button onClick={() => void signOut()}>Sign out</button>
@@ -217,15 +236,16 @@ export default function App() {
       </SelectionNav>
     </header>
     <main id="main-content" ref={mainRef} tabIndex={-1} className="main-content">
-      {error && <div className="app-banner" role="alert"><strong>Your records could not be loaded.</strong><p>{error}</p><button className="button-secondary mt-3" onClick={() => void refresh()}>Try again</button></div>}
+      {error && <div className="app-banner" role="alert"><strong>Your records could not be loaded.</strong><p>{error}</p>{loadedAt && <p>Showing the last loaded records. Refresh before making further changes.</p>}<button className="button-secondary mt-3" onClick={() => void refresh()}>Try again</button></div>}
+      {(navigating || (refreshing && !loading)) && <div className="app-progress" role="status"><span>{navigating ? 'Opening screen…' : 'Updating records…'}</span></div>}
       {notice && <div className="app-banner notice-banner" role="status"><p>{notice}</p><button onClick={() => setNotice('')} aria-label="Dismiss notification">×</button></div>}
       {!loading && !error && !hasRecords && page === 'Dashboard' && <div className="app-banner welcome-banner"><div><strong>Welcome to your estate desk.</strong><p>Add your first worker, expense or harvest to get started.</p></div><details><summary>Explore with sample records</summary><p className="mt-2 text-sm">This adds sample records to your account.</p><button className="button-secondary mt-2" disabled={loadingDemo} onClick={() => void loadDemo()}>{loadingDemo ? 'Adding records…' : 'Add sample records'}</button></details></div>}
-      {loading ? <RecordLoading /> : <div className="page-transition" key={page}>{current()}</div>}
+      {loading ? <RecordLoading /> : (!error || loadedAt) && <PageBoundary key={session.user.id} resetKey={page}><Suspense fallback={<RecordLoading message="Opening screen…" />}><div className="page-transition" key={`${session.user.id}:${page}`}>{current()}</div></Suspense></PageBoundary>}
     </main>
     <SelectionNav value={moreOpen ? 'Menu' : page} aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${!moreOpen && page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${moreOpen || ['Documents', 'Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="Menu" aria-haspopup="dialog" aria-expanded={moreOpen}><span className="mobile-nav-icon"><Menu size={21} aria-hidden="true" /></span><span className="mobile-nav-label">Menu</span></button></SelectionNav>
     <Sheet open={moreOpen} title="Menu" className="mobile-menu-sheet" onClose={() => setMoreOpen(false)}>
       <nav className="mobile-menu-sections" aria-label="Other sections">{navigation.filter(item => ['Documents', 'Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button type="button" key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-menu-section-icon"><AppIcon name={item.icon} /></span><span>{item.page === 'Production' ? 'Harvest & sales' : item.page === 'Prices' ? 'Coffee prices' : item.page}</span></button>)}</nav>
-      <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openReminderSettings}><Bell size={19} aria-hidden="true" /><span>Advance reminder</span><AppIcon name="arrow" /></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => void signOut()}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
+      <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openReminderSettings}><Bell size={19} aria-hidden="true" /><span>Advance reminder</span><AppIcon name="arrow" /></button><button type="button" disabled={refreshing} onClick={refreshFromMenu}><RefreshCw size={19} aria-hidden="true" /><span>Refresh records</span></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => void signOut()}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
     </Sheet>
     <ExpenseEditor data={data} refresh={refresh} open={quickExpenseOpen} onClose={() => setQuickExpenseOpen(false)} onSaved={setNotice} onManageCategories={() => navigate('Expenses', { expenseView: 'categories' })} />
     <AdvanceReminderSettings open={reminderOpen} onClose={() => setReminderOpen(false)} settings={reminders.settings} loading={reminders.loading} saving={reminders.saving} support={reminders.support} permission={reminders.permission} deviceSubscribed={reminders.deviceSubscribed} setupReady={reminders.ready} message={reminders.message} error={reminders.error} onSave={reminders.save} />

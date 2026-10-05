@@ -34,8 +34,8 @@ export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense
   const advanceStatus = advance?.weekStart === advanceWeek && advance.weekStatus ? ({ complete: 'Saved', needs_review: 'Needs review', not_saved: 'Not saved', no_workers: 'No workers' }[advance.weekStatus]) : advanceSaved ? advance?.error || advance?.loading ? 'Recorded' : 'Saved' : 'Not saved'
   const advanceDate = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date(`${advanceWeek}T12:00:00Z`))
   const updateRange = (next: { from: string; to: string }) => setRange({ ...next, year })
-  const harvest = productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year)
-  const activity = dashboardActivity(data, year)
+  const harvest = useMemo(() => productionMetrics(data.production, data.sales, data.expenses, data.weeklyPayments, year), [data.production, data.sales, data.expenses, data.weeklyPayments, year])
+  const activity = useMemo(() => dashboardActivity(data, year), [data, year])
   const hasSpending = Boolean(activity.spending)
   const remaining = Math.max(0, harvest.bagsProduced - harvest.bagsSold)
   const oversold = harvest.bagsSold > harvest.bagsProduced
@@ -94,10 +94,10 @@ export function Dashboard({ data, year, onNavigate, onStartAdvance, onAddExpense
     return { month: month.label, takeHome: payments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - Number(payment.loan_deduction ?? 0)), 0), deductions: payments.reduce((sum, payment) => sum + Number(payment.loan_deduction ?? 0), 0) }
   })
   const insightCards = [
-    latestSpendingMonth ? { label: 'Latest spend pulse', value: money(latestSpendingMonth.spending), detail: averageSpending ? `${latestSpendingMonth.month} is ${money(Math.abs(spendingVsAverage))} ${spendingVsAverage >= 0 ? 'above' : 'below'} the usual month.` : `${latestSpendingMonth.month} has recorded spending.` } : null,
+    latestSpendingMonth ? { label: 'Latest recorded month', value: money(latestSpendingMonth.spending), detail: averageSpending ? `${latestSpendingMonth.month} is ${money(Math.abs(spendingVsAverage))} ${spendingVsAverage >= 0 ? 'above' : 'below'} the average of months with recorded spending. A current month may be incomplete.` : `${latestSpendingMonth.month} has recorded spending.` } : null,
     activity.categories[0] ? { label: 'Largest cost head', value: activity.categories[0].name, detail: `${money(activity.categories[0].amount)} recorded in ${year}.` } : null,
-    harvest.bagsProduced ? { label: 'Cost per bag', value: money(harvest.costPerBag), detail: `${money(harvest.totalExpenses)} spent across ${quantity(harvest.bagsProduced)} bags.` } : null,
-    harvest.bagsSold ? { label: 'Profit per sold bag', value: money(harvest.profitPerBag), detail: `${money(harvest.profit)} balance from ${quantity(harvest.bagsSold)} sold bags.` } : null,
+    harvest.bagsProduced ? { label: oversold ? 'Harvest records to review' : 'Recorded stock remaining', value: `${quantity(Math.abs(harvest.remainingBags))} bags`, detail: oversold ? 'Recorded sales exceed recorded production. Check the harvest year and quantities.' : `${quantity(harvest.bagsSold)} bags sold from the ${year} crop.` } : null,
+    harvest.bagsSold ? { label: 'Average sale price', value: money(harvest.averageSellingPrice), detail: `Per bag sold from the ${year} crop, across all sale dates.` } : null,
     harvest.labour ? { label: 'Take-home vs loans', value: money(takeHomeYear), detail: `${money(loanDeductions)} went to loan deductions from wages.` } : null
   ].filter(Boolean) as { label: string; value: string; detail: string }[]
 

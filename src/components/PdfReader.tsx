@@ -22,7 +22,7 @@ export default function PdfReader({ url, title }: { url: string; title: string }
     setPdf(null); setPage(1); setZoom(1); setError(''); setBusy(true)
     const task = getDocument({ url })
     void task.promise.then(value => { if (!cancelled) setPdf(value) }).catch(reason => {
-      if (!cancelled) { setError(reason?.name === 'PasswordException' ? 'This PDF is password protected. Open the original to enter its password.' : 'This PDF could not be displayed. Try again or download the original.'); setBusy(false) }
+      if (!cancelled) { setError(reason?.name === 'PasswordException' ? 'This PDF is password protected. Download it and open it with its PDF password.' : 'This PDF could not be displayed. Try again or download the original.'); setBusy(false) }
     })
     return () => { cancelled = true; void task.destroy() }
   }, [url, retry])

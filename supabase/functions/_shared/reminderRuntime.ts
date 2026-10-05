@@ -1,6 +1,7 @@
 import { createClient } from 'supabase'
 import { ApplicationServer, exportApplicationServerKey, importVapidKeys, PushMessageError, Urgency } from 'webpush'
 import type { StoredSubscription } from './reminderRules.ts'
+import { readJsonBody } from './requestBody.ts'
 
 export function adminClient() {
   const url = Deno.env.get('SUPABASE_URL')
@@ -53,11 +54,7 @@ export function json(body: unknown, status = 200) {
 }
 
 export async function readBody(request: Request) {
-  const text = await request.text()
-  if (text.length > 8192) throw new Error('Reminder request is too large.')
-  const value = JSON.parse(text || '{}')
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid reminder request.')
-  return value as Record<string, unknown>
+  return readJsonBody(request)
 }
 
 export async function validCronSecret(request: Request) {

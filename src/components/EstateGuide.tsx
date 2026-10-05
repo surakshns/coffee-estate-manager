@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Info } from 'lucide-react'
 import { CoffeeCup } from './CoffeeCup'
 import { scrollToEditor } from '../lib/scroll'
+import { estateToday } from '../lib/estateDates'
 import { supabase } from '../lib/supabase'
 import type { EstateData, MonthlyGuideEntry } from '../lib/types'
 
@@ -31,9 +32,9 @@ const guide: GuideMonth[] = [
 const monthName = (month: number, short = false) => new Intl.DateTimeFormat('en-IN', { month: short ? 'short' : 'long' }).format(new Date(2024, month - 1, 1))
 
 export function EstateGuide({ data, refresh, page = 'Dashboard', disabled = false }: { data: EstateData; refresh: () => Promise<void>; page?: string; disabled?: boolean }) {
-  const currentMonth = new Date().getMonth() + 1
+  const currentMonth = Number(estateToday().slice(5, 7))
   const [open, setOpen] = useState(false)
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [editing, setEditing] = useState<MonthlyGuideEntry | null>(null)

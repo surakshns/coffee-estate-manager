@@ -5,18 +5,21 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import type { EstateData } from '../lib/types'
 import { Expenses } from './Expenses'
-import { Documents } from './Documents'
+import { DocumentWorkspace } from './Documents'
 import { Production } from './Production'
 import { Labour } from './Labour'
 
 const api = vi.hoisted(() => ({
   insert: vi.fn(), update: vi.fn(), eq: vi.fn(), download: vi.fn(),
-  upload: vi.fn(), remove: vi.fn(), getUser: vi.fn(), upsert: vi.fn(), rpc: vi.fn()
+  upload: vi.fn(), remove: vi.fn(), getUser: vi.fn(), upsert: vi.fn(), rpc: vi.fn(), storeDocument: vi.fn(), cleanupList: vi.fn(), clearCleanup: vi.fn()
 }))
+vi.mock('../lib/documentStorage', async importOriginal => ({ ...await importOriginal<typeof import('../lib/documentStorage')>(), storeEncryptedDocument: api.storeDocument }))
 vi.mock('./PdfReader', () => ({ default: ({ title }: { title: string }) => <canvas role="img" aria-label={title + ', page 1'} /> }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    from: () => ({ insert: api.insert, update: api.update, delete: () => ({ eq: api.eq }), upsert: api.upsert }),
+    from: (table: string) => table === 'document_file_cleanup'
+      ? { select: () => ({ eq: () => ({ limit: api.cleanupList }) }), delete: () => ({ eq: () => ({ eq: api.clearCleanup }) }) }
+      : { insert: api.insert, update: api.update, delete: () => { if (table !== 'property_documents') return { eq: api.eq }; const query = { eq: () => query, select: () => ({ single: api.eq }) }; return query }, upsert: api.upsert },
     rpc: api.rpc,
     auth: { getUser: api.getUser },
     storage: { from: () => ({ download: api.download, upload: api.upload, remove: api.remove }) }
@@ -24,6 +27,8 @@ vi.mock('../lib/supabase', () => ({
 }))
 
 const refresh = vi.fn(async () => {})
+const testVault = { owner: 'user', key: {} as CryptoKey, assertUnlocked: () => {}, lock: () => {} }
+function Documents(props: { data: EstateData; refresh: () => Promise<void> }) { return <DocumentWorkspace {...props} vault={testVault} /> }
 const data: EstateData = {
   workers: [{ id: 'w1', name: 'Ravi', active: true, default_weekly_amount: 2250, default_days_worked: 5 }],
   weeklyPayments: [{ id: 'pay1', worker_id: 'w1', week_start: '2026-09-02', amount: 2250, loan_deduction: 250 }],
@@ -50,7 +55,7 @@ const data: EstateData = {
 beforeEach(() => {
   vi.clearAllMocks()
   api.insert.mockResolvedValue({ error: null })
-  api.eq.mockResolvedValue({ error: null })
+  api.eq.mockResolvedValue({ data: { id: 'd1' }, error: null })
   api.update.mockReturnValue({ eq: api.eq })
   api.upsert.mockResolvedValue({ error: null })
   api.rpc.mockResolvedValue({ error: null })
@@ -58,6 +63,9 @@ beforeEach(() => {
   api.getUser.mockResolvedValue({ data: { user: { id: 'user' } }, error: null })
   api.upload.mockResolvedValue({ error: null })
   api.remove.mockResolvedValue({ error: null })
+  api.storeDocument.mockResolvedValue(undefined)
+  api.cleanupList.mockResolvedValue({ data: [], error: null })
+  api.clearCleanup.mockResolvedValue({ error: null })
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value() { this.setAttribute('open', '') } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value() { this.removeAttribute('open') } })
   HTMLElement.prototype.scrollIntoView = vi.fn()
@@ -67,6 +75,18 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('expense workspace', () => {
+  it('limits a large ledger while retaining complete totals and searching every record', async () => {
+    const user = userEvent.setup()
+    const expenses = Array.from({ length: 120 }, (_, index) => ({ id: 'large-' + index, expense_date: '2026-10-05', category_id: 'c1', description: 'Large expense ' + index, amount: 0.01 }))
+    const { container } = render(<Expenses data={{ ...data, expenses }} year={2026} refresh={refresh} />)
+    expect(container.querySelectorAll('.expense-record')).toHaveLength(50)
+    expect(container.querySelector('.expense-result-summary')?.textContent).toContain('₹1.20')
+    await user.click(screen.getByRole('button', { name: 'Show more expenses' }))
+    expect(container.querySelectorAll('.expense-record')).toHaveLength(100)
+    await user.type(screen.getByRole('searchbox'), 'Large expense 119')
+    expect(screen.getByText('Large expense 119')).toBeTruthy()
+    expect(container.querySelectorAll('.expense-record')).toHaveLength(1)
+  })
   it('shows records next to search, with no entry form until Add expense is pressed', async () => {
     const user = userEvent.setup()
     render(<Expenses data={data} year={2026} refresh={refresh} />)
@@ -192,8 +212,43 @@ describe('document workspace', () => {
     await user.type(screen.getByLabelText(/Title/), 'Land record')
     await user.type(screen.getByLabelText(/Notes/), 'Survey 42')
     await user.click(screen.getByRole('button', { name: 'Save document' }))
-    await waitFor(() => expect(api.insert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Land record', category: 'Land records', notes: 'Survey 42', file_type: 'application/pdf' })))
+    await waitFor(() => expect(api.storeDocument).toHaveBeenCalledWith(expect.any(File), expect.objectContaining({ title: 'Land record', category: 'Land records', notes: 'Survey 42', file_type: 'application/pdf' }), 'user', testVault.key, testVault.assertUnlocked))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+})
+
+describe('document failure recovery', () => {
+  it('preserves the file if deleting its record is denied', async () => {
+    api.eq.mockResolvedValueOnce({ error: { message: 'Delete denied' } })
+    const user = userEvent.setup()
+    render(<Documents data={data} refresh={refresh} />)
+    await user.click(screen.getByRole('button', { name: 'Delete Land survey' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+    expect((await screen.findByRole('alert')).textContent).toBe('Delete denied')
+    expect(api.remove).not.toHaveBeenCalled()
+  })
+  it('offers file cleanup retry after a successful record deletion without deleting the record twice', async () => {
+    api.remove.mockResolvedValueOnce({ error: { message: 'Storage unavailable' } })
+    const user = userEvent.setup()
+    render(<Documents data={data} refresh={refresh} />)
+    await user.click(screen.getByRole('button', { name: 'Delete Land survey' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+    await user.click(await screen.findByRole('button', { name: 'Retry file cleanup' }))
+    expect(api.eq).toHaveBeenCalledOnce()
+    expect(api.remove).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(screen.getByText('Document file removed.')).toBeTruthy()
+  })
+  it('rejects an oversized document before uploading it', async () => {
+    const user = userEvent.setup()
+    render(<Documents data={data} refresh={refresh} />)
+    await user.click(screen.getByRole('button', { name: 'Add document' }))
+    const file = new File(['pdf'], 'record.pdf', { type: 'application/pdf' })
+    Object.defineProperty(file, 'size', { value: 20971521 })
+    await user.upload(screen.getByLabelText('Document file'), file)
+    await user.click(screen.getByRole('button', { name: 'Save document' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('20 MB')
+    expect(api.upload).not.toHaveBeenCalled()
   })
 })
 

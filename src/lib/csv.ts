@@ -1,8 +1,14 @@
 export function toCsv<T extends Record<string, unknown>>(rows: T[]) {
   if (!rows.length) return ''
   const headers = Object.keys(rows[0])
-  const escape = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
-  return [headers.join(','), ...rows.map((row) => headers.map((header) => escape(row[header])).join(','))].join('\n')
+  const escape = (value: unknown) => {
+    let text = String(value ?? '')
+    // Quotes alone do not stop a spreadsheet from executing a text formula.
+    // Escape leading apostrophes too, so our import can restore text exactly.
+    if (typeof value === 'string' && (text.startsWith("'") || /^[\s]*[=+\-@\t\r]/.test(text))) text = "'" + text
+    return `"${text.replaceAll('"', '""')}"`
+  }
+  return [headers.map(escape).join(','), ...rows.map((row) => headers.map((header) => escape(row[header])).join(','))].join('\r\n')
 }
 
 export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
@@ -11,24 +17,36 @@ export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
+  document.body.appendChild(anchor); anchor.click(); anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export function parseCsv(text: string) {
-  const lines = text.replace(/^\uFEFF/, '').trim().split(/\r?\n/)
-  if (lines.length < 2) return []
-  const split = (line: string) => {
-    const result: string[] = []; let current = ''; let quoted = false
-    for (let index = 0; index < line.length; index += 1) {
-      const char = line[index]
-      if (char === '"' && line[index + 1] === '"') { current += '"'; index += 1 }
-      else if (char === '"') quoted = !quoted
-      else if (char === ',' && !quoted) { result.push(current.trim()); current = '' }
-      else current += char
-    }
-    result.push(current.trim()); return result
+  const source = text.replace(/^\uFEFF/, '')
+  const records: string[][] = []
+  let row: string[] = [], cell = '', quoted = false, closed = false
+  const pushCell = () => { row.push(cell); cell = ''; closed = false }
+  const pushRow = () => { pushCell(); if (row.some(value => value !== '')) records.push(row); row = [] }
+  for (let index = 0; index < source.length; index++) {
+    const character = source[index]
+    if (quoted) {
+      if (character === '"' && source[index + 1] === '"') { cell += '"'; index++ }
+      else if (character === '"') { quoted = false; closed = true }
+      else cell += character
+    } else if (character === ',') pushCell()
+    else if (character === '\n' || character === '\r') { pushRow(); if (character === '\r' && source[index + 1] === '\n') index++ }
+    else if (character === '"' && !cell && !closed) quoted = true
+    else if (closed || character === '"') throw new Error('Invalid CSV quoting. Use a CSV exported from this app.')
+    else cell += character
   }
-  const headers = split(lines[0])
-  return lines.slice(1).filter(Boolean).map((line) => Object.fromEntries(split(line).map((cell, index) => [headers[index], cell])))
+  if (quoted) throw new Error('The CSV has an unfinished quoted field.')
+  if (cell || row.length || closed) pushRow()
+  if (!records.length) return []
+  const headers = records.shift()!.map(value => value.trim())
+  if (headers.some(value => !value) || new Set(headers).size !== headers.length) throw new Error('CSV column names must be present and unique.')
+  const restore = (value: string) => value.startsWith("''") || /^'[\s]*[=+\-@\t\r]/.test(value) ? value.slice(1) : value
+  return records.map((values, index) => {
+    if (values.length !== headers.length) throw new Error(`CSV row ${index + 2} has ${values.length} fields; expected ${headers.length}.`)
+    return Object.fromEntries(headers.map((header, column) => [header, restore(values[column])]))
+  })
 }

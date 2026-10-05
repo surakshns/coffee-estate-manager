@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { estateToday } from '../lib/estateDates'
+import { errorMessage } from '../lib/errors'
 import type { EstateData, Expense } from '../lib/types'
 import { Notice, Sheet } from './Workspace'
 
@@ -42,7 +43,7 @@ function ExpenseEditorForm({ data, refresh, onClose, editing, onSaved, onManageC
       onSaved?.(editing ? 'Expense updated.' : 'Expense added.')
       onClose()
       await refresh()
-    } catch (error) { setError(error instanceof Error ? error.message : 'Could not save the expense. Please try again.') }
+    } catch (error) { setError(errorMessage(error, 'Could not save the expense. Please try again.')) }
     finally { setSaving(false) }
   }
 

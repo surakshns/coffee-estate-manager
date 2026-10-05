@@ -2,7 +2,12 @@ import type { Expense, ProductionRecord, Sale, WeeklyPayment, Worker } from './t
 
 const value = (number: number | string | null | undefined) => Number(number ?? 0)
 const currencyFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
-export const money = (amount: number) => currencyFormatter.format(amount)
+const preciseCurrencyFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+export const money = (amount: number) => {
+  if (!Number.isFinite(amount)) return '—'
+  const rounded = Math.round((amount + Number.EPSILON) * 100) / 100
+  return (Number.isInteger(rounded) ? currencyFormatter : preciseCurrencyFormatter).format(rounded)
+}
 
 export function weekStart(date = new Date()) {
   const copy = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
@@ -64,19 +69,19 @@ export function salesRevenue(sales: Sale[], year: number) {
 
 export function productionMetrics(production: ProductionRecord[], sales: Sale[], expenses: Expense[], payments: WeeklyPayment[], year: number) {
   const yearProduction = production.filter((item) => item.production_year === year)
-  const bagsProduced = yearProduction.reduce((total, item) => total + value(item.bags_produced), 0)
+  const bagsProduced = yearProduction.reduce((total, item) => total + Math.round(value(item.bags_produced) * 100), 0) / 100
   const weightKg = yearProduction.reduce((total, item) => total + value(item.bags_produced) * value(item.bag_weight_kg), 0)
   const yearSales = sales.filter((sale) => sale.production_year === year)
-  const bagsSold = yearSales.reduce((total, sale) => total + value(sale.bags_sold), 0)
+  const bagsSold = yearSales.reduce((total, sale) => total + Math.round(value(sale.bags_sold) * 100), 0) / 100
   const revenue = salesRevenue(sales, year)
   const labour = yearlyLabourTotal(payments, year)
   const otherExpenses = yearlyExpenseTotal(expenses, year)
   const totalExpenses = labour + otherExpenses
-  const profit = revenue - totalExpenses
+  const calendarRevenue = sales.filter(sale => sale.sale_date.startsWith(`${year}-`)).reduce((total, sale) => total + value(sale.bags_sold) * value(sale.selling_price_per_bag), 0)
   return {
-    bagsProduced, weightKg, bagsSold, revenue, labour, otherExpenses, totalExpenses, profit,
+    bagsProduced, weightKg, bagsSold, revenue, labour, otherExpenses, totalExpenses,
+    remainingBags: Math.round((bagsProduced - bagsSold) * 100) / 100,
+    calendarRevenue, recordedBalance: calendarRevenue - totalExpenses,
     averageSellingPrice: bagsSold ? revenue / bagsSold : 0,
-    costPerBag: bagsProduced ? totalExpenses / bagsProduced : 0,
-    profitPerBag: bagsSold ? profit / bagsSold : 0
   }
 }

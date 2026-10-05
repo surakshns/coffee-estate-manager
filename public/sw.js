@@ -1,5 +1,7 @@
-const CACHE_NAME = 'coffee-estate-manager-v1'
-const APP_SHELL = ['./', './index.html']
+const APP_ROOT = new URL(self.registration.scope)
+const CACHE_PREFIX = `coffee-estate-manager:${APP_ROOT.pathname}:`
+const CACHE_NAME = `${CACHE_PREFIX}v2`
+const APP_SHELL = [APP_ROOT.href, new URL('index.html', APP_ROOT).href]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
@@ -7,20 +9,37 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil((async () => {
+    const names = await caches.keys()
+    await Promise.all(names.filter(name => (name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME) || name === 'coffee-estate-manager-v1').map(name => caches.delete(name)))
+    await self.clients.claim()
+  })())
 })
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
-  event.respondWith(fetch(event.request).then((response) => {
-    if (response.ok && new URL(event.request.url).origin === self.location.origin) {
-      const copy = response.clone()
-      void caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
+  const url = new URL(event.request.url)
+  if (url.origin !== APP_ROOT.origin || !url.pathname.startsWith(APP_ROOT.pathname)) return
+  const path = url.pathname.slice(APP_ROOT.pathname.length)
+  const shell = path === '' || path === 'index.html'
+  const asset = /^(assets\/[^/]+\.(js|css|woff2?)|icons\/[^/]+\.(png|svg)|market-data\/[^/]+\.csv|manifest\.webmanifest)$/.test(path)
+  // Only public app files enter the cache. Auth/reset query strings, private
+  // endpoints and external data sources are never persisted here.
+  if (!shell && !asset) return
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME).catch(() => null)
+    try {
+      const response = await fetch(event.request)
+      const cacheControl = response.headers.get('Cache-Control') || ''
+      if (cache && response.ok && response.type !== 'opaque' && !url.search && event.request.cache !== 'no-store' && !/no-store|private/i.test(cacheControl) && !event.request.headers.has('Authorization')) {
+        event.waitUntil(cache.put(event.request, response.clone()).catch(() => {}))
+      }
+      return response
+    } catch {
+      // A reset URL can fall back to the generic shell without caching its URL.
+      return (cache && !url.search && await cache.match(event.request).catch(() => null)) || (cache && shell && event.request.mode === 'navigate' ? await cache.match(APP_SHELL[1]).catch(() => null) : null) || Response.error()
     }
-    return response
-  }).catch(async () => {
-    return (await caches.match(event.request)) || (event.request.mode === 'navigate' ? caches.match('./index.html') : Response.error())
-  }))
+  })())
 })
 
 function validAdvanceWeek(value) {

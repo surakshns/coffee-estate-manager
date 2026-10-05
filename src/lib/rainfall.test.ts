@@ -89,8 +89,8 @@ describe('rainfall module', () => {
       const march = months[2] // Index 2 is March
       expect(march.month).toBe(3)
       expect(march.totalMm).toBe(47.5)
-      expect(march.prevYearTotalMm).toBe(0)
-      expect(march.differenceMm).toBe(47.5)
+      expect(march.prevYearTotalMm).toBeUndefined()
+      expect(march.differenceMm).toBeUndefined()
 
       const july = months[6] // Index 6 is July
       expect(july.month).toBe(7)
@@ -104,15 +104,12 @@ describe('rainfall module', () => {
     it('aggregates by day correctly with previous year comparisons', () => {
       const days = aggregateByDay(mockDaily, 2025, 7, 2024)
       expect(days.length).toBeGreaterThan(0)
-      const day10 = days.find((d) => d.dayOfMonth === 10)!
-      expect(day10.precipitationMm).toBe(0)
-      expect(day10.prevYearPrecipitationMm).toBe(95.0)
-      expect(day10.differenceMm).toBe(-95.0)
+      expect(days.find((d) => d.dayOfMonth === 10)).toBeUndefined()
 
       const day12 = days.find((d) => d.dayOfMonth === 12)!
       expect(day12.precipitationMm).toBe(120.0)
-      expect(day12.prevYearPrecipitationMm).toBe(0)
-      expect(day12.differenceMm).toBe(120.0)
+      expect(day12.prevYearPrecipitationMm).toBeUndefined()
+      expect(day12.differenceMm).toBeUndefined()
     })
 
     it('aggregates by week correctly', () => {

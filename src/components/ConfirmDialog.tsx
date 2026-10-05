@@ -12,7 +12,7 @@ type ConfirmDialogProps = {
 }
 
 export function ConfirmDialog({ open, title, children, onCancel, onConfirm, confirmLabel = 'Delete', confirmVariant = 'danger' }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const onCancelRef = useRef(onCancel)
   const titleId = useId()
@@ -29,6 +29,7 @@ export function ConfirmDialog({ open, title, children, onCancel, onConfirm, conf
     const fallbackFocus = previousFocus?.closest<HTMLElement>('main, [role="main"]')
     const previousHtmlOverflow = document.documentElement.style.overflow
     const previousBodyOverflow = document.body.style.overflow
+    dialogRef.current?.showModal()
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
 
@@ -78,6 +79,7 @@ export function ConfirmDialog({ open, title, children, onCancel, onConfirm, conf
       window.cancelAnimationFrame(animationFrame)
       window.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('focusin', onFocusIn)
+      dialogRef.current?.close()
       document.documentElement.style.overflow = previousHtmlOverflow
       document.body.style.overflow = previousBodyOverflow
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
@@ -88,8 +90,8 @@ export function ConfirmDialog({ open, title, children, onCancel, onConfirm, conf
   if (!open) return null
 
   return createPortal(
-    <div className="confirm-backdrop fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto overscroll-contain p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
-      <div ref={dialogRef} className="confirm-dialog my-auto w-full max-w-md p-5 outline-none sm:p-6" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
+    <dialog ref={dialogRef} className="confirm-backdrop fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto overscroll-contain p-4" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} onCancel={event => { event.preventDefault(); onCancel() }} onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
+      <div className="confirm-dialog my-auto w-full max-w-md p-5 outline-none sm:p-6">
         <h2 id={titleId} className="text-xl font-extrabold text-stone-900">{title}</h2>
         <div id={descriptionId} className="mt-3 text-base leading-6 text-stone-600">{children}</div>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -97,7 +99,7 @@ export function ConfirmDialog({ open, title, children, onCancel, onConfirm, conf
           <button type="button" className={confirmVariant === 'danger' ? 'button-danger' : 'button-primary'} onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>
-    </div>,
+    </dialog>,
     document.body
   )
 }

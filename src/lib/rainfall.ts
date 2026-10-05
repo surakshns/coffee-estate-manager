@@ -1,3 +1,5 @@
+import { estateToday } from './estateDates'
+
 export type RainfallUnit = 'mm' | 'inches' | 'cents'
 
 export interface LocationPreset {
@@ -107,14 +109,14 @@ export const COFFEE_PRESETS: LocationPreset[] = [
 
 export const DEFAULT_PRESET = COFFEE_PRESETS[0] // Sakleshpur
 
-const cache = new Map<string, DailyRainRecord[]>()
+const cache = new Map<string, { records: DailyRainRecord[]; expires: number }>()
 
-export async function searchLocations(query: string): Promise<LocationPreset[]> {
+export async function searchLocations(query: string, signal?: AbortSignal): Promise<LocationPreset[]> {
   const trimmed = query.trim()
   if (!trimmed || trimmed.length < 2) return []
   try {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(trimmed)}&count=6&language=en&format=json`
-    const res = await fetch(url)
+    const res = await fetch(url, { signal })
     if (!res.ok) return []
     const json = await res.json() as { results?: Array<{ id: number; name: string; admin1?: string; country?: string; latitude: number; longitude: number; elevation?: number }> }
     if (!Array.isArray(json.results)) return []
@@ -136,71 +138,48 @@ export async function searchLocations(query: string): Promise<LocationPreset[]> 
  * Uses Open-Meteo Archive API for historical data + Forecast API for current days.
  */
 export async function fetchRainfallData(
-  latitude: number,
-  longitude: number,
-  startYear: number,
-  endYear: number
+  latitude: number, longitude: number, startYear: number, endYear: number, signal?: AbortSignal
 ): Promise<DailyRainRecord[]> {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || !Number.isInteger(startYear) || !Number.isInteger(endYear) || startYear > endYear) throw new Error('Choose valid coordinates and years.')
   const latRounded = Math.round(latitude * 100) / 100
   const lonRounded = Math.round(longitude * 100) / 100
-  const cacheKey = `${latRounded},${lonRounded}:${startYear}-${endYear}`
-  if (cache.has(cacheKey)) {
-    return cache.get(cacheKey)!
-  }
-
-  const today = new Date().toISOString().slice(0, 10)
+  const today = estateToday()
   const startDate = `${startYear}-01-01`
   const endDate = `${endYear}-12-31` > today ? today : `${endYear}-12-31`
-
-  const records: DailyRainRecord[] = []
-
-  try {
-    // 1. Fetch archive data
-    // Open-Meteo archive is typically available up to 2-4 days ago.
-    const archiveUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${latRounded}&longitude=${lonRounded}&start_date=${startDate}&end_date=${endDate}&daily=precipitation_sum&timezone=auto`
-    const archiveRes = await fetch(archiveUrl)
-    if (archiveRes.ok) {
-      const data = await archiveRes.json() as { daily?: { time?: string[]; precipitation_sum?: (number | null)[] } }
-      if (data.daily?.time && data.daily.precipitation_sum) {
-        for (let i = 0; i < data.daily.time.length; i++) {
-          const date = data.daily.time[i]
-          const val = data.daily.precipitation_sum[i]
-          records.push({ date, precipitationMm: Number.isFinite(val) && val != null ? Math.max(0, val) : 0 })
-        }
-      }
-    }
-
-    // 2. If endYear is current year and archive didn't reach today, top up with forecast past_days
-    const lastDate = records.length ? records[records.length - 1].date : ''
-    if (endYear >= new Date().getFullYear() && (!lastDate || lastDate < today)) {
-      try {
-        const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latRounded}&longitude=${lonRounded}&daily=precipitation_sum&past_days=14&forecast_days=1&timezone=auto`
-        const forecastRes = await fetch(forecastUrl)
-        if (forecastRes.ok) {
-          const fData = await forecastRes.json() as { daily?: { time?: string[]; precipitation_sum?: (number | null)[] } }
-          if (fData.daily?.time && fData.daily.precipitation_sum) {
-            const existingDates = new Set(records.map((r) => r.date))
-            for (let i = 0; i < fData.daily.time.length; i++) {
-              const date = fData.daily.time[i]
-              if (date <= today && !existingDates.has(date)) {
-                const val = fData.daily.precipitation_sum[i]
-                records.push({ date, precipitationMm: Number.isFinite(val) && val != null ? Math.max(0, val) : 0 })
-              }
-            }
-          }
-        }
-      } catch {
-        // Forecast top-up is optional; continue with archive
-      }
-    }
-  } catch (err) {
-    console.error('Failed to fetch rainfall data:', err)
-    throw new Error('Could not fetch meteorological rainfall data for this location. Please check your connection and try again.')
+  if (startDate > endDate) throw new Error('Rainfall is not available for future dates.')
+  const cacheKey = `${latRounded},${lonRounded}:${startDate}-${endDate}`
+  const saved = cache.get(cacheKey)
+  if (saved && saved.expires > Date.now()) return saved.records
+  const records = new Map<string, DailyRainRecord>()
+  const read = (data: { daily?: { time?: string[]; precipitation_sum?: (number | null)[] } }) => {
+    if (!Array.isArray(data.daily?.time) || !Array.isArray(data.daily?.precipitation_sum)) return
+    data.daily.time.forEach((date, index) => {
+      const amount = data.daily!.precipitation_sum![index]
+      if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= startDate && date <= endDate && typeof amount === 'number' && Number.isFinite(amount) && amount >= 0 && !records.has(date)) records.set(date, { date, precipitationMm: amount })
+    })
   }
-
-  records.sort((a, b) => a.date.localeCompare(b.date))
-  cache.set(cacheKey, records)
-  return records
+  try {
+    const archiveUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${latRounded}&longitude=${lonRounded}&start_date=${startDate}&end_date=${endDate}&daily=precipitation_sum&timezone=auto`
+    const archive = await fetch(archiveUrl, { signal })
+    if (!archive.ok) throw new Error('Historical weather service unavailable.')
+    read(await archive.json())
+    if (!records.size) throw new Error('No historical rainfall measurements are available.')
+    const lastDate = [...records.keys()].sort().at(-1)!
+    if (endDate === today && lastDate < today) {
+      try {
+        const forecast = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latRounded}&longitude=${lonRounded}&daily=precipitation_sum&past_days=14&forecast_days=1&timezone=auto`, { signal })
+        if (forecast.ok) read(await forecast.json())
+      } catch { if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError') }
+    }
+  } catch {
+    if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
+    throw new Error('Could not fetch historical rainfall for this location. Please check your connection and try again.')
+  }
+  const result = [...records.values()].sort((left, right) => left.date.localeCompare(right.date))
+  cache.set(cacheKey, { records: result, expires: endDate === today ? Date.now() + 5 * 60 * 1000 : Infinity })
+  // Keep coordinate searches from growing memory for the lifetime of the app.
+  if (cache.size > 12) cache.delete(cache.keys().next().value!)
+  return result
 }
 
 // ---------------- Aggregations ---------------- //
@@ -351,7 +330,7 @@ export function aggregateByMonth(
     let differenceMm: number | undefined
     let differencePercent: number | undefined
 
-    if (compareYear && prevYearPrefix) {
+    if (compareYear && prevYearPrefix && mRecords.length) {
       const pPrefix = `${compareYear}-${mStr}`
       const pRecords = prevRecords.filter((r) => r.date.startsWith(pPrefix))
       let pTotal = 0
@@ -360,10 +339,12 @@ export function aggregateByMonth(
         pTotal += r.precipitationMm
         if (r.precipitationMm >= 1) pRainy++
       }
-      prevYearTotalMm = Math.round(pTotal * 10) / 10
-      prevRainyDays = pRainy
-      differenceMm = Math.round((totalMm - pTotal) * 10) / 10
-      differencePercent = pTotal > 0 ? Math.round(((totalMm - pTotal) / pTotal) * 1000) / 10 : undefined
+      if (pRecords.length) {
+        prevYearTotalMm = Math.round(pTotal * 10) / 10
+        prevRainyDays = pRainy
+        differenceMm = Math.round((totalMm - pTotal) * 10) / 10
+        differencePercent = pTotal > 0 ? Math.round(((totalMm - pTotal) / pTotal) * 1000) / 10 : undefined
+      }
     }
 
     const dateObj = new Date(year, index, 1)
@@ -411,16 +392,20 @@ export function aggregateByWeek(
   if (!records.length) return []
 
   const weeks: WeekRainfall[] = []
-  // Group into consecutive 7-day buckets
-  for (let i = 0; i < records.length; i += 7) {
-    const chunk = records.slice(i, i + 7)
+  const start = Date.parse(`${year}-${String(month ?? 1).padStart(2, '0')}-01T12:00:00Z`)
+  const buckets = new Map<number, DailyRainRecord[]>()
+  records.sort((a, b) => a.date.localeCompare(b.date)).forEach(record => {
+    const bucket = Math.floor((Date.parse(`${record.date}T12:00:00Z`) - start) / (7 * 86400000))
+    buckets.set(bucket, [...(buckets.get(bucket) ?? []), record])
+  })
+  for (const [bucket, chunk] of buckets) {
     const startDate = chunk[0].date
     const endDate = chunk[chunk.length - 1].date
     const totalMm = chunk.reduce((sum, r) => sum + r.precipitationMm, 0)
     const rainyDays = chunk.filter((r) => r.precipitationMm >= 1).length
     const maxDailyMm = Math.max(0, ...chunk.map((r) => r.precipitationMm))
 
-    const weekNumber = Math.floor(i / 7) + 1
+    const weekNumber = bucket + 1
     const sDateObj = new Date(`${startDate}T12:00:00`)
     const eDateObj = new Date(`${endDate}T12:00:00`)
     const label = `${sDateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${eDateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
@@ -428,8 +413,9 @@ export function aggregateByWeek(
     let prevYearTotalMm: number | undefined
     let differenceMm: number | undefined
 
-    if (compareYear && prevRecords.length > i) {
-      const prevChunk = prevRecords.slice(i, i + 7)
+    const previousStart = Date.parse(`${compareYear}-${String(month ?? 1).padStart(2, '0')}-01T12:00:00Z`)
+    const prevChunk = prevRecords.filter(record => Math.floor((Date.parse(`${record.date}T12:00:00Z`) - previousStart) / (7 * 86400000)) === bucket)
+    if (compareYear && prevChunk.length) {
       const pTotal = prevChunk.reduce((sum, r) => sum + r.precipitationMm, 0)
       prevYearTotalMm = Math.round(pTotal * 10) / 10
       differenceMm = Math.round((totalMm - pTotal) * 10) / 10
@@ -480,7 +466,8 @@ export function aggregateByDay(
     const date = `${year}-${mStr}-${dayStr}`
     const dObj = new Date(`${date}T12:00:00`)
     const curRecord = curMap.get(dayStr)
-    const precipitationMm = curRecord ? Math.round(curRecord.precipitationMm * 10) / 10 : 0
+    if (!curRecord) continue
+    const precipitationMm = Math.round(curRecord.precipitationMm * 10) / 10
 
     let prevYearDate: string | undefined
     let prevYearDayOfWeek: string | undefined
@@ -492,8 +479,8 @@ export function aggregateByDay(
       const pDObj = new Date(`${prevYearDate}T12:00:00`)
       prevYearDayOfWeek = pDObj.toLocaleDateString('en-IN', { weekday: 'short' })
       const prevRecord = prevMap.get(dayStr)
-      prevYearPrecipitationMm = prevRecord ? Math.round(prevRecord.precipitationMm * 10) / 10 : 0
-      differenceMm = Math.round((precipitationMm - prevYearPrecipitationMm) * 10) / 10
+      prevYearPrecipitationMm = prevRecord ? Math.round(prevRecord.precipitationMm * 10) / 10 : undefined
+      differenceMm = prevYearPrecipitationMm === undefined ? undefined : Math.round((precipitationMm - prevYearPrecipitationMm) * 10) / 10
     }
 
     result.push({

@@ -96,6 +96,8 @@ export interface PropertyDocument {
   file_type: string | null
   file_size: number | null
   created_at: string
+  encryption_version?: number
+  encrypted_metadata?: string | null
 }
 
 export interface EstateData {

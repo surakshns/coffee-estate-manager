@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { monthlyLabourTotal, productionMetrics, wednesdaysInMonth, weeklyTotal, yearlyExpenseTotal } from './calculations'
+import { money, monthlyLabourTotal, productionMetrics, wednesdaysInMonth, weeklyTotal, yearlyExpenseTotal } from './calculations'
 import type { Expense, WeeklyPayment, Worker } from './types'
 
 const workers: Worker[] = [
@@ -24,16 +24,24 @@ describe('estate calculation layer', () => {
     expect(wednesdaysInMonth(2026, 0)).toEqual(['2026-01-07', '2026-01-14', '2026-01-21', '2026-01-28'])
     expect(monthlyLabourTotal([{ id: 'p1', worker_id: 'w1', week_start: '2026-01-07', amount: 1200 }, { id: 'p2', worker_id: 'w2', week_start: '2026-02-04', amount: 1300 }], 2026, 0)).toBe(1200)
   })
-  it('calculates revenue and profit from sales, labour, and other costs', () => {
+  it('separates crop revenue from calendar-year activity', () => {
     const result = productionMetrics(
       [{ id: 'pr1', production_year: 2026, bags_produced: 10, bag_weight_kg: 50, notes: null }],
-      [{ id: 's1', production_year: 2026, sale_date: '2026-05-10', bags_sold: 8, selling_price_per_bag: 5000, buyer: 'Buyer' }],
+      [{ id: 's1', production_year: 2026, sale_date: '2027-05-10', bags_sold: 8, selling_price_per_bag: 5000, buyer: 'Buyer' }, { id: 's2', production_year: 2025, sale_date: '2026-01-10', bags_sold: 2, selling_price_per_bag: 4000, buyer: 'Buyer' }],
       [{ id: 'e1', expense_date: '2026-04-10', category_id: 'c1', description: '', amount: 4000 }],
       [{ id: 'p1', worker_id: 'w1', week_start: '2026-01-05', amount: 2000 }], 2026
     )
     expect(result.revenue).toBe(40000)
     expect(result.totalExpenses).toBe(6000)
-    expect(result.profit).toBe(34000)
-    expect(result.costPerBag).toBe(600)
+    expect(result.calendarRevenue).toBe(8000)
+    expect(result.recordedBalance).toBe(2000)
+    expect(result.remainingBags).toBe(2)
+    expect(result.averageSellingPrice).toBe(5000)
+  })
+  it('keeps paise visible without adding decimals to whole rupees', () => {
+    expect(money(1234)).toBe('₹1,234')
+    expect(money(1234.56)).toBe('₹1,234.56')
+    expect(money(0.01)).toBe('₹0.01')
+    expect(money(Number.NaN)).toBe('—')
   })
 })

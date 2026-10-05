@@ -9,6 +9,8 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
+import { estateToday } from '../lib/estateDates'
+import { Sheet } from './Workspace'
 import { downloadCsv } from '../lib/csv'
 import {
   COFFEE_PRESETS,
@@ -45,7 +47,10 @@ const STORAGE_KEY = 'coffee_estate_rainfall_location'
 function getSavedLocation(): LocationPreset {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as LocationPreset
+    if (raw) {
+      const saved = JSON.parse(raw) as LocationPreset
+      if (typeof saved.id === 'string' && typeof saved.name === 'string' && typeof saved.region === 'string' && Number.isFinite(saved.latitude) && Number.isFinite(saved.longitude) && Math.abs(saved.latitude) <= 90 && Math.abs(saved.longitude) <= 180) return saved
+    }
   } catch {
     // ignore
   }
@@ -53,9 +58,9 @@ function getSavedLocation(): LocationPreset {
 }
 
 export function Rainfall({ defaultYear }: { defaultYear?: number }) {
-  const currentYear = new Date().getFullYear()
+  const currentYear = Number(estateToday().slice(0, 4))
   const [year, setYear] = useState(defaultYear ?? currentYear)
-  const [month, setMonth] = useState(new Date().getMonth() + 1) // 1-12
+  const [month, setMonth] = useState(Number(estateToday().slice(5, 7))) // 1-12
   const [view, setView] = useState<Granularity>('month')
   const [unit, setUnit] = useState<RainfallUnit>('mm')
 
@@ -81,6 +86,10 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
   const [error, setError] = useState('')
 
   const searchTimer = useRef<number | null>(null)
+  const searchRequest = useRef<AbortController | null>(null)
+  const searchSequence = useRef(0)
+  const [retry, setRetry] = useState(0)
+  useEffect(() => () => { searchSequence.current++; searchRequest.current?.abort(); if (searchTimer.current) window.clearTimeout(searchTimer.current) }, [])
 
   // Keep compareYear synchronized when year changes
   useEffect(() => {
@@ -99,13 +108,15 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
   // Load meteorological rainfall for past 10+ years up to current year
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 30000)
     setLoading(true)
     setError('')
 
     const startYear = Math.min(year - 9, currentYear - 10)
     const endYear = currentYear
 
-    fetchRainfallData(location.latitude, location.longitude, startYear, endYear)
+    fetchRainfallData(location.latitude, location.longitude, startYear, endYear, controller.signal)
       .then((records) => {
         if (!cancelled) {
           setData(records)
@@ -114,19 +125,22 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load rainfall data.')
+          setError(controller.signal.aborted ? 'Loading took too long. Check your connection and try again.' : err instanceof Error ? err.message : 'Failed to load rainfall data.')
           setLoading(false)
         }
       })
 
     return () => {
-      cancelled = true
+      cancelled = true; controller.abort(); window.clearTimeout(timeout)
     }
-  }, [location, year, currentYear])
+  }, [location, year, currentYear, retry])
 
   // Location search handler with debounce
   function handleSearchChange(text: string) {
     setSearchQuery(text)
+    const sequence = ++searchSequence.current
+    searchRequest.current?.abort()
+    setSearchResults([])
     if (searchTimer.current) window.clearTimeout(searchTimer.current)
     if (!text.trim() || text.trim().length < 2) {
       setSearchResults([])
@@ -135,9 +149,9 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
     }
     setIsSearching(true)
     searchTimer.current = window.setTimeout(async () => {
-      const results = await searchLocations(text)
-      setSearchResults(results)
-      setIsSearching(false)
+      const controller = new AbortController(); searchRequest.current = controller
+      const results = await searchLocations(text, controller.signal)
+      if (sequence === searchSequence.current) { setSearchResults(results); setIsSearching(false) }
     }, 350)
   }
 
@@ -175,7 +189,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
   function applyCustomCoordinates() {
     const lat = Number(customLat)
     const lon = Number(customLon)
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    if (!customLat.trim() || !customLon.trim() || !Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
       setLocationNotice('Please enter valid coordinates (-90 to 90 lat, -180 to 180 lon).')
       return
     }
@@ -313,7 +327,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
       diffLabel: compareWithPrev ? `${diffMm >= 0 ? '+' : ''}${formatRainfall(diffMm, unit)} vs ${compareYear}` : undefined,
       rainyDays,
       highlightTitle: 'Dry vs Wet Days',
-      highlightText: `${dryDays} dry days (${Math.round((dryDays / (dayData.length || 1)) * 100)}% of month) — key for spray schedule and yard drying.`,
+      highlightText: `${dryDays} dry days (${Math.round((dryDays / (dayData.length || 1)) * 100)}% of available days) — key for spray schedule and yard drying.`,
       extraLabel: 'Wettest Day',
       extraValue: wettestDay && wettestDay.precipitationMm > 0 ? `${wettestDay.dayOfMonth} ${new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'short' })} (${formatRainfall(wettestDay.precipitationMm, unit)})` : '—'
     }
@@ -454,32 +468,8 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
       </header>
 
       {/* Location Picker Modal / Card */}
-      {showLocationPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="location-dialog-title"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowLocationPicker(false) }}
-        >
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <div>
-                <h2 id="location-dialog-title" className="text-xl font-extrabold text-stone-900">
-                  Choose Estate Location
-                </h2>
-                <p className="text-xs text-stone-600">Pick a coffee hub, search any village or use GPS.</p>
-              </div>
-              <button
-                type="button"
-                className="grid h-8 w-8 place-items-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-                onClick={() => setShowLocationPicker(false)}
-                aria-label="Close dialog"
-              >
-                ✕
-              </button>
-            </div>
-
+      <Sheet open={showLocationPicker} title="Choose estate location" onClose={() => setShowLocationPicker(false)}>
+        <div className="space-y-4"><p className="section-detail">Pick a coffee hub, search a village or use GPS.</p>
             {/* GPS Button */}
             <div className="flex items-center justify-between rounded-xl bg-leaf-50 p-3">
               <div>
@@ -606,9 +596,8 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
                 {locationNotice}
               </p>
             )}
-          </div>
         </div>
-      )}
+      </Sheet>
 
       {/* Main View & Unit Toolbar */}
       <section className="card flex flex-col gap-3">
@@ -751,7 +740,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
       {error && (
         <div className="app-banner" role="alert">
           <strong>Weather data could not be loaded.</strong>
-          <p>{error}</p>
+          <p>{error}</p><button className="button-secondary mt-3" onClick={() => setRetry(value => value + 1)}>Try again</button>
         </div>
       )}
 
@@ -764,6 +753,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
 
       {!loading && !error && (
         <>
+          <p className="rainfall-coverage" role="status">{data.filter(record => record.date.startsWith(view === 'year' ? `${year}-` : `${year}-${String(month).padStart(2, '0')}`)).length} days with available data in this {view === 'year' ? 'year' : 'month'}. Missing dates are omitted from the daily ledger. Totals and comparisons can cover incomplete periods; recent days may use forecast estimates.</p>
           {/* Summary Metric Tiles */}
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="summary-tile tone-volume">
@@ -1203,7 +1193,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
                                   {formatRainfall(diffMm, unit)}
                                 </span>
                               ) : (
-                                <span className="text-stone-400">0</span>
+                                <span className="text-stone-400">{diffMm === undefined ? '—' : '0'}</span>
                               )}
                             </td>
                           )}
