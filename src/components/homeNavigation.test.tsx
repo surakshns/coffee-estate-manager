@@ -9,7 +9,6 @@ const api = vi.hoisted(() => ({ getSession: vi.fn(), onAuthStateChange: vi.fn(),
 vi.mock('../lib/supabase', () => ({ supabase: { auth: { getSession: api.getSession, onAuthStateChange: api.onAuthStateChange, signOut: api.signOut }, from: () => ({ insert: api.insert }) } }))
 vi.mock('../hooks/useEstateData', () => ({ useEstateData: () => ({ data: api.data, loading: false, error: '', refresh: api.refresh }) }))
 vi.mock('./EstateGuide', () => ({ EstateGuide: () => null }))
-vi.mock('./Labour', () => ({ Labour: ({ year, initialAdvanceDate }: { year: number; initialAdvanceDate?: string }) => <section><h1>Weekly advance editor</h1><p>{initialAdvanceDate ?? 'Regular labour view'} · {year}</p></section> }))
 vi.mock('./Documents', () => ({ Documents: () => <h1>Estate documents</h1> }))
 
 beforeEach(() => {
@@ -54,8 +53,8 @@ describe('home entries and phone menu', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'Start this week’s advance' }))
-    expect(screen.getByRole('heading', { name: 'Weekly advance editor' })).toBeTruthy()
-    expect(screen.getByText('2025-12-31 · 2025')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Labour' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Wed\s*31 Dec/, pressed: true })).toBeTruthy()
     expect((screen.getByLabelText('Record year') as HTMLSelectElement).value).toBe('2025')
   })
 
@@ -76,10 +75,14 @@ describe('home entries and phone menu', () => {
     expect(screen.getByRole('heading', { name: 'Estate overview' })).toBeTruthy()
   })
 
-  it('edits the reminder schedule from Home before delivery is configured', async () => {
+  it('keeps reminders off Home and edits the schedule from desktop Labour before delivery is configured', async () => {
     const user = userEvent.setup()
-    render(<App />)
-    await user.click(await screen.findByRole('button', { name: 'Edit reminder' }))
+    const { container } = render(<App />)
+    await screen.findByRole('heading', { name: 'Estate overview' })
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: 'Edit reminder' })).toBeNull()
+    expect(within(container.querySelector('.header-menu') as HTMLElement).queryByRole('button', { name: 'Advance reminder', hidden: true })).toBeNull()
+    await user.click(within(container.querySelector('.desktop-nav') as HTMLElement).getByRole('button', { name: 'Labour' }))
+    await user.click(screen.getByRole('button', { name: 'Edit reminder' }))
     const panel = within(screen.getByRole('dialog', { name: 'Weekly advance reminder' }))
     await user.selectOptions(panel.getByLabelText('Reminder day'), '4')
     fireEvent.change(panel.getByLabelText('Time'), { target: { value: '21:30' } })
@@ -89,7 +92,7 @@ describe('home entries and phone menu', () => {
     expect(localStorage.getItem('coffee-estate-advance-reminder:user')).toContain('"time":"21:30"')
     await user.click(panel.getByRole('button', { name: 'Close' }))
     expect(screen.getByText('Thu · 9:30 PM')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Estate overview' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Labour' })).toBeTruthy()
   })
 
   it('opens reminder settings from the phone menu without leaving another modal above it', async () => {
@@ -111,8 +114,9 @@ describe('home entries and phone menu', () => {
   it('opens the notification week across a year boundary and consumes only its query parameter', async () => {
     window.history.replaceState({}, '', '/?advanceWeek=2025-12-31&keep=value')
     render(<App />)
-    expect(await screen.findByRole('heading', { name: 'Weekly advance editor' })).toBeTruthy()
-    expect(screen.getByText('2025-12-31 · 2025')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Labour' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Wed\s*31 Dec/, pressed: true })).toBeTruthy()
+    expect((screen.getByLabelText('Record year') as HTMLSelectElement).value).toBe('2025')
     expect(window.location.search).toBe('?keep=value')
   })
 
@@ -120,6 +124,6 @@ describe('home entries and phone menu', () => {
     window.history.replaceState({}, '', '/?advanceWeek=2026-01-01')
     render(<App />)
     expect(await screen.findByRole('heading', { name: 'Estate overview' })).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'Weekly advance editor' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Labour' })).toBeNull()
   })
 })

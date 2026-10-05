@@ -12,6 +12,11 @@
   gap: 20px;
   color: var(--labour-ink);
 }
+.labour-reminder-row { display: none; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--labour-line); border-radius: 16px; color: var(--labour-muted); background: #f6f8f2; }
+.labour-reminder-row > svg { flex-shrink: 0; }
+.labour-reminder-row > div { display: flex; flex: 1; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; }
+.labour-reminder-row strong { color: var(--labour-ink); font-weight: 650; }
+@media (min-width: 1024px) { .labour-reminder-row { display: flex; } }
 .labour-page button, .labour-page input, .labour-page select, .labour-page summary { touch-action: manipulation; }
 .labour-page button, .labour-page summary { -webkit-tap-highlight-color: transparent; }
 .labour-page :is(button, input, select), .labour-mobile-deck :is(button, input, select), .labour-close-actions button, .loan-statement :is(button, select) { transition: background-color 140ms var(--labour-ease), border-color 140ms var(--labour-ease), color 140ms var(--labour-ease), box-shadow 140ms var(--labour-ease); }

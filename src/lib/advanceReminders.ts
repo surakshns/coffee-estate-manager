@@ -124,7 +124,7 @@ export function decodeVapidKey(value: string): Uint8Array<ArrayBuffer> {
 async function activeRegistration(): Promise<ServiceWorkerRegistration> {
   const registration = await navigator.serviceWorker.register(new URL('sw.js', applicationUrl()).href, { scope: applicationUrl() })
   // An older installed worker can still be active while the push-capable update
-  // installs. Wait for that update before connecting/testing notifications.
+  // installs. Wait for that update before connecting notifications.
   if (registration.active && !registration.installing && !registration.waiting) return registration
   await new Promise<void>((resolve, reject) => {
     const worker = registration.installing || registration.waiting

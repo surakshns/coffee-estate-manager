@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { money, monthlyLabourTotal, wednesdaysInMonth, workersForPaymentDate, yearlyLabourTotal } from '../lib/calculations'
-import { ArrowUp, CalendarDays, Check, Pencil, Settings2, Users, Wallet } from 'lucide-react'
+import { ArrowUp, Bell, CalendarDays, Check, Pencil, Settings2, Users, Wallet } from 'lucide-react'
 import { PageHeading, Sheet, Notice, SearchField, EmptyState } from './Workspace'
 import { SelectionNav } from './SelectionNav'
 import { supabase } from '../lib/supabase'
@@ -13,6 +13,7 @@ import { MobileLoanDeductionEditor } from './MobileLoanDeductionEditor'
 import { WEEKLY_REPAYMENT_NOTE, workerLoanAccounts } from '../lib/labourLoans'
 import { loanDeductionSuggestions } from '../lib/repaymentSuggestions'
 import { estateToday } from '../lib/estateDates'
+import { reminderScheduleLabel, type ReminderSchedule } from '../lib/advanceReminders'
 import './labour.css'
 
 const asNumber = (value: string | undefined) => Number((value ?? '').replace(/,/g, '') || 0)
@@ -42,7 +43,9 @@ type View = 'payments' | 'loans' | 'workers'
 type WeekSelection = { month: number; date: string; startAdvance?: boolean }
 const emptyLoan = (): LoanForm => ({ worker_id: '', loan_date: today(), amount: '', kind: 'advance', notes: '' })
 
-export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate, advanceRequest }: { data: EstateData; year: number; refresh: () => Promise<void>; onYearChange?: (year: number) => void; initialAdvanceDate?: string; advanceRequest?: number }) {
+type LabourReminder = { settings: ReminderSchedule; loading: boolean; ready: boolean; activeHere: boolean; error: boolean }
+
+export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate, advanceRequest, onEditReminder, reminder }: { data: EstateData; year: number; refresh: () => Promise<void>; onYearChange?: (year: number) => void; initialAdvanceDate?: string; advanceRequest?: number; onEditReminder?: () => void; reminder?: LabourReminder }) {
   const initialWeek = advanceDate(initialAdvanceDate)
   const initialMonth = Number((initialWeek ?? today()).slice(5, 7)) - 1
   const [view, setView] = useState<View>('payments')
@@ -71,6 +74,7 @@ export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate, 
   const [message, setMessage] = useState('')
   const [messageError, setMessageError] = useState(false)
   const [busy, setBusy] = useState('')
+  const reminderState = !reminder ? 'Not enabled' : reminder.loading ? 'Checking…' : reminder.error ? 'Unavailable' : !reminder.ready ? 'Setup required' : !reminder.settings.enabled ? 'Off' : reminder.activeHere ? 'On' : 'Connect this device'
   const busyRef = useRef(false)
   const previousYear = useRef(year)
   const requestedWeek = useRef<string | null>(null)
@@ -378,6 +382,7 @@ export function Labour({ data, year, refresh, onYearChange, initialAdvanceDate, 
   }
   return <div className="page labour-page">
     <PageHeading title="Labour" detail={`${activeCount} active ${activeCount === 1 ? 'worker' : 'workers'} · ${year}`} action={view === 'workers' ? 'Add worker' : undefined} onAction={() => { setEditing(null); setWorkerName(''); setWorkerDays('5'); setWorkerActive(true); setMessage(''); setEditor('worker') }} />
+    {onEditReminder && <div className="labour-reminder-row"><Bell size={18} aria-hidden="true" /><div><strong>{reminderScheduleLabel(reminder?.settings ?? { enabled: false, weekday: 3, time: '20:00' })}</strong><span>{reminderState}</span></div><button type="button" className="button-secondary" disabled={!!busy} onClick={onEditReminder}>Edit reminder</button></div>}
     <details className="labour-overview"><summary>Payment & loan overview</summary><div className="labour-summary">
       <SummaryCard label={`${monthName(openMonth)} payments`} value={money(monthlyLabourTotal(data.weeklyPayments, year, openMonth))} detail="Saved labour cost this month" />
       <SummaryCard label={`Paid in ${year}`} value={money(yearlyLabourTotal(data.weeklyPayments, year))} detail="Included in estate expenses" />

@@ -14,7 +14,6 @@ const props = (overrides: Partial<AdvanceReminderSettingsProps> = {}): AdvanceRe
   deviceSubscribed: false,
   setupReady: true,
   onSave: vi.fn(async () => {}),
-  onTest: vi.fn(async () => {}),
   ...overrides,
 })
 
@@ -33,13 +32,15 @@ describe('weekly advance reminder settings', () => {
     expect(screen.getByText('Wednesday at 8:00 PM')).toBeTruthy()
     expect((screen.getByLabelText('Reminder day') as HTMLSelectElement).value).toBe('3')
     expect((screen.getByLabelText('Time') as HTMLInputElement).value).toBe('20:00')
-    expect(screen.getByRole('button', { name: 'Send test notification' })).toHaveProperty('disabled', true)
+    expect(screen.queryByRole('button', { name: 'Send test notification' })).toBeNull()
 
     await user.selectOptions(screen.getByLabelText('Reminder day'), '4')
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '21:15' } })
     await user.click(screen.getByRole('switch', { name: /Enable weekly reminders/ }))
     expect(screen.getByText('Thursday at 9:15 PM')).toBeTruthy()
     expect(screen.getByText(/Changing the reminder day keeps the Wednesday pay date/)).toBeTruthy()
+    expect(screen.getByText(/repeats daily at this time until the full weekly payment is saved/)).toBeTruthy()
+    expect(screen.getByText(/Rescheduling sends a confirmation/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(options.onSave).toHaveBeenCalledWith({ enabled: true, weekday: 4, time: '21:15' }))
     expect(options.onClose).not.toHaveBeenCalled()
@@ -72,6 +73,7 @@ describe('weekly advance reminder settings', () => {
     await waitFor(() => expect((screen.getByLabelText('Reminder day') as HTMLSelectElement).value).toBe('0'))
     expect(screen.getByText('Sunday at 12:00 AM')).toBeTruthy()
     expect(screen.getByText('Enabled on this device')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Send test notification' })).toBeNull()
   })
 
   it('can store a preferred schedule while setup is unavailable without offering enabled delivery', async () => {
@@ -80,7 +82,6 @@ describe('weekly advance reminder settings', () => {
     render(<AdvanceReminderSettings {...options} />)
     expect(screen.getByText('Setup required')).toBeTruthy()
     expect(screen.getByRole('switch', { name: /Enable weekly reminders/ })).toHaveProperty('disabled', true)
-    expect(screen.getByRole('button', { name: 'Send test notification' })).toHaveProperty('disabled', true)
     await user.selectOptions(screen.getByLabelText('Reminder day'), '6')
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '18:45' } })
     await user.click(screen.getByRole('button', { name: 'Save schedule' }))
@@ -93,7 +94,6 @@ describe('weekly advance reminder settings', () => {
     expect(screen.getByText('Unable to check reminders')).toBeTruthy()
     expect(screen.queryByText('Setup required')).toBeNull()
     expect(screen.getByRole('alert')).toHaveProperty('textContent', 'Could not connect to reminder settings.')
-    expect(screen.getByRole('button', { name: 'Send test notification' })).toHaveProperty('disabled', true)
   })
 
   it('connects a second phone using the saved account schedule without discarding local edits', async () => {
@@ -105,7 +105,6 @@ describe('weekly advance reminder settings', () => {
     await user.click(screen.getByRole('button', { name: 'Enable on this device' }))
     expect(options.onSave).toHaveBeenCalledWith({ enabled: true, weekday: 3, time: '20:00' })
     expect((screen.getByLabelText('Reminder day') as HTMLSelectElement).value).toBe('2')
-    expect(screen.getByRole('button', { name: 'Send test notification' })).toHaveProperty('disabled', true)
   })
 
   it('shows blocked permission and still lets the owner turn the account reminder off', async () => {
@@ -113,31 +112,16 @@ describe('weekly advance reminder settings', () => {
     const user = userEvent.setup()
     render(<AdvanceReminderSettings {...options} />)
     expect(screen.getByText('Notifications blocked')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Send test notification' })).toHaveProperty('disabled', true)
     expect(screen.queryByRole('button', { name: 'Enable on this device' })).toBeNull()
     await user.click(screen.getByRole('switch', { name: /Enable weekly reminders/ }))
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(options.onSave).toHaveBeenCalledWith({ enabled: false, weekday: 3, time: '20:00' })
   })
 
-  it('does not offer a test on unsupported browsers and explains iPhone installation', () => {
+  it('shows unsupported browsers and explains iPhone installation', () => {
     render(<AdvanceReminderSettings {...props({ settings: { enabled: true, weekday: 3, time: '20:00' }, support: 'unsupported' })} />)
     expect(screen.getByText('Not supported on this device')).toBeTruthy()
     expect(screen.getByText(/On iPhone, add this app to your Home Screen first/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Send test notification' })).toHaveProperty('disabled', true)
-  })
-
-  it('keeps a failed test retryable and reports a request rather than confirmed delivery', async () => {
-    const onTest = vi.fn().mockRejectedValueOnce(new Error('Test service unavailable')).mockResolvedValueOnce(undefined)
-    const user = userEvent.setup()
-    render(<AdvanceReminderSettings {...props({ settings: { enabled: true, weekday: 3, time: '20:00' }, permission: 'granted', deviceSubscribed: true, onTest })} />)
-    await user.click(screen.getByRole('button', { name: 'Send test notification' }))
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Test service unavailable')
-    await user.click(screen.getByRole('button', { name: 'Send test notification' }))
-    expect(onTest).toHaveBeenCalledTimes(2)
-    expect(await screen.findByText('Test requested. Check this phone for the notification.')).toBeTruthy()
-    expect(screen.queryByRole('alert')).toBeNull()
-    expect(screen.queryByText(/delivered/i)).toBeNull()
   })
 
   it('blocks duplicate saves and closing while a request is in progress', async () => {

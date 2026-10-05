@@ -175,14 +175,14 @@ export default function App() {
   const current = () => {
     const props = { data, year, refresh }
     switch (page) {
-      case 'Labour': return <Labour {...props} onYearChange={setYear} initialAdvanceDate={entry.advanceDate} advanceRequest={entry.advanceRequest} />
+      case 'Labour': return <Labour {...props} onYearChange={setYear} initialAdvanceDate={entry.advanceDate} advanceRequest={entry.advanceRequest} onEditReminder={openReminderSettings} reminder={{ settings: reminders.settings, loading: reminders.loading, ready: reminders.ready, activeHere: reminders.deviceSubscribed && reminders.permission === 'granted', error: Boolean(reminders.error) }} />
       case 'Expenses': return <Expenses {...props} initialView={entry.expenseView} />
       case 'Rainfall': return <Rainfall defaultYear={year} />
       case 'Prices': return <Prices />
       case 'Production': return <Production {...props} />
       case 'Documents': return <Documents data={data} refresh={refresh} />
       case 'Backup': return <Backup data={data} refresh={refresh} />
-      default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} onEditReminder={openReminderSettings} reminder={{ settings: reminders.settings, loading: reminders.loading, ready: reminders.ready, activeHere: reminders.deviceSubscribed && reminders.permission === 'granted', error: Boolean(reminders.error), weekStart: reminders.status?.weekStart, weekStatus: reminders.status?.weekStatus }} />
+      default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} advance={{ loading: reminders.loading, error: Boolean(reminders.error), weekStart: reminders.status?.weekStart, weekStatus: reminders.status?.weekStatus }} />
     }
   }
 
@@ -206,7 +206,6 @@ export default function App() {
               <p className="menu-caption">Your estate</p>
               <button onClick={() => navigate('Backup')}><AppIcon name="backup" /> Backup &amp; import</button>
               <button onClick={openPasswordSettings}><LockKeyhole size={18} aria-hidden="true" />Change password</button>
-              <button onClick={openReminderSettings}><Bell size={18} aria-hidden="true" />Advance reminder</button>
               {installPrompt && <button onClick={() => void installApp()}>＋ Install app</button>}
               <button onClick={() => void signOut()}>Sign out</button>
             </div>
@@ -229,7 +228,7 @@ export default function App() {
       <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openReminderSettings}><Bell size={19} aria-hidden="true" /><span>Advance reminder</span><AppIcon name="arrow" /></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => void signOut()}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
     </Sheet>
     <ExpenseEditor data={data} refresh={refresh} open={quickExpenseOpen} onClose={() => setQuickExpenseOpen(false)} onSaved={setNotice} onManageCategories={() => navigate('Expenses', { expenseView: 'categories' })} />
-    <AdvanceReminderSettings open={reminderOpen} onClose={() => setReminderOpen(false)} settings={reminders.settings} loading={reminders.loading} saving={reminders.saving} testing={reminders.testing} support={reminders.support} permission={reminders.permission} deviceSubscribed={reminders.deviceSubscribed} setupReady={reminders.ready} message={reminders.message} error={reminders.error} onSave={reminders.save} onTest={reminders.test} />
+    <AdvanceReminderSettings open={reminderOpen} onClose={() => setReminderOpen(false)} settings={reminders.settings} loading={reminders.loading} saving={reminders.saving} support={reminders.support} permission={reminders.permission} deviceSubscribed={reminders.deviceSubscribed} setupReady={reminders.ready} message={reminders.message} error={reminders.error} onSave={reminders.save} />
     <Sheet open={passwordOpen} title="Change password" busy={passwordBusy} onClose={() => setPasswordOpen(false)}>
       <p className="password-intro">Confirm your current password, then choose a new one for your account.</p>
       {passwordOpen && <PasswordForm email={session.user.email} verifyCurrent onBusyChange={setPasswordBusy} onCancel={() => setPasswordOpen(false)} onSuccess={() => { setPasswordOpen(false); setNotice('Your login password has been updated.') }} />}

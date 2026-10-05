@@ -5,7 +5,6 @@ type State = {
   settings: ReminderSchedule
   loading: boolean
   saving: boolean
-  testing: boolean
   ready: boolean
   deviceSubscribed: boolean
   permission: NotificationPermission
@@ -14,7 +13,7 @@ type State = {
   error: string
   status: ReminderStatus | null
 }
-const initialState = (): State => ({ settings: { ...defaultReminderSchedule }, loading: false, saving: false, testing: false, ready: false, deviceSubscribed: false, permission: notificationPermission(), support: notificationSupport(), message: '', error: '', status: null })
+const initialState = (): State => ({ settings: { ...defaultReminderSchedule }, loading: false, saving: false, ready: false, deviceSubscribed: false, permission: notificationPermission(), support: notificationSupport(), message: '', error: '', status: null })
 
 export function useAdvanceReminders(userId: string | null, recordsKey?: unknown) {
   const [state, setState] = useState<State>(initialState)
@@ -112,7 +111,7 @@ export function useAdvanceReminders(userId: string | null, recordsKey?: unknown)
       }
       if (!isCurrent()) throw new Error('Your account changed. Reopen reminder settings.')
       applyStatus(status, userId)
-      setState(previous => ({ ...previous, message: status.ready ? schedule.enabled ? status.subscribed ? 'Reminder saved. This phone will be notified only if the advance is incomplete.' : 'Account reminder saved. This phone still needs to be connected.' : 'Weekly reminders are turned off for your account.' : 'Schedule saved. Reminder delivery still needs setup.' }))
+      setState(previous => ({ ...previous, message: status.ready ? schedule.enabled ? status.subscribed ? 'Reminder saved. This phone will be notified daily at the selected time until the full weekly payment is saved.' : 'Account reminder saved. This phone still needs to be connected.' : 'Weekly reminders are turned off for your account.' : 'Schedule saved. Reminder delivery still needs setup.' }))
     } catch (cause) {
       if (isCurrent()) setState(previous => ({ ...previous, error: cause instanceof Error ? cause.message : 'Could not save reminder settings.' }))
       throw cause
@@ -121,38 +120,12 @@ export function useAdvanceReminders(userId: string | null, recordsKey?: unknown)
     }
   }
 
-  async function test() {
-    if (!userId || working.current) throw new Error('Please wait and try again.')
-    if (!state.ready || !state.deviceSubscribed || notificationPermission() !== 'granted') throw new Error('Enable notifications on this phone first.')
-    working.current = true
-    const sequence = ++generation.current
-    const isCurrent = () => account.current === userId && generation.current === sequence
-    setState(previous => ({ ...previous, testing: true, error: '', message: '' }))
-    try {
-      const subscription = await currentPushSubscription()
-      if (!isCurrent()) throw new Error('Your account changed. Reopen reminder settings.')
-      if (!subscription) {
-        endpoint.current = null
-        setState(previous => ({ ...previous, deviceSubscribed: false }))
-        throw new Error('This phone is no longer connected. Enable it again.')
-      }
-      const result = await reminderRequest<{ sent: boolean }>({ action: 'test', endpoint: subscription.endpoint })
-      if (!result.sent) throw new Error('The test could not be sent. Try again.')
-      if (isCurrent()) setState(previous => ({ ...previous, message: 'Test accepted for delivery. Check this phone for the notification.' }))
-    } catch (cause) {
-      if (isCurrent()) setState(previous => ({ ...previous, error: cause instanceof Error ? cause.message : 'Could not send the test.' }))
-      throw cause
-    } finally {
-      if (isCurrent()) { working.current = false; setState(previous => ({ ...previous, testing: false })) }
-    }
-  }
-
   async function disconnectDevice() {
     const sequence = ++generation.current
     const owner = userId
     const isCurrent = () => account.current === owner && generation.current === sequence
     working.current = false
-    setState(previous => ({ ...previous, saving: false, testing: false }))
+    setState(previous => ({ ...previous, saving: false }))
     const subscription = await currentPushSubscription().catch(() => null)
     if (!subscription || !isCurrent()) return
     if (userId) {
@@ -165,5 +138,5 @@ export function useAdvanceReminders(userId: string | null, recordsKey?: unknown)
     setState(previous => ({ ...previous, deviceSubscribed: false }))
   }
 
-  return { ...state, save, test, refreshStatus, disconnectDevice }
+  return { ...state, save, refreshStatus, disconnectDevice }
 }

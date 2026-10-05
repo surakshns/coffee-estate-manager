@@ -58,15 +58,47 @@ export function readSubscription(input: unknown, now = Date.now()): StoredSubscr
   return { endpoint: value.endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth }, expirationTime: typeof expiration === 'number' ? expiration : null }
 }
 
-export function notificationPayload(appUrl: string, weekStart: string, test = false) {
+export function notificationPayload(appUrl: string, weekStart: string) {
   const url = new URL(appUrl)
   url.searchParams.set('advanceWeek', weekStart)
   return {
-    title: test ? 'Test reminder' : 'Weekly advance reminder',
-    body: test ? 'Reminders are connected on this phone. Tap to open weekly advance.' : 'This week’s advance still needs saving. Tap to finish it.',
-    tag: test ? 'advance-reminder-test' : `advance-${weekStart}`,
+    title: 'Weekly advance reminder',
+    body: 'Your weekly payment still needs saving. Tap to finish it.',
+    tag: `advance-${weekStart}`,
     data: { weekStart, url: url.href }
   }
+}
+
+export function rescheduledNotificationPayload(appUrl: string, weekStart: string, settings: ReminderSettings) {
+  const payload = notificationPayload(appUrl, weekStart)
+  const [hour, minute] = settings.time.split(':').map(Number)
+  const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][settings.weekday]
+  return {
+    ...payload,
+    title: 'Weekly reminder rescheduled',
+    body: `Reminder moved to ${day} at ${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'} IST. Repeats daily until the weekly payment is saved.`,
+    tag: 'advance-schedule',
+    data: { ...payload.data, kind: 'rescheduled', weekday: settings.weekday, time: settings.time }
+  }
+}
+
+export type DeliveryLedger = { status: string; kind: 'payment' | 'rescheduled'; scheduled_at: string; settings_revision: number }
+
+// Shared with the sender so saves, disables, edits and new connections are
+// checked again after a database claim, immediately before the push request.
+export function canSendReminder(
+  settings: { enabled: boolean; revision: number; updated_at: string } | null,
+  ledger: DeliveryLedger | null,
+  subscription: { connected_at: string; expiration_time: string | null } | null,
+  complete: boolean,
+  eligibleWorkers: boolean,
+  now = Date.now()
+) {
+  if (!settings?.enabled || !ledger || ledger.status !== 'sending' || !subscription || settings.revision !== ledger.settings_revision) return false
+  const due = Date.parse(ledger.scheduled_at)
+  if (!(due <= now && now < due + 3600000) || !(Date.parse(settings.updated_at) <= due) || !(Date.parse(subscription.connected_at) <= due)) return false
+  if (subscription.expiration_time && !(Date.parse(subscription.expiration_time) > now)) return false
+  return ledger.kind === 'rescheduled' || (ledger.kind === 'payment' && !complete && eligibleWorkers)
 }
 
 export function deliveryResult(httpStatus?: number): 'sent' | 'retry' | 'expired' | 'uncertain' {

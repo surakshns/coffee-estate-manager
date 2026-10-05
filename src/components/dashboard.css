@@ -263,23 +263,3 @@
   .dashboard-entry-card { transition: none; }
   .dashboard-entry-card:hover, .dashboard-entry-card:active { transform: none; }
 }
-.dashboard-reminder-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: -2px 0 22px;
-  padding: 12px 14px;
-  border: 1px solid #dce5da;
-  border-radius: 16px;
-  color: #526553;
-  background: #f6f8f2;
-}
-.dashboard-reminder-row > svg { flex-shrink: 0; }
-.dashboard-reminder-row > div { display: flex; flex: 1; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; }
-.dashboard-reminder-row strong { color: #284937; font-weight: 650; }
-.dashboard-reminder-row button { display: flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 5px; min-height: 44px; padding: 0 6px; font-size: 13px; font-weight: 650; color: #174e3c; border-radius: 8px; }
-.dashboard-reminder-row button:focus-visible { outline: 3px solid #84a897; outline-offset: 2px; }
-@media (max-width: 639px) {
-  .dashboard-reminder-row { gap: 10px; padding: 8px 12px; }
-  .dashboard-reminder-row > div { flex-direction: column; gap: 2px; }
-}

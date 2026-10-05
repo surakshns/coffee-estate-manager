@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_REMINDER, deliveryResult, indiaToday, isPushEndpoint, latestWednesday, notificationPayload, readSchedule, readSubscription } from './reminderRules'
+import { canSendReminder, DEFAULT_REMINDER, deliveryResult, indiaToday, isPushEndpoint, latestWednesday, notificationPayload, readSchedule, readSubscription, rescheduledNotificationPayload, type DeliveryLedger } from './reminderRules'
 
 const encode = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const subscription = { endpoint: 'https://web.push.apple.com/example', expirationTime: null, keys: { p256dh: encode(Uint8Array.from({ length: 65 }, (_, index) => index === 0 ? 4 : 1)), auth: encode(new Uint8Array(16).fill(1)) } }
@@ -44,7 +44,6 @@ describe('advance reminder rules', () => {
     expect(payload.data.weekStart).toBe('2026-09-30')
     expect(payload.tag).toBe('advance-2026-09-30')
     expect(Object.keys(payload)).toEqual(['title', 'body', 'tag', 'data'])
-    expect(notificationPayload('https://example.com/', '2026-09-30', true).tag).toBe('advance-reminder-test')
   })
 
   it('retries only explicit temporary push-service rejections and never ambiguous network outcomes', () => {
@@ -55,5 +54,40 @@ describe('advance reminder rules', () => {
     expect(deliveryResult(404)).toBe('expired')
     expect(deliveryResult(403)).toBe('expired')
     expect(deliveryResult()).toBe('uncertain')
+  })
+
+  it('confirms a reschedule using India time without worker or wage details', () => {
+    const payload = rescheduledNotificationPayload('https://example.com/coffee-estate-manager/', '2026-09-30', readSchedule({ enabled: true, weekday: 4, time: '21:15' }))
+    expect(payload.title).toBe('Weekly reminder rescheduled')
+    expect(payload.body).toBe('Reminder moved to Thursday at 9:15 PM IST. Repeats daily until the weekly payment is saved.')
+    expect(payload.tag).toBe('advance-schedule')
+    expect(payload.data).toEqual({ weekStart: '2026-09-30', url: 'https://example.com/coffee-estate-manager/?advanceWeek=2026-09-30', kind: 'rescheduled', weekday: 4, time: '21:15' })
+    expect(rescheduledNotificationPayload('https://example.com/', '2026-09-30', readSchedule({ enabled: true, weekday: 0, time: '00:00' })).body).toContain('Sunday at 12:00 AM IST')
+  })
+
+  it('cancels a claimed daily reminder if payment is saved, settings change, or the phone disconnects', () => {
+    const now = Date.parse('2026-10-08T14:31:00Z')
+    const settings = { enabled: true, revision: 2, updated_at: '2026-10-07T12:00:00Z' }
+    const ledger: DeliveryLedger = { status: 'sending', kind: 'payment', scheduled_at: '2026-10-08T14:30:00Z', settings_revision: 2 }
+    const phone = { connected_at: '2026-10-07T12:00:00Z', expiration_time: null }
+    expect(canSendReminder(settings, ledger, phone, false, true, now)).toBe(true)
+    expect(canSendReminder(settings, ledger, phone, true, true, now)).toBe(false)
+    expect(canSendReminder({ ...settings, revision: 3 }, ledger, phone, false, true, now)).toBe(false)
+    expect(canSendReminder({ ...settings, enabled: false }, ledger, phone, false, true, now)).toBe(false)
+    expect(canSendReminder(settings, ledger, null, false, true, now)).toBe(false)
+    expect(canSendReminder(settings, ledger, phone, false, false, now)).toBe(false)
+    expect(canSendReminder(settings, { ...ledger, status: 'cancelled' }, phone, false, true, now)).toBe(false)
+    expect(canSendReminder(settings, ledger, { ...phone, connected_at: '2026-10-08T14:30:01Z' }, false, true, now)).toBe(false)
+    expect(canSendReminder(settings, ledger, { ...phone, expiration_time: '2026-10-08T14:30:30Z' }, false, true, now)).toBe(false)
+    expect(canSendReminder(settings, ledger, phone, false, true, now + 3600000)).toBe(false)
+  })
+
+  it('sends reschedule confirmations even when payment is complete or there are no workers', () => {
+    const now = Date.parse('2026-10-08T14:31:00Z')
+    const settings = { enabled: true, revision: 2, updated_at: '2026-10-08T14:30:00Z' }
+    const ledger: DeliveryLedger = { status: 'sending', kind: 'rescheduled', scheduled_at: settings.updated_at, settings_revision: 2 }
+    const phone = { connected_at: '2026-10-07T12:00:00Z', expiration_time: null }
+    expect(canSendReminder(settings, ledger, phone, true, false, now)).toBe(true)
+    expect(canSendReminder({ ...settings, revision: 3 }, ledger, phone, true, false, now)).toBe(false)
   })
 })

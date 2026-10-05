@@ -65,6 +65,7 @@ describe('advance reminder controller', () => {
     expect(result.current.deviceSubscribed).toBe(true)
     expect(result.current.settings).toEqual({ enabled: true, weekday: 5, time: '21:30' })
     expect(result.current.status?.subscriptionCount).toBe(2)
+    expect(result.current.message).toMatch(/daily at the selected time until the full weekly payment is saved/)
   })
 
   it('does not configure the account or subscribe when phone permission is refused', async () => {
@@ -239,31 +240,5 @@ describe('advance reminder controller', () => {
     const before = client.request.mock.calls.length
     await act(async () => { await result.current.refreshStatus() })
     expect(client.request.mock.calls.length).toBe(before + 1)
-  })
-
-  it('marks this phone disconnected when its local subscription disappears before a test', async () => {
-    client.subscription.mockResolvedValue(pushSubscription())
-    client.request.mockResolvedValue(status({ settings: { enabled: true, weekday: 3, time: '20:00', timezone: 'Asia/Kolkata' }, subscribed: true, subscriptionCount: 1 }))
-    const { result } = renderHook(() => useAdvanceReminders('owner'))
-    await waitFor(() => expect(result.current.deviceSubscribed).toBe(true))
-    client.subscription.mockResolvedValue(null)
-    await act(async () => { await result.current.test().catch(() => undefined) })
-    expect(result.current.error).toMatch(/no longer connected/i)
-    expect(result.current.deviceSubscribed).toBe(false)
-    expect(result.current.testing).toBe(false)
-    expect(client.request.mock.calls.some(call => call[0].action === 'test')).toBe(false)
-  })
-
-  it('tests only this phone endpoint and reports acceptance without claiming delivery', async () => {
-    const subscription = pushSubscription()
-    client.subscription.mockResolvedValue(subscription)
-    client.request.mockImplementation(async body => body.action === 'test' ? { sent: true } : status({ settings: { enabled: true, weekday: 3, time: '20:00', timezone: 'Asia/Kolkata' }, subscribed: true, subscriptionCount: 2 }))
-    const { result } = renderHook(() => useAdvanceReminders('owner'))
-    await waitFor(() => expect(result.current.deviceSubscribed).toBe(true))
-    await act(async () => { await result.current.test() })
-    expect(client.request).toHaveBeenLastCalledWith({ action: 'test', endpoint: subscription.endpoint })
-    expect(result.current.message).toMatch(/accepted for delivery/i)
-    expect(result.current.message).not.toMatch(/delivered|received/i)
-    expect(result.current.testing).toBe(false)
   })
 })

@@ -10,7 +10,6 @@ export interface AdvanceReminderSettingsProps {
   settings: ReminderSchedule
   loading?: boolean
   saving?: boolean
-  testing?: boolean
   support: 'supported' | 'unsupported'
   permission: NotificationPermission
   deviceSubscribed: boolean
@@ -18,7 +17,6 @@ export interface AdvanceReminderSettingsProps {
   message?: string
   error?: string
   onSave: (schedule: ReminderSchedule) => Promise<void>
-  onTest: () => Promise<void>
 }
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -34,15 +32,15 @@ export function AdvanceReminderSettings({ open, ...props }: AdvanceReminderSetti
   return open ? <ReminderSettingsForm {...props} /> : null
 }
 
-function ReminderSettingsForm({ onClose, settings, loading = false, saving = false, testing = false, support, permission, deviceSubscribed, setupReady, message = '', error = '', onSave, onTest }: Omit<AdvanceReminderSettingsProps, 'open'>) {
+function ReminderSettingsForm({ onClose, settings, loading = false, saving = false, support, permission, deviceSubscribed, setupReady, message = '', error = '', onSave }: Omit<AdvanceReminderSettingsProps, 'open'>) {
   const [draft, setDraft] = useState(() => ({ ...settings }))
   const [dirty, setDirty] = useState(false)
-  const [operation, setOperation] = useState<'save' | 'connect' | 'test' | null>(null)
+  const [operation, setOperation] = useState<'save' | 'connect' | null>(null)
   const [localError, setLocalError] = useState('')
   const [localMessage, setLocalMessage] = useState('')
   const working = useRef(false)
   const guidanceId = useId()
-  const busy = saving || testing || operation !== null
+  const busy = saving || operation !== null
 
   useEffect(() => {
     // A fetch may refresh these props; only an untouched or accepted draft can reset.
@@ -74,29 +72,12 @@ function ReminderSettingsForm({ onClose, settings, loading = false, saving = fal
     }
   }
 
-  async function testNotification() {
-    if (working.current || busy || !canTest) return
-    working.current = true
-    setOperation('test')
-    setLocalError(''); setLocalMessage('')
-    try {
-      await onTest()
-      setLocalMessage('Test requested. Check this phone for the notification.')
-    } catch (cause) {
-      setLocalError(cause instanceof Error ? cause.message : 'Could not request a test notification. Please try again.')
-    } finally {
-      working.current = false
-      setOperation(null)
-    }
-  }
-
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     void save(draft)
   }
 
   const canConnect = setupReady && support === 'supported' && permission !== 'denied' && settings.enabled && !deviceSubscribed
-  const canTest = !loading && setupReady && support === 'supported' && permission === 'granted' && deviceSubscribed && settings.enabled
   const status = loading ? 'Checking reminders…'
     : !setupReady && error ? 'Unable to check reminders'
       : !setupReady ? 'Setup required'
@@ -126,14 +107,13 @@ function ReminderSettingsForm({ onClose, settings, loading = false, saving = fal
         <label className="label">Time<input className="field" type="time" value={draft.time} step={60} required disabled={loading || busy} onChange={event => edit({ time: event.target.value })} /></label>
       </div>
       <div className="advance-reminder-preview"><CalendarDays size={20} aria-hidden="true" /><div><strong>{scheduleLabel(draft)}</strong><span>India time (IST · Asia/Kolkata)</span></div></div>
-      <p id={guidanceId} className="advance-reminder-guidance">Checks the latest Wednesday’s advance. Changing the reminder day keeps the Wednesday pay date. Sends once per week only if the advance is incomplete.</p>
+      <p id={guidanceId} className="advance-reminder-guidance">Starts on the selected day, then repeats daily at this time until the full weekly payment is saved. Changing the reminder day keeps the Wednesday pay date. Rescheduling sends a confirmation to your connected phones.</p>
 
       <div className="advance-reminder-device">
         <div className="advance-reminder-device-heading"><Smartphone size={19} aria-hidden="true" /><strong>This phone</strong></div>
         <dl><div><dt>Notification permission</dt><dd>{permissionLabel}</dd></div><div><dt>Connection</dt><dd>{deviceSubscribed ? 'Connected' : 'Not connected'}</dd></div></dl>
         <p>On iPhone, add this app to your Home Screen first. Allow notifications on each phone you want to use.</p>
         {canConnect && <button type="button" className="button-secondary" disabled={busy || loading} onClick={() => void save({ ...settings, enabled: true }, true)}>{operation === 'connect' ? 'Connecting…' : 'Enable on this device'}</button>}
-        <button type="button" className="button-secondary advance-reminder-test" disabled={!canTest || busy} onClick={() => void testNotification()}>{testing || operation === 'test' ? 'Requesting test…' : 'Send test notification'}</button>
       </div>
 
       <Notice error>{localError || error}</Notice>

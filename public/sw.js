@@ -43,13 +43,19 @@ self.addEventListener('push', (event) => {
   try { payload = event.data?.json() } catch { return }
   const url = advanceTarget(payload?.data)
   if (!url) return
-  const test = payload.tag === 'advance-reminder-test'
-  event.waitUntil(self.registration.showNotification(test ? 'Test reminder' : 'Weekly advance reminder', {
-    body: test ? 'Notifications are connected. Tap to open this week’s advance.' : 'This week’s advance still needs saving. Tap to finish it.',
+  const data = payload.data
+  const rescheduled = data.kind === 'rescheduled'
+  if (rescheduled && (!Number.isInteger(data.weekday) || data.weekday < 0 || data.weekday > 6 || typeof data.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(data.time))) return
+  const [hour, minute] = rescheduled ? data.time.split(':').map(Number) : []
+  const day = rescheduled ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][data.weekday] : ''
+  // Use validated schedule fields and fixed text, never arbitrary push content.
+  event.waitUntil(self.registration.showNotification(rescheduled ? 'Weekly reminder rescheduled' : 'Weekly advance reminder', {
+    body: rescheduled ? `Reminder moved to ${day} at ${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'} IST. Repeats daily until the weekly payment is saved.` : 'Your weekly payment still needs saving. Tap to finish it.',
     icon: new URL('icons/coffee-estate-192.png', self.registration.scope).href,
     badge: new URL('icons/coffee-estate-192.png', self.registration.scope).href,
-    tag: test ? 'advance-reminder-test' : `advance-${payload.data.weekStart}`,
-    data: { weekStart: payload.data.weekStart, url }
+    tag: rescheduled ? 'advance-schedule' : `advance-${data.weekStart}`,
+    renotify: true,
+    data: { weekStart: data.weekStart, url }
   }))
 })
 

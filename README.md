@@ -147,6 +147,6 @@ Before using this version, run `supabase/migrations/202610040001_remove_joint_lo
 
 ## Editable advance reminders
 
-Home has **Edit reminder**, and the phone Menu and desktop More options have **Advance reminder**. Choose the weekday and time in India time, turn the account reminder on or off, and connect or test each phone separately. The default is Wednesday at 8 PM. Notifications open the exact Wednesday and protect any existing unsaved weekly-pay draft.
+The phone Menu has **Advance reminder**, and the desktop Labour page has **Edit reminder**. Choose the weekday and time in India time, turn the account reminder on or off, and connect each phone separately. The default is Wednesday at 8 PM. Reminders start on the selected day and repeat daily at the selected time until the full weekly payment is saved. Rescheduling sends a confirmation to connected phones. Notifications open the exact Wednesday and protect any existing unsaved weekly-pay draft.
 
 Scheduled delivery requires the new migration, deployed Edge Functions, server push keys and a Supabase Cron job. Follow [the reminder setup guide](docs/advance-reminders-setup.md). Until setup is complete, the app shows that delivery is unavailable and lets you save a disabled schedule preference. Checkout/build alone does not enable notifications.

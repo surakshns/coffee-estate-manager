@@ -24,10 +24,34 @@ describe('advance reminder service worker', () => {
     const worker = workerHarness()
     await worker.emit('push', { data: { json: () => ({ title: 'Worker private details', body: '₹50,000', tag: 'advance-2026-10-07', data: { weekStart: '2026-10-07', url: 'https://another.example/' } }) } })
     expect(worker.showNotification).toHaveBeenCalledWith('Weekly advance reminder', expect.objectContaining({
-      body: 'This week’s advance still needs saving. Tap to finish it.', tag: 'advance-2026-10-07',
+      body: 'Your weekly payment still needs saving. Tap to finish it.', tag: 'advance-2026-10-07', renotify: true,
       icon: 'https://estate.example/coffee-estate-manager/icons/coffee-estate-192.png',
       data: { weekStart: '2026-10-07', url: 'https://estate.example/coffee-estate-manager/?advanceWeek=2026-10-07' }
     }))
+  })
+
+  it('alerts again for daily repeats while replacing the previous payment notification', async () => {
+    const worker = workerHarness()
+    const push = { data: { json: () => ({ data: { weekStart: '2026-09-30' } }) } }
+    await worker.emit('push', push)
+    await worker.emit('push', push)
+    expect(worker.showNotification).toHaveBeenCalledTimes(2)
+    expect(worker.showNotification).toHaveBeenLastCalledWith('Weekly advance reminder', expect.objectContaining({ tag: 'advance-2026-09-30', renotify: true }))
+  })
+
+  it('displays the new schedule with a separate confirmation tag and validated content', async () => {
+    const worker = workerHarness()
+    await worker.emit('push', { data: { json: () => ({ title: 'Private wages', body: '₹50,000', data: { kind: 'rescheduled', weekStart: '2026-09-30', weekday: 4, time: '21:15' } }) } })
+    expect(worker.showNotification).toHaveBeenCalledWith('Weekly reminder rescheduled', expect.objectContaining({
+      body: 'Reminder moved to Thursday at 9:15 PM IST. Repeats daily until the weekly payment is saved.',
+      tag: 'advance-schedule', renotify: true,
+      data: { weekStart: '2026-09-30', url: 'https://estate.example/coffee-estate-manager/?advanceWeek=2026-09-30' }
+    }))
+    worker.showNotification.mockClear()
+    for (const schedule of [{ weekday: 7, time: '20:00' }, { weekday: 3, time: '24:00' }, { weekday: '3', time: '20:00' }]) {
+      await worker.emit('push', { data: { json: () => ({ data: { kind: 'rescheduled', weekStart: '2026-09-30', ...schedule } }) } })
+    }
+    expect(worker.showNotification).not.toHaveBeenCalled()
   })
 
   it('ignores malformed payloads and non-Wednesday dates', async () => {

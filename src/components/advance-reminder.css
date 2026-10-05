@@ -34,7 +34,6 @@
 .advance-reminder-device dd { color: var(--workspace-ink); font-weight: 600; }
 .advance-reminder-device p { font-size: 12px; line-height: 1.65; color: var(--workspace-muted); }
 .advance-reminder-device button, .advance-reminder-footer button { min-height: 48px; }
-.advance-reminder-test { width: 100%; }
 .advance-reminder-footer { margin-top: 0; }
 @media (max-width: 359px) { .advance-reminder-schedule { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .advance-reminder-switch-track, .advance-reminder-switch-track::after { transition: none; } }

@@ -58,7 +58,7 @@ create table public.coffee_prices (
   price_per_kg numeric(12,2) not null check (price_per_kg >= 0),
   external_id text,
   imported_at timestamptz,
-  created_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 create unique index coffee_prices_external_import_key on public.coffee_prices(user_id, source, external_id)
 where external_id is not null;

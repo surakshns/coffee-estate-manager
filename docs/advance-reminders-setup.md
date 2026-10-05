@@ -9,9 +9,22 @@ and time while clearly saying delivery needs setup.
 The default is Wednesday at **8 PM, India time**. The user can edit the weekday
 and time or turn reminders off. Settings belong to the account; iPhone and Android
 subscriptions are separate. Changing the day still checks the latest Wednesday
-on or before the scheduled occurrence. An enable/edit made after an occurrence
-starts with the next occurrence; it never sends the past slot retroactively.
-Connecting a new phone after a due slot also starts with the next occurrence.
+on or before the first scheduled occurrence. Each pending week then repeats
+**daily at the selected time until the full weekly payment is saved**, even if
+the next Wednesday has arrived. A completed newer week does not stop an older
+week's reminders. The Wednesday payment date stays fixed for each reminder.
+
+Changing an enabled schedule's day or time queues a **reschedule confirmation**
+for every connected phone in the same transaction as the settings save. The
+every-minute sender delivers it even if that week's payment is complete or the
+account has no workers. Unchanged saves and edits while reminders are off do not
+send confirmations. A newer edit or disabling reminders cancels stale alerts.
+
+An enable/edit made after an occurrence starts payment reminders on the next
+selected weekday/time; it never sends the past slot retroactively. Existing
+pending weeks resume on that new day, then repeat daily at the new time.
+Connecting a new phone after a due slot starts with the next daily occurrence
+for an already pending week, or the next initial weekly occurrence otherwise.
 Reconnecting the same phone or saving an unchanged schedule preserves the current
 occurrence for phones that were already connected.
 
@@ -30,7 +43,8 @@ See the [official Supabase CLI setup guide](https://supabase.com/docs/guides/loc
 ## Server setup
 
 1. Apply `supabase/migrations/202610050001_advance_reminders.sql`, then
-   `supabase/migrations/202610050002_reminder_phone_connections.sql`, after the
+   `supabase/migrations/202610050002_reminder_phone_connections.sql` and
+   `supabase/migrations/202610050003_repeating_advance_reminders.sql`, after the
    earlier migrations. They preserve payment amounts, deductions and clear-week behaviour.
    They do not backfill subscriptions or declare legacy/imported weeks complete.
 
@@ -110,7 +124,11 @@ See the [official Supabase CLI setup guide](https://supabase.com/docs/guides/loc
 
    Create this job once; check the Cron dashboard for an existing job before
    repeating the command. The sender scans editable schedules every minute, with
-   a one-hour catch-up window, rather than creating a cron job for each user.
+   a one-hour catch-up window for each daily slot and reschedule confirmation,
+   rather than creating a cron job for each user. Missing the first weekly slot
+   still allows the following daily reminders. For an existing installation,
+   apply the third migration, redeploy both functions, and publish the updated
+   frontend/service worker. Keep the existing secrets and cron job.
 
 5. Once the functions and job are configured, enable delivery on the server:
 
@@ -126,14 +144,13 @@ See the [official Supabase CLI setup guide](https://supabase.com/docs/guides/loc
 
 On iPhone, install the web app using **Add to Home Screen**, open that installed
 app and enable its notifications. On Android, use a browser with Web Push support
-and allow notifications. Connect each phone using the app's reminder settings,
-then send a test from each phone. Notification permission is requested only after
-the user chooses to enable/connect notifications.
+and allow notifications. Connect each phone using the app's reminder settings.
+Notification permission is requested only after the user chooses to enable/connect
+notifications.
 
 Notifications contain no worker names, wages or loan amounts. Tapping one opens
 the exact Wednesday using `?advanceWeek=YYYY-MM-DD`; the URL retains the app's
-hosting subdirectory. A test can be sent even if that week is already complete.
-Tests are limited to one per minute per subscription.
+hosting subdirectory.
 
 This is a phone notification. Its sound and visibility follow the phone's
 notification, silent and Focus settings; it is not a continuous clock alarm.
@@ -158,14 +175,24 @@ ownership immediately before each push. Disabling reminders or saving the week
 cancels remaining devices. An already accepted/in-flight push can still arrive;
 the push TTL is only five minutes to limit stale alerts.
 
-A unique delivery record per account, Wednesday and endpoint prevents repeat
-scheduled notifications, including after resubscription or a schedule edit.
+A unique delivery record per account, Wednesday, endpoint, notification kind,
+schedule revision and scheduled occurrence prevents duplicate notifications
+within a daily slot, including after resubscription. Each new daily occurrence
+has its own record. `advance_reminder_weeks` retains the original pending
+Wednesday across week/year boundaries and is removed when that payment is
+complete. The migration resumes only known pending reminder weeks from the
+existing ledger; arbitrary older missing payments are not backfilled.
+Schedule revisions also protect claimed deliveries from rapid schedule changes.
 Database claims use row locks with `SKIP LOCKED`. Only explicit HTTP 429/5xx push
 service rejections retry, at five-minute intervals, up to three attempts inside
 the catch-up window. Expired 404/410 subscriptions are removed. A network outcome
 or crash that might already have delivered is recorded as **uncertain** and is
-not resent automatically. This favours avoiding duplicate nags over claiming
-impossible exactly-once network delivery. Explicit tests use a separate path.
+not retried for that occurrence. The next daily reminder remains independent.
+The service worker uses a separate tag for confirmations and requests
+[`renotify`](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/showNotification)
+for daily reminders, so replacing yesterday's notification can alert again
+without accumulating duplicate notifications for the same pay week. Sound and
+visibility still follow the phone's notification settings.
 
 ## API
 
@@ -177,7 +204,6 @@ Call `supabase.functions.invoke('estate-reminders', { body: ... })` while signed
 | `configure` | `enabled`, JS `weekday` 0–6, `time` in `HH:MM`; optional `endpoint` | Reminder status |
 | `subscribe` | `subscription: PushSubscription.toJSON()` | Reminder status for that endpoint |
 | `unsubscribe` | Current phone `endpoint` | Reminder status |
-| `test` | Current phone `endpoint` | `{ sent: true }` on push-service acceptance |
 
 Reminder status is `{ ready, settingsStorageReady, settings: { enabled, weekday, time, timezone },
 vapidPublicKey, subscribed, subscriptionCount, weekStart, weekStatus,
@@ -190,8 +216,8 @@ with a missing settings table returns HTTP 409 and `code: REMINDER_SETUP_REQUIRE
 the client can keep disabled preferences locally. It must not claim a local
 fallback disabled an already enabled server reminder.
 
-Disabled schedule preferences can be updated before delivery is ready. Enabling,
-subscribing or testing is rejected until ready; enabling also requires an active
+Disabled schedule preferences can be updated before delivery is ready. Enabling or
+subscribing is rejected until ready; enabling also requires an active
 phone subscription. Turning the account reminder off leaves subscriptions in
 place. Unsubscribing removes only the signed-in account's matching endpoint.
 A browser endpoint follows its current signed-in account; reassociation requires
@@ -201,15 +227,20 @@ the same subscription keys, and cancels the old account's queued deliveries.
 
 The repository's Vitest suite tests date boundaries, editable schedule validation,
 supported endpoint/SSRF checks, subscription keys/expiry, private generic payloads
-and retry classification. `supabase/tests/advance_reminders.sql` is a transaction
-that rolls back its fixtures and checks RPC completion/invalidation, loan cleanup,
-partial imports, ownership, late edits, atomic claims and deduplication. Run it
-against a local/test database with all migrations applied.
+and retry classification. `supabase/tests/advance_reminders.sql` and
+`supabase/tests/repeating_advance_reminders.sql` roll back their fixtures and
+check RPC completion/invalidation, loan cleanup, partial imports, ownership,
+late edits, atomic claims, daily deduplication, missed initial slots, multiple
+pending weeks and reschedule confirmations. Run them against a local/test
+database with all migrations applied.
 
 Before treating hosted delivery as working, verify both phones with the app
-closed: unsaved sends once, saved/zero-pay/skipped-complete weeks do not send,
+closed: unsaved sends on the chosen day and repeats daily at the chosen time,
+saved/zero-pay/skipped-complete weeks stop repeating,
 partial imports ask for review, no-worker accounts do not send, changed day/time
-opens the intended Wednesday, late edits wait for the next occurrence, disable
+opens the intended Wednesday, rescheduling confirms the new day/time on both
+phones, unchanged saves do not send confirmations, late edits wait for the next
+selected day before payment reminders resume, disable
 stops remaining sends, expired subscriptions disappear, and notification taps
 restore the right week/year. Inspect Cron and Edge Function outcomes without
 logging subscription keys or signing secrets.

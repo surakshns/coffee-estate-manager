@@ -75,20 +75,26 @@ action should be plain summary content rather than buttons.
 - Default schedule: Wednesday 20:00 in Asia/Kolkata, equivalent to 14:30 UTC.
   Ignore the dashboard's selected historical year when checking this reminder.
 - Show advance status on Home throughout the week and highlight it if overdue.
-- At the scheduled time, recheck the saved status in the database. Send one
-  notification only if this Wednesday's advance remains unsaved and there are
+- At the scheduled time, recheck the saved status in the database. Send a
+  notification only if the relevant Wednesday's advance remains unsaved and there are
   eligible workers. Do not send based on a stale client snapshot.
 - Suggested notification: “Wednesday advance is not saved. Tap to finish this
   week's payment.” Do not include worker names, wage amounts, or loan details on
   the lock screen.
 - Tapping the notification opens that exact Wednesday's weekly advance screen,
   selecting the correct year and month even if the app was last used elsewhere.
-- Saving the week clears the in-app warning. Deduplicate delivery by account and
-  Wednesday, handle retries, and remove expired push subscriptions.
-- Provide an explicit Enable reminders action, enabled/disabled status, a test
-  notification, and a way to turn reminders off. Permission is requested only
+- After the first selected weekday/time, repeat daily at that time until the full
+  week is saved. Retain each pending Wednesday across week/year boundaries.
+- Changing the enabled schedule sends a confirmation to connected phones and
+  moves pending payment reminders to the new selected day/time. An unchanged
+  save does not send a confirmation.
+- Saving the week clears the in-app warning and stops its reminders. Deduplicate
+  each occurrence by account, Wednesday and phone, handle retries, and remove
+  expired push subscriptions.
+- Provide an explicit Enable reminders action, enabled/disabled status,
+  and a way to turn reminders off. Permission is requested only
   after the user presses Enable reminders.
-- Do not add repeated nightly alerts by default.
+- Daily repetition is the requested behaviour whenever reminders are enabled.
 
 ### Saved status
 
@@ -137,6 +143,7 @@ References:
    service worker, and scheduled sender. Keep existing records and ordinary weekly
    save/clear behaviour intact.
 4. Configure the hosted schedule and push secrets; test on the user's phone with
-   the app closed. Confirm unsaved sends once, saved/zero-pay/skipped-complete weeks
-   do not send, permission denial is handled, retries do not duplicate alerts, and
-   tapping opens the intended Wednesday.
+   the app closed. Confirm unsaved payments repeat daily, rescheduling sends a
+   confirmation, saved/zero-pay/skipped-complete weeks stop repeating, permission
+   denial is handled, retries do not duplicate an occurrence, and tapping opens
+   the intended Wednesday.

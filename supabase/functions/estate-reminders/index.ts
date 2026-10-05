@@ -1,5 +1,5 @@
-import { adminClient, corsHeaders, json, pushConfiguration, readBody, sendPush } from '../_shared/reminderRuntime.ts'
-import { DEFAULT_REMINDER, isPushEndpoint, latestWednesday, notificationPayload, readSchedule, readSubscription } from '../_shared/reminderRules.ts'
+import { adminClient, corsHeaders, json, pushConfiguration, readBody } from '../_shared/reminderRuntime.ts'
+import { DEFAULT_REMINDER, isPushEndpoint, latestWednesday, readSchedule, readSubscription } from '../_shared/reminderRules.ts'
 
 const SETUP_MESSAGE = 'Phone reminder delivery needs server setup. You can still save your preferred day and time.'
 type Admin = ReturnType<typeof adminClient>
@@ -7,22 +7,24 @@ const schemaMissing = (error: { code?: string } | null) => !!error?.code && ['42
 
 async function statusFor(admin: Admin, userId: string, endpoint?: unknown) {
   const weekStart = latestWednesday()
-  const [settings, subscriptions, run, payments, workers, config] = await Promise.all([
+  const [settings, subscriptions, run, payments, workers, repeatingSchema, config] = await Promise.all([
     admin.from('advance_reminder_settings').select('enabled,weekday,reminder_time,timezone').eq('user_id', userId).maybeSingle(),
     admin.from('advance_push_subscriptions').select('endpoint,expiration_time,connected_at').eq('user_id', userId),
     admin.from('weekly_pay_runs').select('week_start').eq('user_id', userId).eq('week_start', weekStart).maybeSingle(),
     admin.from('weekly_payments').select('worker_id').eq('user_id', userId).eq('week_start', weekStart),
     admin.from('workers').select('id,active').eq('user_id', userId),
+    admin.from('advance_reminder_weeks').select('user_id', { head: true }).limit(1),
     pushConfiguration()
   ])
   const missingSchema = [settings, subscriptions, run].some(result => schemaMissing(result.error))
-  if (payments.error || workers.error || (!missingSchema && [settings, subscriptions, run].some(result => result.error))) throw new Error('Could not load your reminder settings. Please try again.')
+  if (payments.error || workers.error || (repeatingSchema.error && !schemaMissing(repeatingSchema.error)) || (!missingSchema && [settings, subscriptions, run].some(result => result.error))) throw new Error('Could not load your reminder settings. Please try again.')
+  const ready = !missingSchema && !schemaMissing(repeatingSchema.error) && !!config?.ready
   const paidWorkers = new Set((payments.data ?? []).map(row => row.worker_id))
   const eligible = (workers.data ?? []).some(worker => worker.active || paidWorkers.has(worker.id))
   const currentSubscriptions = (subscriptions.data ?? []).filter(subscription => !subscription.expiration_time || new Date(subscription.expiration_time).getTime() > Date.now())
   const reminderSettings = settings.data ? { enabled: settings.data.enabled, weekday: settings.data.weekday, time: settings.data.reminder_time.slice(0, 5), timezone: 'Asia/Kolkata' } : DEFAULT_REMINDER
   return {
-    ready: !missingSchema && !!config?.ready,
+    ready,
     settingsStorageReady: !missingSchema,
     settings: reminderSettings,
     vapidPublicKey: config?.publicKey ?? null,
@@ -30,7 +32,7 @@ async function statusFor(admin: Admin, userId: string, endpoint?: unknown) {
     subscriptionCount: currentSubscriptions.length,
     weekStart,
     weekStatus: run.data ? 'complete' : !eligible ? 'no_workers' : paidWorkers.size ? 'needs_review' : 'not_saved',
-    ...((missingSchema || !config?.ready) ? { setupMessage: SETUP_MESSAGE } : {})
+    ...(!ready ? { setupMessage: SETUP_MESSAGE } : {})
   }
 }
 
@@ -54,6 +56,9 @@ Deno.serve(async request => {
       const config = await pushConfiguration()
       if (settings.enabled && !config?.ready) return json({ error: SETUP_MESSAGE }, 409)
       if (settings.enabled) {
+        const { error: migrationError } = await admin.from('advance_reminder_weeks').select('user_id', { head: true }).limit(1)
+        if (schemaMissing(migrationError)) return json({ error: SETUP_MESSAGE }, 409)
+        if (migrationError) throw new Error('Reminder setup is not complete yet.')
         const { count, error } = await admin.from('advance_push_subscriptions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).or(`expiration_time.is.null,expiration_time.gt.${new Date().toISOString()}`)
         if (error) throw new Error('Reminder setup is not complete yet.')
         if (!count) return json({ error: 'Connect notifications on this phone before enabling reminders.' }, 400)
@@ -96,22 +101,6 @@ Deno.serve(async request => {
       const { error } = await admin.from('advance_push_subscriptions').delete().eq('user_id', user.id).eq('endpoint', input.endpoint)
       if (error) throw new Error('Could not disconnect this phone. Please try again.')
       return json(await statusFor(admin, user.id, input.endpoint))
-    }
-
-    if (action === 'test') {
-      const config = await pushConfiguration()
-      if (!config?.ready) return json({ error: SETUP_MESSAGE }, 409)
-      if (!isPushEndpoint(input.endpoint)) return json({ error: 'Connect notifications on this phone first.' }, 400)
-      const { data: subscription, error } = await admin.from('advance_push_subscriptions').select('id,endpoint,p256dh,auth,expiration_time').eq('user_id', user.id).eq('endpoint', input.endpoint).maybeSingle()
-      if (error) throw new Error('Could not check this phone. Please try again.')
-      if (!subscription || (subscription.expiration_time && new Date(subscription.expiration_time).getTime() <= Date.now())) return json({ error: 'Connect notifications on this phone first.' }, 400)
-      const { data: allowed, error: claimError } = await admin.rpc('claim_advance_reminder_test', { p_user_id: user.id, p_endpoint: input.endpoint })
-      if (claimError) throw new Error('Reminder setup is not complete yet.')
-      if (!allowed) return json({ error: 'Wait a minute before sending another test.' }, 429)
-      const result = await sendPush(config, { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth }, expirationTime: null }, notificationPayload(config.appUrl, latestWednesday(), true), 'advance-reminder-test')
-      if (result.status === 404 || result.status === 410) await admin.from('advance_push_subscriptions').delete().eq('id', subscription.id).eq('user_id', user.id)
-      if (result.status !== 201) return json({ error: 'The test could not reach this phone. Check notification permission and reconnect it.' }, 502)
-      return json({ sent: true })
     }
 
     return json({ error: 'Unknown reminder action.' }, 400)
