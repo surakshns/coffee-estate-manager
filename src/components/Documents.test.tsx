@@ -6,7 +6,7 @@ import { Documents, DocumentWorkspace } from './Documents'
 import { emptyEstateData } from '../hooks/useEstateData'
 import type { PropertyDocument } from '../lib/types'
 
-const api = vi.hoisted(() => ({ state: null as any, submit: vi.fn(), lock: vi.fn(), load: vi.fn(), assert: vi.fn(), read: vi.fn(), store: vi.fn(), decryptMetadata: vi.fn(), remove: vi.fn(), queue: vi.fn(), clear: vi.fn() }))
+const api = vi.hoisted(() => ({ state: null as any, submit: vi.fn(), lock: vi.fn(), load: vi.fn(), assert: vi.fn(), read: vi.fn(), store: vi.fn(), decryptMetadata: vi.fn(), remove: vi.fn(), queue: vi.fn(), clear: vi.fn(), phoneUnlock: vi.fn(), beginPhone: vi.fn(), cancelPhone: vi.fn(), enablePhone: vi.fn(), forgetPhone: vi.fn() }))
 vi.mock('../hooks/useDocumentVault', () => ({ useDocumentVault: () => api.state }))
 vi.mock('../lib/documentVault', async importOriginal => ({ ...await importOriginal<typeof import('../lib/documentVault')>(), decryptDocumentMetadata: api.decryptMetadata }))
 vi.mock('../lib/documentStorage', () => ({ DOCUMENT_BUCKET: 'property-documents', readDocument: api.read, storeEncryptedDocument: api.store }))
@@ -21,7 +21,7 @@ const data = { ...emptyEstateData, documents: [legacy] }
 const refresh = vi.fn(async () => {})
 beforeEach(() => {
   vi.clearAllMocks()
-  api.state = { owner: 'account-a', record: { user_id: 'account-a' }, key: null, loading: false, busy: false, error: '', submit: api.submit, lock: api.lock, load: api.load, assertUnlocked: api.assert }
+  api.state = { owner: 'account-a', record: { user_id: 'account-a' }, key: null, loading: false, busy: false, error: '', submit: api.submit, lock: api.lock, load: api.load, assertUnlocked: api.assert, phoneAvailable: true, phoneReady: false, phoneSetup: null, beginPhoneSetup: api.beginPhone, cancelPhoneSetup: api.cancelPhone, unlockPhone: api.phoneUnlock, enablePhone: api.enablePhone, forgetPhone: api.forgetPhone }
   api.queue.mockResolvedValue({ data: [], error: null })
   api.clear.mockResolvedValue({ error: null })
   api.remove.mockResolvedValue({ error: null })
@@ -121,4 +121,31 @@ it('never creates a plaintext URL for a download that completes after locking', 
   view.rerender(<Documents userId="account-a" data={data} refresh={refresh} />)
   await act(async () => { complete(new Blob(['private contents'])); await Promise.resolve() })
   expect(URL.createObjectURL).not.toHaveBeenCalled()
+})
+it('offers phone unlock without password typing while preserving the password fallback', async () => {
+  api.state.phoneReady = true
+  const user = userEvent.setup()
+  render(<Documents userId="account-a" data={data} refresh={refresh} />)
+  await user.click(screen.getByRole('button', { name: 'Unlock with fingerprint / face' }))
+  expect(api.phoneUnlock).toHaveBeenCalledOnce()
+  expect(api.submit).not.toHaveBeenCalled()
+  expect(screen.getByLabelText('Vault password')).toBeTruthy()
+  expect(screen.queryByText(legacy.title)).toBeNull()
+})
+it('requires the vault password once for phone setup and clears it after submission', async () => {
+  api.state.key = key
+  const user = userEvent.setup()
+  const view = render(<Documents userId="account-a" data={data} refresh={refresh} />)
+  await user.click(await screen.findByRole('button', { name: 'Enable fingerprint / face unlock' }))
+  expect(screen.getByText(/personal device/)).toBeTruthy()
+  expect(screen.queryByLabelText('Confirm your vault password')).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Create passkey' }))
+  expect(api.beginPhone).toHaveBeenCalledOnce()
+  expect(api.enablePhone).not.toHaveBeenCalled()
+  api.state = { ...api.state, phoneSetup: { credentialId: 'created' } }
+  view.rerender(<Documents userId="account-a" data={data} refresh={refresh} />)
+  await user.type(screen.getByLabelText('Confirm your vault password'), 'my unique vault password')
+  await user.click(screen.getByRole('button', { name: 'Verify and enable unlock' }))
+  expect(api.enablePhone).toHaveBeenCalledWith('my unique vault password')
+  expect((screen.getByLabelText('Confirm your vault password') as HTMLInputElement).value).toBe('')
 })

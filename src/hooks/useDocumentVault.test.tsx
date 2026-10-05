@@ -3,7 +3,8 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { useDocumentVault, VAULT_IDLE_MS } from './useDocumentVault'
 
-const api = vi.hoisted(() => ({ read: vi.fn(), insert: vi.fn(), getUser: vi.fn(), create: vi.fn(), unlock: vi.fn(), unsubscribe: vi.fn(), authCallback: null as ((event: string, session: any) => void) | null }))
+const api = vi.hoisted(() => ({ read: vi.fn(), insert: vi.fn(), getUser: vi.fn(), create: vi.fn(), unlock: vi.fn(), unsubscribe: vi.fn(), authCallback: null as ((event: string, session: any) => void) | null, phoneLoad: vi.fn(), available: vi.fn(), beginPhone: vi.fn(), enroll: vi.fn(), savePhone: vi.fn(), phoneUnlock: vi.fn(), forget: vi.fn() }))
+vi.mock('../lib/documentBiometrics', () => ({ loadPhoneUnlock: api.phoneLoad, phoneUnlockAvailable: api.available, beginPhoneUnlockSetup: api.beginPhone, finishPhoneUnlockSetup: api.enroll, savePhoneUnlock: api.savePhone, unlockWithPhone: api.phoneUnlock, removePhoneUnlock: api.forget }))
 vi.mock('../lib/supabase', () => ({ supabase: {
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: api.read }) }), insert: api.insert }),
   auth: { getUser: api.getUser, onAuthStateChange: (callback: typeof api.authCallback) => { api.authCallback = callback; return { data: { subscription: { unsubscribe: api.unsubscribe } } } } }
@@ -11,6 +12,8 @@ vi.mock('../lib/supabase', () => ({ supabase: {
 vi.mock('../lib/documentVault', () => ({ createDocumentVault: api.create, unlockDocumentVault: api.unlock }))
 const record = { user_id: 'account-a', version: 1, iterations: 600000, salt: 'salt', verifier: 'ciphertext' }
 const key = { type: 'secret', extractable: false } as CryptoKey
+const pendingSetup = { owner: 'account-a', credentialId: 'id', wrappedKey: '' }
+const completedSetup = { ...pendingSetup, wrappedKey: 'encrypted-key' }
 beforeEach(() => {
   vi.clearAllMocks()
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
@@ -19,6 +22,13 @@ beforeEach(() => {
   api.getUser.mockResolvedValue({ data: { user: { id: 'account-a' } }, error: null })
   api.create.mockResolvedValue({ key, record })
   api.unlock.mockResolvedValue(key)
+  api.phoneLoad.mockReturnValue(null)
+  api.available.mockResolvedValue(true)
+  api.beginPhone.mockResolvedValue(pendingSetup)
+  api.enroll.mockResolvedValue(completedSetup)
+  api.savePhone.mockReturnValue(undefined)
+  api.phoneUnlock.mockResolvedValue(key)
+  api.forget.mockReturnValue(undefined)
 })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 async function open() {
@@ -112,4 +122,92 @@ it('drops keys and subscriptions on unmount and account changes', async () => {
   unmount()
   expect(api.unsubscribe).toHaveBeenCalledTimes(2)
   expect(oldAssert).toThrow(/locked/)
+})
+it('enables and removes phone unlock while keeping the document key private and active', async () => {
+  const { result } = await open()
+  await act(() => result.current.beginPhoneSetup())
+  expect(result.current.phoneSetup).toBe(pendingSetup)
+  expect(result.current.phoneReady).toBe(false)
+  expect(api.savePhone).not.toHaveBeenCalled()
+  await act(() => result.current.enablePhone('my unique vault password'))
+  expect(api.enroll).toHaveBeenCalledWith(record, 'account-a', 'my unique vault password', pendingSetup, expect.any(Function), expect.any(AbortSignal))
+  expect(api.savePhone).toHaveBeenCalledWith(completedSetup)
+  expect(result.current.phoneReady).toBe(true)
+  expect(result.current.key).toBe(key)
+  act(() => result.current.forgetPhone())
+  expect(api.forget).toHaveBeenCalledWith('account-a')
+  expect(result.current.phoneReady).toBe(false)
+  expect(result.current.key).toBe(key)
+})
+it('starts every device prompt before waiting for verified network identity', async () => {
+  const { result } = await open()
+  await act(() => result.current.beginPhoneSetup())
+  expect(api.beginPhone.mock.invocationCallOrder[0]).toBeLessThan(api.getUser.mock.invocationCallOrder.at(-1)!)
+  await act(() => result.current.enablePhone('my unique vault password'))
+  expect(api.enroll.mock.invocationCallOrder[0]).toBeLessThan(api.getUser.mock.invocationCallOrder.at(-1)!)
+  act(() => result.current.lock())
+  await act(() => result.current.unlockPhone())
+  expect(api.phoneUnlock.mock.invocationCallOrder[0]).toBeLessThan(api.getUser.mock.invocationCallOrder.at(-1)!)
+})
+it('does not persist a verified passkey until server identity succeeds', async () => {
+  const { result } = await open()
+  await act(() => result.current.beginPhoneSetup())
+  let verify!: (value: { data: { user: { id: string } }; error: null }) => void
+  api.getUser.mockReturnValueOnce(new Promise(resolve => { verify = resolve }))
+  let pending!: Promise<void>
+  await act(async () => { pending = result.current.enablePhone('vault password'); await Promise.resolve() })
+  expect(api.enroll).toHaveBeenCalled()
+  expect(api.savePhone).not.toHaveBeenCalled()
+  expect(result.current.phoneReady).toBe(false)
+  await act(async () => { verify({ data: { user: { id: 'account-b' } }, error: null }); await pending })
+  expect(api.savePhone).not.toHaveBeenCalled()
+  expect(result.current.phoneReady).toBe(false)
+  expect(result.current.error).toContain('own account')
+})
+it('clears an unfinished setup on cancellation or locking without changing the saved shortcut', async () => {
+  const { result } = await open()
+  await act(() => result.current.beginPhoneSetup())
+  act(() => result.current.cancelPhoneSetup())
+  expect(result.current.phoneSetup).toBeNull()
+  expect(result.current.key).toBe(key)
+  await act(() => result.current.beginPhoneSetup())
+  act(() => result.current.lock())
+  expect(result.current.phoneSetup).toBeNull()
+  expect(result.current.key).toBeNull()
+  expect(api.savePhone).not.toHaveBeenCalled()
+})
+it('uses the phone to restore the encrypted key only for the verified account', async () => {
+  api.phoneLoad.mockReturnValue({ owner: 'account-a' })
+  const { result } = renderHook(() => useDocumentVault('account-a'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(() => result.current.unlockPhone())
+  expect(api.phoneUnlock).toHaveBeenCalledWith(record, 'account-a', expect.any(AbortSignal))
+  expect(result.current.key).toBe(key)
+  expect(api.unlock).not.toHaveBeenCalled()
+})
+it('aborts late phone authentication after locking and rejects enrollment while locked', async () => {
+  const { result } = await open()
+  act(() => result.current.lock())
+  await act(() => result.current.enablePhone('vault password'))
+  expect(api.enroll).not.toHaveBeenCalled()
+  let complete!: (key: CryptoKey) => void
+  api.phoneUnlock.mockReturnValue(new Promise(resolve => { complete = resolve }))
+  let pending!: Promise<void>
+  await act(async () => { pending = result.current.unlockPhone(); await Promise.resolve() })
+  const signal = api.phoneUnlock.mock.calls[0][2] as AbortSignal
+  act(() => result.current.lock())
+  expect(signal.aborted).toBe(true)
+  await act(async () => { complete(key); await pending })
+  expect(result.current.key).toBeNull()
+})
+it('keeps password fallback after a cancelled or unsupported phone prompt', async () => {
+  const { result } = await open()
+  act(() => result.current.lock())
+  api.phoneUnlock.mockRejectedValue(new DOMException('Cancelled', 'NotAllowedError'))
+  await act(() => result.current.unlockPhone())
+  expect(result.current.key).toBeNull()
+  expect(result.current.error).toContain('vault password')
+  expect(result.current.busy).toBe(false)
+  await act(() => result.current.submit('vault password'))
+  expect(result.current.key).toBe(key)
 })

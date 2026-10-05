@@ -50,10 +50,15 @@ async function open(key: CryptoKey, envelope: Uint8Array<ArrayBuffer>, additiona
   } catch { throw new Error('Could not decrypt this document. The vault password may be wrong, or the file was changed.') }
 }
 async function derive(password: string, salt: Uint8Array<ArrayBuffer>) {
+  const bytes = await deriveBytes(password, salt)
+  try { return await subtle().importKey('raw', bytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']) }
+  finally { bytes.fill(0) }
+}
+async function deriveBytes(password: string, salt: Uint8Array<ArrayBuffer>) {
   const bytes = encoder.encode(password)
   try {
-    const material = await subtle().importKey('raw', bytes, 'PBKDF2', false, ['deriveKey'])
-    return await subtle().deriveKey({ name: 'PBKDF2', salt, iterations: VAULT_ITERATIONS, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+    const material = await subtle().importKey('raw', bytes, 'PBKDF2', false, ['deriveBits'])
+    return new Uint8Array(await subtle().deriveBits({ name: 'PBKDF2', salt, iterations: VAULT_ITERATIONS, hash: 'SHA-256' }, material, 256))
   } finally { bytes.fill(0) }
 }
 export async function createDocumentVault(owner: string, password: string) {
@@ -68,9 +73,34 @@ export async function unlockDocumentVault(record: VaultRecord, owner: string, pa
   const salt = fromBase64(record.salt, 24)
   if (salt.length !== 16) throw new Error('Invalid document vault salt.')
   const key = await derive(password, salt)
-  const verified = await open(key, fromBase64(record.verifier, 256), context(owner, '', 'verifier'))
-  if (decoder.decode(verified) !== 'estate-document-vault-key-v1') throw new Error('Invalid document vault verifier.')
+  await verifyKey(record, owner, key)
   return key
+}
+async function verifyKey(record: VaultRecord, owner: string, key: CryptoKey) {
+  if (record.user_id !== owner || record.version !== 1 || record.iterations !== VAULT_ITERATIONS) throw new Error('Unsupported document vault configuration.')
+  const verified = await open(key, fromBase64(record.verifier, 256), context(owner, '', 'verifier'))
+  try { if (decoder.decode(verified) !== 'estate-document-vault-key-v1') throw new Error('Invalid document vault verifier.') }
+  finally { verified.fill(0) }
+}
+export async function wrapDocumentVaultKey(record: VaultRecord, owner: string, password: string, wrappingKey: CryptoKey, binding: string) {
+  if (record.user_id !== owner || record.version !== 1 || record.iterations !== VAULT_ITERATIONS || password.length > 1024) throw new Error('Unsupported document vault configuration.')
+  const salt = fromBase64(record.salt, 24)
+  if (salt.length !== 16) throw new Error('Invalid document vault salt.')
+  const raw = await deriveBytes(password, salt)
+  try {
+    const key = await subtle().importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt'])
+    await verifyKey(record, owner, key)
+    return toBase64(await seal(wrappingKey, raw, context(owner, '', `passkey:${binding}`)))
+  } finally { raw.fill(0) }
+}
+export async function unwrapDocumentVaultKey(record: VaultRecord, owner: string, wrappingKey: CryptoKey, wrapped: string, binding: string) {
+  const raw = await open(wrappingKey, fromBase64(wrapped, 128), context(owner, '', `passkey:${binding}`))
+  try {
+    if (raw.length !== 32) throw new Error('Invalid wrapped document key.')
+    const key = await subtle().importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt'])
+    await verifyKey(record, owner, key)
+    return key
+  } finally { raw.fill(0) }
 }
 export function documentMime(name: string, suppliedType = '') {
   const extension = name.split('.').pop()?.toLowerCase() ?? ''

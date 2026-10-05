@@ -13,7 +13,7 @@ A responsive coffee estate bookkeeping application for labour payments, expenses
 - CSV backups with multiline notes, validation and review before import
 - Email/password sign-in, password changes, and email password recovery via Supabase Auth
 - Supabase Row Level Security policies so each account can only access its own records
-- Encrypted property document vault with a separate password, encrypted file details and automatic locking
+- Encrypted property document vault with a separate password, optional fingerprint/face passkey unlock, encrypted file details and automatic locking
 - Destructive-action confirmations and large, clear mobile controls
 - Lazy-loaded screens, background record refresh, progressive lists and reduced-motion support
 - Calculation, workflow, account-isolation and security regression tests

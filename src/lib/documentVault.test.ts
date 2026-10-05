@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { createDocumentVault, decryptDocument, decryptDocumentMetadata, documentMime, encryptDocument, encryptDocumentMetadata, unlockDocumentVault, type DocumentMetadata } from './documentVault'
+import { createDocumentVault, decryptDocument, decryptDocumentMetadata, documentMime, encryptDocument, encryptDocumentMetadata, unlockDocumentVault, unwrapDocumentVaultKey, wrapDocumentVaultKey, type DocumentMetadata } from './documentVault'
 
 const owner = 'account-a'
 const path = `${owner}/123.estateenc`
@@ -59,5 +59,16 @@ describe('document vault authenticated encryption', () => {
   it('never lets encrypted metadata overwrite ownership, paths or encryption flags', async () => {
     const details = await encryptDocumentMetadata(vault.key, owner, path, { ...metadata, file_path: 'other/file', encryption_version: 0 } as DocumentMetadata)
     expect(await decryptDocumentMetadata(vault.key, owner, path, details)).toEqual(metadata)
+  })
+  it('restores a non-exportable key from a passkey wrapper without weakening document encryption', async () => {
+    const wrapping = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+    const wrapped = await wrapDocumentVaultKey(vault.record, owner, password, wrapping, 'origin:credential:vault')
+    const restored = await unwrapDocumentVaultKey(vault.record, owner, wrapping, wrapped, 'origin:credential:vault')
+    expect(restored.extractable).toBe(false)
+    const encrypted = await encryptDocument(vault.key, owner, path, blob)
+    expect(await (await decryptDocument(restored, owner, path, encrypted, metadata)).text()).toBe(content)
+    await expect(unwrapDocumentVaultKey(vault.record, owner, wrapping, wrapped, 'other-credential')).rejects.toThrow(/decrypt/)
+    await expect(wrapDocumentVaultKey(vault.record, owner, 'wrong password', wrapping, 'origin:credential:vault')).rejects.toThrow(/decrypt/)
+    await expect(unwrapDocumentVaultKey({ ...vault.record, user_id: 'account-b' }, owner, wrapping, wrapped, 'origin:credential:vault')).rejects.toThrow(/configuration/)
   })
 })

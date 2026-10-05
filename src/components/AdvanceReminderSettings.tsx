@@ -107,7 +107,7 @@ function ReminderSettingsForm({ onClose, settings, loading = false, saving = fal
         <label className="label">Time<input className="field" type="time" value={draft.time} step={60} required disabled={loading || busy} onChange={event => edit({ time: event.target.value })} /></label>
       </div>
       <div className="advance-reminder-preview"><CalendarDays size={20} aria-hidden="true" /><div><strong>{scheduleLabel(draft)}</strong><span>India time (IST · Asia/Kolkata)</span></div></div>
-      <p id={guidanceId} className="advance-reminder-guidance">Starts on the selected day, then repeats daily at this time until the full weekly payment is saved. Changing the reminder day keeps the Wednesday pay date. Rescheduling sends a confirmation to your connected phones.</p>
+      <p id={guidanceId} className="advance-reminder-guidance">Starts on the selected day, then repeats daily at this time until the full weekly payment is saved. Pending reminders use the new time today if it is still ahead, otherwise tomorrow. Changing the reminder day keeps the Wednesday pay date. Rescheduling sends a confirmation to your connected phones.</p>
 
       <div className="advance-reminder-device">
         <div className="advance-reminder-device-heading"><Smartphone size={19} aria-hidden="true" /><strong>This phone</strong></div>

@@ -15,6 +15,7 @@ declare
   v_id uuid;
   v_revision bigint;
   v_settings_at timestamptz;
+  v_expected_start timestamptz;
   v_rows jsonb;
 begin
   insert into auth.users (id, email) values (v_user, v_user || '@daily-reminder.invalid'), (v_other, v_other || '@reschedule-reminder.invalid'), (v_missed, v_missed || '@missed-reminder.invalid');
@@ -105,9 +106,13 @@ begin
   select count(*) into v_count from public.advance_reminder_deliveries where user_id = v_other;
   if v_count <> 4 then raise exception 'Editing a disabled schedule sent notifications.'; end if;
 
-  -- Pending daily weeks resume at the new selected day, preserving pay dates.
+  -- A weekday edit preserves the daily cadence for already-started pay weeks.
+  -- The selected weekday controls first reminders, not an older week's repeats.
   update public.advance_reminder_settings set weekday = (extract(dow from v_date)::integer + 2) % 7 where user_id = v_user;
-  if exists (select 1 from public.advance_reminder_weeks where user_id = v_user and (starts_at <= now() or week_start <> v_week - 7)) then raise exception 'Reschedule lost the pending pay date or retained the old daily slot.'; end if;
+  select (((now() at time zone timezone)::date + reminder_time) at time zone timezone)
+    into v_expected_start from public.advance_reminder_settings where user_id = v_user;
+  if v_expected_start < now() then v_expected_start := v_expected_start + interval '1 day'; end if;
+  if exists (select 1 from public.advance_reminder_weeks where user_id = v_user and (starts_at <> v_expected_start or week_start <> v_week - 7)) then raise exception 'Reschedule postponed a daily reminder or lost the pending pay date.'; end if;
   update public.advance_reminder_settings set enabled = false where user_id = v_user;
   select count(*) into v_count from public.claim_due_advance_reminders(100) where owner_id in (v_user, v_other);
   if v_count <> 0 then raise exception 'Disabled accounts still claimed notifications.'; end if;

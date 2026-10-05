@@ -15,6 +15,7 @@ The review covered application entry and authentication, account data loading, a
 | Import safety | File selection validates the whole CSV and opens a preview without writing. Import limits are 5 MB and 10,000 rows. The preview identifies existing records that will be updated. Duplicate submissions are blocked, errors retain the review, and matching workers/categories update rather than clone those reference records. Other additive datasets explain duplicate-import behavior. |
 | Wage/loan consistency | Reviewed wage imports call an account-scoped transaction that upserts wages and reconciles their linked repayments together. A failed later row rolls back the batch. Retrying a wage import does not duplicate linked repayments. Imported weeks remain reviewable in Labour. |
 | Documents and form errors | Uploads check allowed formats and the 20 MB limit before network work, and use unique file paths. A denied record deletion preserves the file. A subsequent storage failure offers file-cleanup retry. Category mutations recover from exceptions and reject duplicate names; plain Supabase error objects retain their useful messages. |
+| Property document privacy | Follow-up changes add an AES-GCM encrypted vault for contents and identifying details, independent password unlock, optional fingerprint/face/device-PIN passkey unlock, automatic locking and durable original-file cleanup. Restrictive owner policies remain effective alongside broad permissive policies. Production browser restrictions and public-key configuration guards add protection. See [the vault guide](document-vault-security.md). |
 | Offline privacy | The service worker caches only public app files within its installation scope. Private endpoints, external data, authenticated requests and query-bearing reset/notification URLs are excluded. Old app caches are removed. Network loading still works when cache storage is unavailable. |
 | Database checks | A new migration rejects non-finite financial numbers, deductions above included wages, foreign document paths and oversized metadata on new/updated records. Existing legacy rows are left untouched through `NOT VALID` checks. Two indexes support record reads. |
 | Reminder endpoints | Body parsing is bounded to 8 KB before decoding, including streamed input and understated length headers. Invalid input returns 400; oversized input returns 413. Reminder eligibility uses exact counts so large teams cannot be misclassified through row truncation. Verified Auth identity continues to scope privileged queries. |
@@ -25,10 +26,12 @@ The initial JavaScript bundle fell from approximately **1,078 KB / 304 KB gzip**
 
 ## Verification
 
-- Full Vitest suite: **283 tests passed across 30 files**.
+- Full Vitest suite after document security and Safari-compatible device-unlock updates: **347 tests passed across 38 files**.
 - TypeScript and production build: passed. Vite still reports its existing 500 KB chunk-size advisory for the main bundle.
 - Dependency audit: zero reported vulnerabilities in the installed dependency tree; dependencies were not changed.
-- All migrations, plus the reminder and record-integrity SQL regression checks, passed in an isolated PGlite PostgreSQL database. The SQL tests used disposable Auth/storage fixtures and exercised five clock positions around reminder days, India midnight and a year boundary. Integrity checks covered RLS, invalid amounts and paths, atomic import rollback, foreign-worker rejection and linked repayment reconciliation.
+- All migrations, plus the reminder, record-integrity and document-vault SQL regression checks, passed in an isolated PGlite PostgreSQL database. The SQL tests used disposable Auth/storage fixtures and exercised five clock positions around reminder days, India midnight and a year boundary. Integrity checks covered RLS, invalid amounts and paths, atomic import rollback, foreign-worker rejection and linked repayment reconciliation. Vault checks exercised anonymous/foreign denial with broad permissive policies present, immutable key settings/files, encrypted writes, transactional cleanup and account deletion.
+- Biometric tests use real Web Crypto with simulated credential responses. They check encryption, user verification, PRF output, context/account binding, tampering, unsupported prompts, cancellation, local storage failures and stale completions. Safari-compatible setup uses separate creation/verification clicks and checks that each prompt starts before any asynchronous yield. Server identity must be verified before accepting or saving a result. Real device/passkey-provider verification remains outstanding.
+- Reminder deployment script syntax and validation, execution from another working directory and fail-fast deployment order were checked using a mock CLI. No deployment was performed.
 - Diff whitespace checks: passed.
 - Browser visual inspection could not be completed: automatic computer-access approval denied Google Chrome access. Automated UI workflows cover mobile weekly pay, nested confirmations, import review/cancellation, document failure recovery and large-ledger search. Real-device animation and visual verification remains outstanding.
 - No live estate records, live database configuration or deployed site were changed.
@@ -36,9 +39,11 @@ The initial JavaScript bundle fell from approximately **1,078 KB / 304 KB gzip**
 ## Deployment order
 
 1. Apply `supabase/migrations/202610050004_record_integrity.sql` after all previous migrations.
-2. Redeploy `estate-reminders` and `send-estate-reminders` so the packaged shared request parser and status logic are current.
-3. Publish the frontend build and updated service worker through the existing hosting workflow.
-4. Complete browser/device visual review once computer access is available.
+2. Apply `supabase/migrations/202610050005_encrypted_document_vault.sql` before publishing the vault UI.
+3. Redeploy `estate-reminders` and `send-estate-reminders` using `scripts/deploy-reminder-functions.sh YOUR_PROJECT_REF` so the packaged shared request parser and status logic are current. See [CLI authentication and deployment instructions](advance-reminders-setup.md).
+4. Publish the frontend build and updated service worker through the existing hosting workflow.
+5. Create the vault password, encrypt existing documents and finish original-file cleanup. Optionally enable fingerprint/face unlock on a personal device.
+6. Complete browser/device visual review and real-phone passkey verification once access is available.
 
 The new wage-import RPC requires the migration. Notification delivery still requires the existing server keys, delivery switch and Cron setup documented in [advance-reminders-setup.md](advance-reminders-setup.md).
 
@@ -46,7 +51,7 @@ The new wage-import RPC requires the migration. Notification delivery still requ
 
 CSV backups contain records; document files are downloaded separately. Imports of expenses, loan transactions, sales and harvest entries append records and can duplicate a previously imported file. Wage imports reconcile deductions but do not manufacture weekly completion markers.
 
-Document storage and database writes are separate services. If a record was removed but file cleanup failed, use **Retry file cleanup** before leaving Documents; a durable cleanup queue is not part of this update.
+Document storage and database writes are separate services. Original/deleted file paths are queued durably in the same database transaction as replacement/deletion; removal failures retry when the owner next unlocks the vault. Finish outstanding cleanup before treating existing plaintext conversion as complete. Old provider backups and prior downloads are outside this process. No system can guarantee immunity from hacking; device/host compromise can expose documents while unlocked. See [the detailed security limits](document-vault-security.md).
 
 Rainfall totals describe available modeled data and can cover incomplete periods. Recorded balance is a bookkeeping comparison, rather than an inventory-valued profit calculation. Multi-table reads are paginated client requests, not a database-wide transactional snapshot.
 

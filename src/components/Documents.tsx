@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { Download, FileText, Image as ImageIcon, Upload, Trash2, LoaderCircle, ChevronRight, LockKeyhole, ShieldCheck } from 'lucide-react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Download, FileText, Image as ImageIcon, Upload, Trash2, LoaderCircle, ChevronRight, LockKeyhole, ShieldCheck, Fingerprint } from 'lucide-react'
 import { errorMessage } from '../lib/errors'
 import { supabase } from '../lib/supabase'
 import { useDocumentVault } from '../hooks/useDocumentVault'
@@ -7,6 +7,7 @@ import { decryptDocumentMetadata, documentMime, MAX_DOCUMENT_BYTES, type Documen
 import { DOCUMENT_BUCKET, readDocument, storeEncryptedDocument } from '../lib/documentStorage'
 import type { EstateData, PropertyDocument } from '../lib/types'
 import { ConfirmDialog } from './ConfirmDialog'
+import { VaultPhoneSettings } from './VaultPhoneSettings'
 import { EmptyState, Notice, PageHeading, SearchField, Sheet, displayDate } from './Workspace'
 
 const bucket = DOCUMENT_BUCKET
@@ -68,12 +69,14 @@ export function Documents({ data, refresh, userId }: { data: EstateData; refresh
     setPassword(''); setConfirmation('')
     await vault.submit(secret)
   }
+  if (window.top !== window.self) return <div className="page workspace-page"><Notice error>Open this app directly to access your document vault.</Notice></div>
   if (!vault.key) return <div className="page workspace-page files-page">
     <PageHeading title="Document vault" detail="Private property records" />
     <section className="document-vault-lock">
       <LockKeyhole size={32} aria-hidden="true" /><h2>{vault.record ? 'Unlock your documents' : 'Protect your property documents'}</h2>
       <p>Files and their details are encrypted on your device before upload. Your vault password is separate from your account password.</p>
       <Notice error>{vault.error || formError}</Notice>
+      {vault.record && vault.phoneReady && !vault.loading && <><button className="button-primary vault-phone-unlock" disabled={vault.busy} onClick={() => void vault.unlockPhone()}><Fingerprint size={20} />{vault.busy ? 'Verifying phone...' : 'Unlock with fingerprint / face'}</button><p className="section-detail">Your phone may also offer its device PIN. You can use your vault password below.</p></>}
       {vault.loading ? <p role="status">Loading vault...</p> : vault.error && !vault.record ? <button className="button-secondary" onClick={() => void vault.load()}>Retry vault loading</button> : <form className="workspace-form" onSubmit={openVault}>
         <label className="label">Vault password<input className="field" type="password" autoComplete={vault.record ? 'off' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} minLength={vault.record ? undefined : 16} maxLength={1024} required disabled={vault.busy} /></label>
         {!vault.record && <><p className="section-detail">Use at least 16 characters or several random words. Save this unique password in your password manager. It cannot be recovered by resetting your account password.</p><label className="label">Confirm vault password<input className="field" type="password" autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} required disabled={vault.busy} /></label><label className="vault-acknowledgement"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} required disabled={vault.busy} /><span>I have saved my vault password. I understand that losing it means losing access to my encrypted documents.</span></label>{data.documents.some(item => !item.encryption_version) && <Notice>Existing documents are still in private storage. After setup, use “Encrypt existing documents” to convert them and remove the originals.</Notice>}</>}
@@ -84,10 +87,10 @@ export function Documents({ data, refresh, userId }: { data: EstateData; refresh
   </div>
   if (!decoded || decoded.key !== vault.key || decoded.source !== data.documents) return <div className="page workspace-page"><p role="status">Decrypting document details...</p><button className="button-secondary" onClick={vault.lock}>Lock vault</button></div>
   if (decoded.error) return <div className="page workspace-page"><Notice error>{decoded.error}</Notice><button className="button-secondary" onClick={() => void refresh()}>Refresh records</button><button className="button-secondary" onClick={vault.lock}>Lock vault</button></div>
-  return <DocumentWorkspace data={{ ...data, documents: decoded.documents }} refresh={refresh} vault={{ owner: userId, key: vault.key, lock: vault.lock, assertUnlocked: vault.assertUnlocked }} />
+  return <DocumentWorkspace data={{ ...data, documents: decoded.documents }} refresh={refresh} vault={{ owner: userId, key: vault.key, lock: vault.lock, assertUnlocked: vault.assertUnlocked }} securityControls={<VaultPhoneSettings vault={vault} />} />
 }
 
-export function DocumentWorkspace({ data, refresh, vault }: { data: EstateData; refresh: () => Promise<void>; vault: UnlockedVault }) {
+export function DocumentWorkspace({ data, refresh, vault, securityControls }: { data: EstateData; refresh: () => Promise<void>; vault: UnlockedVault; securityControls?: ReactNode }) {
   const [form, setForm] = useState(emptyForm)
   const [file, setFile] = useState<File | null>(null)
   const [message, setMessage] = useState('')
@@ -261,7 +264,7 @@ export function DocumentWorkspace({ data, refresh, vault }: { data: EstateData; 
 
   return <div className="page workspace-page files-page">
     <PageHeading title="Documents" detail={`${data.documents.length} estate files · All years`} action="Add document" onAction={() => { setUploadError(''); setUploadOpen(true) }} />
-    <div className="document-vault-status"><span><ShieldCheck size={18} />Encrypted vault unlocked</span><button className="button-secondary" onClick={vault.lock}><LockKeyhole size={16} />Lock vault</button></div>
+    <div className="document-vault-status"><span><ShieldCheck size={18} />Encrypted vault unlocked</span>{securityControls}<button className="button-secondary" onClick={vault.lock}><LockKeyhole size={16} />Lock vault</button></div>
     {data.documents.some(item => !item.encryption_version) && <div className="document-security-notice"><p><strong>{data.documents.filter(item => !item.encryption_version).length} existing documents still need encryption.</strong> They remain in private storage until converted. Conversion verifies the encrypted copy, then removes the original.</p><button className="button-primary" disabled={saving} onClick={() => void encryptExistingDocuments()}>{saving ? 'Working...' : 'Encrypt existing documents'}</button></div>}
     {pendingCleanup > 0 && <div className="document-security-notice"><p role="alert">Some old document files still need removal. Encryption is incomplete until original-file cleanup succeeds.</p><button className="button-secondary" disabled={saving} onClick={() => void cleanupQueuedFiles()}>Retry queued file cleanup</button></div>}
     <Notice>{message}</Notice><Notice error>{recordError}</Notice>
