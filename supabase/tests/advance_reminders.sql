@@ -67,9 +67,9 @@ begin
   end;
   if not v_rejected then raise exception 'SECURITY DEFINER accepted another account worker.'; end if;
 
-  insert into public.advance_push_subscriptions (user_id, endpoint, p256dh, auth) values
-    (v_user, 'https://web.push.apple.com/' || v_user, 'local-test-key', 'local-test-auth'),
-    (v_user, 'https://fcm.googleapis.com/' || v_user, 'local-test-key', 'local-test-auth');
+  insert into public.advance_push_subscriptions (user_id, endpoint, p256dh, auth, connected_at) values
+    (v_user, 'https://web.push.apple.com/' || v_user, 'local-test-key', 'local-test-auth', v_due - interval '1 minute'),
+    (v_user, 'https://fcm.googleapis.com/' || v_user, 'local-test-key', 'local-test-auth', v_due - interval '1 minute');
   insert into public.advance_reminder_settings (user_id, enabled, weekday, reminder_time, updated_at) values
     (v_user, true, extract(dow from v_date)::integer, (v_due at time zone 'Asia/Kolkata')::time, now());
   select count(*) into v_count from public.claim_due_advance_reminders(100) where owner_id = v_user;
@@ -78,10 +78,14 @@ begin
   insert into public.advance_reminder_settings (user_id, enabled, weekday, reminder_time, updated_at) values
     (v_user, true, extract(dow from v_date)::integer, (v_due at time zone 'Asia/Kolkata')::time, v_due - interval '1 minute');
 
+  insert into public.advance_push_subscriptions (user_id, endpoint, p256dh, auth) values
+    (v_user, 'https://web.push.apple.com/late-' || v_user, 'local-test-key', 'local-test-auth');
+
   -- An imported row is not a completion marker and should remain reviewable.
   insert into public.weekly_payments (user_id, worker_id, week_start, amount) values (v_user, v_one, v_week, 0);
   select count(*) into v_count from public.claim_due_advance_reminders(100) where owner_id = v_user;
   if v_count <> 2 then raise exception 'Eligible unsaved/review weeks did not claim both phones: %', v_count; end if;
+  if exists (select 1 from public.advance_reminder_deliveries where user_id = v_user and endpoint = 'https://web.push.apple.com/late-' || v_user) then raise exception 'A newly connected phone received a past slot.'; end if;
   select count(*) into v_count from public.claim_due_advance_reminders(100) where owner_id = v_user;
   if v_count <> 0 then raise exception 'Overlapping cron calls reclaimed sending notifications.'; end if;
   select id into v_id from public.advance_reminder_deliveries where user_id = v_user and endpoint like 'https://web.push.apple.com/%';

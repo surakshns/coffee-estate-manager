@@ -46,12 +46,31 @@ export function advanceWeekFromUrl(url: string, appUrl: string): string | null {
 
 export class ReminderSetupError extends Error {}
 
+async function reminderFunctionMissing(): Promise<boolean> {
+  const origin = import.meta.env.VITE_SUPABASE_URL
+  if (!origin) return false
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), 3500)
+  try {
+    // An undeployed Edge Function rejects the authenticated JSON preflight. The
+    // browser reports that as a network error, hiding its 404. This simple GET
+    // needs no preflight and never sends session headers, keys or cookies.
+    const response = await fetch(`${origin.replace(/\/$/, '')}/functions/v1/estate-reminders`, { method: 'GET', credentials: 'omit', cache: 'no-store', signal: controller.signal })
+    if (response.status !== 404) return false
+    if (response.headers.get('sb-error-code') === 'NOT_FOUND') return true
+    const body = await response.json() as { code?: string }
+    return body.code === 'NOT_FOUND'
+  } catch { return false }
+  finally { window.clearTimeout(timer) }
+}
+
 export async function reminderRequest<T = ReminderStatus>(body: Record<string, unknown>): Promise<T> {
   if (!supabase.functions?.invoke) throw new ReminderSetupError('Reminder delivery has not been set up yet.')
   const { data, error } = await supabase.functions.invoke('estate-reminders', { body, timeout: 15000 })
   if (error) {
     const context = (error as { context?: Response }).context
     if (context?.status === 404) throw new ReminderSetupError('Reminder delivery has not been set up yet.')
+    if (error.name === 'FunctionsFetchError' && await reminderFunctionMissing()) throw new ReminderSetupError('Reminder delivery has not been set up yet.')
     let detail = ''
     if (context && typeof context.clone === 'function') {
       try {
@@ -104,7 +123,9 @@ export function decodeVapidKey(value: string): Uint8Array<ArrayBuffer> {
 
 async function activeRegistration(): Promise<ServiceWorkerRegistration> {
   const registration = await navigator.serviceWorker.register(new URL('sw.js', applicationUrl()).href, { scope: applicationUrl() })
-  if (registration.active) return registration
+  // An older installed worker can still be active while the push-capable update
+  // installs. Wait for that update before connecting/testing notifications.
+  if (registration.active && !registration.installing && !registration.waiting) return registration
   await new Promise<void>((resolve, reject) => {
     const worker = registration.installing || registration.waiting
     if (!worker) { reject(new Error('Could not start notifications. Reload the app and try again.')); return }
@@ -139,6 +160,7 @@ export function readReminderPreference(userId: string): ReminderSchedule {
     return validReminderSchedule(value) ? value : { ...defaultReminderSchedule }
   } catch { return { ...defaultReminderSchedule } }
 }
-export function saveReminderPreference(userId: string, schedule: ReminderSchedule): void {
-  try { localStorage.setItem(preferenceKey(userId), JSON.stringify(schedule)) } catch { /* Server settings remain authoritative. */ }
+export function saveReminderPreference(userId: string, schedule: ReminderSchedule): boolean {
+  try { localStorage.setItem(preferenceKey(userId), JSON.stringify(schedule)); return true }
+  catch { return false }
 }

@@ -3,13 +3,13 @@ import { DEFAULT_REMINDER, isPushEndpoint, latestWednesday, notificationPayload,
 
 const SETUP_MESSAGE = 'Phone reminder delivery needs server setup. You can still save your preferred day and time.'
 type Admin = ReturnType<typeof adminClient>
-const schemaMissing = (error: { code?: string } | null) => error?.code === '42P01' || error?.code === 'PGRST205'
+const schemaMissing = (error: { code?: string } | null) => !!error?.code && ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(error.code)
 
 async function statusFor(admin: Admin, userId: string, endpoint?: unknown) {
   const weekStart = latestWednesday()
   const [settings, subscriptions, run, payments, workers, config] = await Promise.all([
     admin.from('advance_reminder_settings').select('enabled,weekday,reminder_time,timezone').eq('user_id', userId).maybeSingle(),
-    admin.from('advance_push_subscriptions').select('endpoint,expiration_time').eq('user_id', userId),
+    admin.from('advance_push_subscriptions').select('endpoint,expiration_time,connected_at').eq('user_id', userId),
     admin.from('weekly_pay_runs').select('week_start').eq('user_id', userId).eq('week_start', weekStart).maybeSingle(),
     admin.from('weekly_payments').select('worker_id').eq('user_id', userId).eq('week_start', weekStart),
     admin.from('workers').select('id,active').eq('user_id', userId),
@@ -80,12 +80,13 @@ Deno.serve(async request => {
       const { count, error: countError } = await admin.from('advance_push_subscriptions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).neq('endpoint', subscription.endpoint)
       if (countError) throw new Error('Could not connect phone notifications. Please try again.')
       if ((count ?? 0) >= 10) return json({ error: 'Ten phones are already connected. Disconnect an unused phone first.' }, 400)
-      const { data: existing, error: existingError } = await admin.from('advance_push_subscriptions').select('user_id,p256dh,auth').eq('endpoint', subscription.endpoint).maybeSingle()
+      const { data: existing, error: existingError } = await admin.from('advance_push_subscriptions').select('user_id,p256dh,auth,connected_at').eq('endpoint', subscription.endpoint).maybeSingle()
       if (existingError) throw new Error('Could not connect phone notifications. Please try again.')
       if (existing && existing.user_id !== user.id && (existing.p256dh !== subscription.keys.p256dh || existing.auth !== subscription.keys.auth)) return json({ error: 'This notification endpoint belongs to a different subscription.' }, 400)
       // A browser endpoint follows its currently signed-in account. Reusing it
       // cannot leave the previous account sending notifications to this phone.
-      const { error } = await admin.from('advance_push_subscriptions').upsert({ user_id: user.id, endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, expiration_time: subscription.expirationTime === null ? null : new Date(subscription.expirationTime).toISOString() }, { onConflict: 'endpoint' })
+      const sameConnection = existing && existing.user_id === user.id && existing.p256dh === subscription.keys.p256dh && existing.auth === subscription.keys.auth
+      const { error } = await admin.from('advance_push_subscriptions').upsert({ user_id: user.id, endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, expiration_time: subscription.expirationTime === null ? null : new Date(subscription.expirationTime).toISOString(), connected_at: sameConnection ? existing.connected_at : new Date().toISOString() }, { onConflict: 'endpoint' })
       if (error) throw new Error('Could not connect phone notifications. Please try again.')
       return json(await statusFor(admin, user.id, subscription.endpoint))
     }

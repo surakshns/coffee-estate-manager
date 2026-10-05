@@ -143,13 +143,15 @@
 .labour-deck-progress progress::-webkit-progress-value { background: #557e4b; border-radius: 4px; }
 .labour-deck-progress progress::-moz-progress-bar { background: #557e4b; border-radius: 4px; }
 .labour-deck-stage { position: relative; flex: 1; min-height: 0; isolation: isolate; overflow: hidden; padding-bottom: 8px; }
-.labour-deck-preview { position: absolute; z-index: 0; inset: 10px 6px 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 14px; border: 1px solid #cfdcc5; border-radius: 18px; background: var(--labour-soft); text-align: center; }
+.labour-deck-preview { position: absolute; z-index: 0; inset: 10px 6px 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 14px; border: 1px solid #cfdcc5; border-radius: 18px; background: var(--labour-soft); text-align: center; opacity: var(--swipe-progress, 0); }
 .labour-deck-preview.is-previous { justify-content: flex-start; }
 .labour-deck-preview span { display: block; font-size: 12px; line-height: 1.4; color: #5e7453; }
 .labour-deck-preview strong { font-size: 22px; line-height: 1.2; color: var(--labour-green); overflow-wrap: anywhere; }
-.labour-deck-motion { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; box-shadow: 0 6px 20px rgba(35, 70, 50, .08); overflow: hidden; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); transition: transform 160ms var(--labour-ease); animation: labour-card-arrive 180ms ease-out; }
+.labour-deck-motion { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid #d4dfcb; border-radius: 18px; background: #fff; box-shadow: 0 6px 20px rgba(35, 70, 50, .08); overflow: hidden; transform: translate3d(0, var(--swipe-y, 0px), 0) rotate(var(--swipe-angle, 0deg)); transition: transform 160ms var(--labour-ease); }
+.labour-deck-motion.is-arriving { animation: labour-card-arrive var(--card-enter-duration, 130ms) ease-out; }
 .labour-deck-motion.is-dragging { transition: none; animation: none; }
-.labour-deck-motion.is-leaving { pointer-events: none; transition: none; animation: labour-card-dismiss 220ms ease-in forwards; }
+.labour-deck-motion.is-leaving { pointer-events: none; transition: none; animation: labour-card-dismiss var(--swipe-duration, 180ms) cubic-bezier(.22, .7, .25, 1) forwards; }
+.labour-deck-motion:is(.is-arriving, .is-dragging, .is-leaving) { will-change: transform, opacity; }
 .labour-deck-motion.has-worker, .labour-deck-motion.has-worker .labour-deck-card-scroll { touch-action: pan-x pinch-zoom; }
 .labour-deck-swipe-handle { display: grid; flex-shrink: 0; justify-items: center; gap: 6px; padding: 9px 12px 7px; border-bottom: 1px solid #eff2e9; touch-action: none; }
 .labour-deck-swipe-handle > span { width: 34px; height: 4px; border-radius: 9px; background: #cbd8c0; }
@@ -233,8 +235,8 @@
   .labour-deduction-keypad button:nth-child(10) { grid-column: 4; grid-row: 2; }
   .labour-deduction-keypad button:nth-child(11) { grid-column: 4; grid-row: 3; }
 }
-@keyframes labour-card-arrive { from { opacity: .4; transform: translateY(var(--card-enter-y, 12px)) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes labour-card-dismiss { from { opacity: 1; transform: translateY(var(--swipe-y, 0px)) rotate(var(--swipe-angle, 0deg)); } to { opacity: 0; transform: translateY(var(--swipe-exit, -110%)) rotate(var(--swipe-rotation, -6deg)); } }
+@keyframes labour-card-arrive { from { opacity: .85; transform: translate3d(0, var(--card-enter-y, 10px), 0) scale(.995); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+@keyframes labour-card-dismiss { from { opacity: 1; transform: translate3d(0, var(--swipe-y, 0px), 0) rotate(var(--swipe-angle, 0deg)); } to { opacity: 0; transform: translate3d(0, var(--swipe-exit, -110%), 0) rotate(var(--swipe-rotation, -4deg)); } }
 @keyframes labour-surface-reveal { from { opacity: .5; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .labour-deck-motion { animation: none !important; transition: none !important; transform: none; } }
 .labour-footnote { margin-top: 16px; color: var(--labour-muted); font-size: 12px; line-height: 1.65; }

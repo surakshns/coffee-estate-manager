@@ -21,7 +21,7 @@ Deno.serve(async request => {
       const [settings, run, subscription, workers, payments] = await Promise.all([
         admin.from('advance_reminder_settings').select('enabled,updated_at').eq('user_id', delivery.owner_id).maybeSingle(),
         admin.from('weekly_pay_runs').select('week_start').eq('user_id', delivery.owner_id).eq('week_start', delivery.week_start).maybeSingle(),
-        admin.from('advance_push_subscriptions').select('id,user_id,endpoint,p256dh,auth,expiration_time').eq('id', delivery.subscription_id).eq('user_id', delivery.owner_id).maybeSingle(),
+        admin.from('advance_push_subscriptions').select('id,user_id,endpoint,p256dh,auth,expiration_time,connected_at').eq('id', delivery.subscription_id).eq('user_id', delivery.owner_id).maybeSingle(),
         admin.from('workers').select('id,active').eq('user_id', delivery.owner_id),
         admin.from('weekly_payments').select('worker_id').eq('user_id', delivery.owner_id).eq('week_start', delivery.week_start)
       ])
@@ -29,7 +29,7 @@ Deno.serve(async request => {
       if (ledgerError || [settings, run, subscription, workers, payments].some(value => value.error)) throw new Error('Eligibility could not be rechecked.')
       const paid = new Set((payments.data ?? []).map(row => row.worker_id))
       const eligible = (workers.data ?? []).some(worker => worker.active || paid.has(worker.id))
-      if (!settings.data?.enabled || run.data || !subscription.data || subscription.data.endpoint !== delivery.endpoint || !eligible || !ledger || ledger.status !== 'sending' || new Date(settings.data.updated_at).getTime() > new Date(ledger.scheduled_at).getTime() || (subscription.data.expiration_time && new Date(subscription.data.expiration_time).getTime() <= Date.now()) || !isPushEndpoint(delivery.endpoint)) {
+      if (!settings.data?.enabled || run.data || !subscription.data || subscription.data.endpoint !== delivery.endpoint || !eligible || !ledger || ledger.status !== 'sending' || new Date(settings.data.updated_at).getTime() > new Date(ledger.scheduled_at).getTime() || new Date(subscription.data.connected_at).getTime() > new Date(ledger.scheduled_at).getTime() || (subscription.data.expiration_time && new Date(subscription.data.expiration_time).getTime() <= Date.now()) || !isPushEndpoint(delivery.endpoint)) {
         result = 'cancelled'
       } else {
         const push = await sendPush(config, { endpoint: subscription.data.endpoint, keys: { p256dh: subscription.data.p256dh, auth: subscription.data.auth }, expirationTime: null }, notificationPayload(config.appUrl, delivery.week_start), `advance-${delivery.week_start}`)

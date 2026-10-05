@@ -42,6 +42,31 @@ describe('reminder client validation and setup', () => {
     expect(api.invoke).toHaveBeenCalledWith('estate-reminders', expect.objectContaining({ body: { action: 'subscribe' } }))
   })
 
+  it('recognizes a deployed function whose reminder schema is still missing', async () => {
+    api.invoke.mockResolvedValueOnce({ data: null, error: { context: new Response(JSON.stringify({ error: 'Reminder tables need setup.', code: 'REMINDER_SETUP_REQUIRED' }), { status: 409 }) } })
+    await expect(reminderRequest({ action: 'configure', enabled: false, weekday: 4, time: '21:00' })).rejects.toBeInstanceOf(ReminderSetupError)
+  })
+
+  it('recognizes missing deployment when phone preflight hides the 404 as a fetch error', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://estate-project.supabase.co')
+    const fetch = vi.fn(async (_url: RequestInfo | URL, _options?: RequestInit) => new Response('{"code":"NOT_FOUND"}', { status: 404, headers: { 'sb-error-code': 'NOT_FOUND' } }))
+    vi.stubGlobal('fetch', fetch)
+    api.invoke.mockResolvedValue({ data: null, error: { name: 'FunctionsFetchError' } })
+    try {
+      await expect(reminderRequest({ action: 'status' })).rejects.toBeInstanceOf(ReminderSetupError)
+      expect(fetch).toHaveBeenCalledWith('https://estate-project.supabase.co/functions/v1/estate-reminders', expect.objectContaining({ method: 'GET', credentials: 'omit', cache: 'no-store' }))
+      expect(fetch.mock.calls[0][1]).not.toHaveProperty('headers')
+    } finally { vi.unstubAllEnvs() }
+  })
+
+  it('does not mistake an offline phone for an undeployed reminder server', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://estate-project.supabase.co')
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Offline') }))
+    api.invoke.mockResolvedValue({ data: null, error: { name: 'FunctionsFetchError' } })
+    try { await expect(reminderRequest({ action: 'status' })).rejects.toThrow(/check your connection/i) }
+    finally { vi.unstubAllEnvs() }
+  })
+
   it('rejects invalid server metadata with a readable validation error', () => {
     expect(checkReminderStatus(status())).toEqual(status())
     const malformed: unknown[] = [
@@ -73,6 +98,11 @@ describe('reminder client validation and setup', () => {
     expect(readReminderPreference('owner-a')).toEqual({ enabled: false, weekday: 3, time: '20:00' })
   })
 
+  it('reports when this phone blocks preference storage instead of claiming it was saved', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage blocked') })
+    expect(saveReminderPreference('owner', { enabled: false, weekday: 4, time: '21:30' })).toBe(false)
+  })
+
   it('requires a valid uncompressed VAPID public key', () => {
     expect(Array.from(decodeVapidKey(key()))).toEqual([4, ...Array<number>(64).fill(1)])
     expect(() => decodeVapidKey(btoa('short'))).toThrow(/valid public key/)
@@ -81,6 +111,21 @@ describe('reminder client validation and setup', () => {
 })
 
 describe('this device push subscription', () => {
+  it('waits for a push-capable service worker update before connecting an already installed app', async () => {
+    const subscription = { endpoint: 'https://push.example/new-device' }
+    const subscribe = vi.fn(async () => subscription)
+    let changed: (() => void) | undefined
+    const updatedWorker = { state: 'installing', addEventListener: vi.fn((_type: string, listener: () => void) => { changed = listener }), removeEventListener: vi.fn() }
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register: vi.fn(async () => ({ active: { oldVersion: true }, installing: updatedWorker, pushManager: { getSubscription: async () => null, subscribe } })) } })
+    const connected = connectPushDevice(key())
+    await Promise.resolve()
+    expect(updatedWorker.addEventListener).toHaveBeenCalledOnce()
+    expect(subscribe).not.toHaveBeenCalled()
+    updatedWorker.state = 'activated'
+    changed?.()
+    expect(await connected).toBe(subscription)
+    expect(subscribe).toHaveBeenCalledOnce()
+  })
   it('looks up the subscription for this app scope without asking permission', async () => {
     const subscription = { endpoint: 'https://push.example/device' }
     const getRegistration = vi.fn(async () => ({ pushManager: { getSubscription: async () => subscription } }))

@@ -11,20 +11,37 @@ and time or turn reminders off. Settings belong to the account; iPhone and Andro
 subscriptions are separate. Changing the day still checks the latest Wednesday
 on or before the scheduled occurrence. An enable/edit made after an occurrence
 starts with the next occurrence; it never sends the past slot retroactively.
+Connecting a new phone after a due slot also starts with the next occurrence.
+Reconnecting the same phone or saving an unchanged schedule preserves the current
+occurrence for phones that were already connected.
+
+## CLI prerequisite
+
+Use Node.js **20 or later** and run these commands from the repository folder:
+
+```sh
+npx supabase --version
+npx supabase login
+```
+
+The `npx` prefix runs the CLI without requiring a global `supabase` command.
+See the [official Supabase CLI setup guide](https://supabase.com/docs/guides/local-development/cli/getting-started).
 
 ## Server setup
 
-1. Apply `supabase/migrations/202610050001_advance_reminders.sql` after the earlier
-   migrations. It preserves payment amounts, deductions and clear-week behaviour.
-   It does not backfill subscriptions or declare legacy/imported weeks complete.
+1. Apply `supabase/migrations/202610050001_advance_reminders.sql`, then
+   `supabase/migrations/202610050002_reminder_phone_connections.sql`, after the
+   earlier migrations. They preserve payment amounts, deductions and clear-week behaviour.
+   They do not backfill subscriptions or declare legacy/imported weeks complete.
 
 2. Generate a private secrets file outside the repository. The generator uses
    Node's Web Crypto API to create the P-256 JWK pair expected by the pinned
    `jsr:@negrel/webpush@0.5.0` library, plus a random scheduler token. It creates the
-   file with owner-only permissions and refuses to overwrite a file.
+   parent directories and file with owner-only permissions and refuses to
+   overwrite a file.
 
    ```sh
-   node scripts/generate-reminder-secrets.mjs /private/path/reminders.env https://your-app.example/coffee-estate-manager/ mailto:you@example.com
+   node scripts/generate-reminder-secrets.mjs "$HOME/.config/coffee-estate-manager/reminders.env" https://your-app.example/coffee-estate-manager/ mailto:you@example.com
    ```
 
    `REMINDER_APP_URL` must be the actual HTTPS app root, including any hosting
@@ -35,9 +52,9 @@ starts with the next occurrence; it never sends the past slot retroactively.
 3. Import the private file and deploy both functions with the Supabase CLI:
 
    ```sh
-   supabase secrets set --env-file /private/path/reminders.env --project-ref YOUR_PROJECT_REF
-   supabase functions deploy estate-reminders --project-ref YOUR_PROJECT_REF
-   supabase functions deploy send-estate-reminders --project-ref YOUR_PROJECT_REF
+   npx supabase secrets set --env-file "$HOME/.config/coffee-estate-manager/reminders.env" --project-ref YOUR_PROJECT_REF
+   npx supabase functions deploy estate-reminders --project-ref YOUR_PROJECT_REF
+   npx supabase functions deploy send-estate-reminders --project-ref YOUR_PROJECT_REF
    ```
 
    The platform supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Edge
@@ -46,9 +63,29 @@ starts with the next occurrence; it never sends the past slot retroactively.
    caller's session with `Auth.getUser`, while the sender accepts only the private
    `x-reminder-secret`. Neither endpoint accepts a caller-supplied account ID.
 
-4. Enable `pg_cron` and `pg_net` in Supabase. In the SQL Editor, store the project
-   URL and **the same `REMINDER_CRON_SECRET` from the private file** in Vault. These
-   placeholders must be replaced locally; no real credentials are included here.
+4. Open your project's **SQL Editor → New query** and run the following to
+   enable `pg_cron` and `pg_net` (already-enabled extensions are kept):
+
+   ```sql
+   create extension if not exists pg_cron with schema pg_catalog;
+   create extension if not exists pg_net with schema extensions;
+   grant usage on schema cron to postgres;
+   grant all privileges on all tables in schema cron to postgres;
+   ```
+
+   See Supabase's [Cron installation](https://supabase.com/docs/guides/cron/install)
+   and [pg_net setup](https://supabase.com/docs/guides/database/extensions/pg_net).
+   On your Mac, open the private file with:
+
+   ```sh
+   open -e "$HOME/.config/coffee-estate-manager/reminders.env"
+   ```
+
+   Copy only the value after `REMINDER_CRON_SECRET=`. In the SQL Editor, store the
+   project URL and **that same value** in Vault using the SQL below. Replace
+   `YOUR_PROJECT_REF` with your project reference and
+   `YOUR_PRIVATE_REMINDER_CRON_SECRET` with the copied value before running it.
+   Keep the secret in the local file and Supabase; do not paste it into chat.
 
    ```sql
    select vault.create_secret('https://YOUR_PROJECT_REF.supabase.co', 'estate_reminder_project_url');
@@ -78,7 +115,7 @@ starts with the next occurrence; it never sends the past slot retroactively.
 5. Once the functions and job are configured, enable delivery on the server:
 
    ```sh
-   supabase secrets set REMINDER_DELIVERY_ENABLED=true --project-ref YOUR_PROJECT_REF
+   npx supabase secrets set REMINDER_DELIVERY_ENABLED=true --project-ref YOUR_PROJECT_REF
    ```
 
    Readiness requires valid VAPID keys, contact, app URL, cron token, migrated

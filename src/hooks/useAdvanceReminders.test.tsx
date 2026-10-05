@@ -86,13 +86,40 @@ describe('advance reminder controller', () => {
     const { result } = renderHook(() => useAdvanceReminders('owner'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     await waitFor(() => expect(result.current.message).toMatch(/needs setup/i))
+    const callsBeforeSave = client.request.mock.calls.length
     await act(async () => { await result.current.save({ enabled: false, weekday: 6, time: '19:15' }) })
+    expect(client.request.mock.calls.length).toBe(callsBeforeSave)
     expect(client.savePreference).toHaveBeenCalledWith('owner', { enabled: false, weekday: 6, time: '19:15' })
     expect(result.current.settings).toEqual({ enabled: false, weekday: 6, time: '19:15' })
     expect(result.current.ready).toBe(false)
     expect(result.current.deviceSubscribed).toBe(false)
     expect(result.current.message).toMatch(/on this device.*needs setup/i)
     expect(client.requestPermission).not.toHaveBeenCalled()
+  })
+
+  it('keeps preferred schedule editing usable when the function is deployed before its schema', async () => {
+    client.request.mockImplementation(async body => {
+      if (body.action === 'status') return status({ ready: false, settingsStorageReady: false, vapidPublicKey: null })
+      throw new ReminderSetupError('Reminder tables need setup.')
+    })
+    const { result } = renderHook(() => useAdvanceReminders('owner'))
+    await waitFor(() => expect(result.current.status?.settingsStorageReady).toBe(false))
+    await act(async () => { await result.current.save({ enabled: false, weekday: 2, time: '18:45' }) })
+    expect(result.current.settings).toEqual({ enabled: false, weekday: 2, time: '18:45' })
+    expect(result.current.message).toMatch(/on this device.*needs setup/i)
+    expect(result.current.deviceSubscribed).toBe(false)
+  })
+
+  it('keeps the saved schedule unchanged if phone storage rejects a local preference save', async () => {
+    client.request.mockRejectedValue(new ReminderSetupError('Reminder delivery has not been set up yet.'))
+    client.savePreference.mockReturnValueOnce(false)
+    const { result } = renderHook(() => useAdvanceReminders('owner'))
+    await waitFor(() => expect(result.current.message).toMatch(/needs setup/i))
+    await act(async () => { await result.current.save({ enabled: false, weekday: 6, time: '21:30' }).catch(() => undefined) })
+    expect(result.current.settings).toEqual({ enabled: false, weekday: 3, time: '20:00' })
+    expect(result.current.error).toMatch(/allow site storage/i)
+    expect(result.current.message).not.toMatch(/schedule saved/i)
+    expect(result.current.saving).toBe(false)
   })
 
   it('does not turn a network failure into local saved settings or verified enabled status', async () => {

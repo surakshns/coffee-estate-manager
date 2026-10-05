@@ -92,6 +92,22 @@ describe('home entries and phone menu', () => {
     expect(screen.getByRole('heading', { name: 'Estate overview' })).toBeTruthy()
   })
 
+  it('opens reminder settings from the phone menu without leaving another modal above it', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+    await screen.findByRole('heading', { name: 'Estate overview' })
+    const phoneNav = within(container.querySelector('.mobile-nav') as HTMLElement)
+    const menuButton = phoneNav.getByRole('button', { name: 'Menu' })
+    await user.click(menuButton)
+    await user.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Advance reminder' }))
+    const settings = await screen.findByRole('dialog', { name: 'Weekly advance reminder' })
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(within(settings).getByLabelText('Reminder day')).toBeTruthy()
+    await user.click(within(settings).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(menuButton)
+  })
+
   it('opens the notification week across a year boundary and consumes only its query parameter', async () => {
     window.history.replaceState({}, '', '/?advanceWeek=2025-12-31&keep=value')
     render(<App />)

@@ -1,7 +1,8 @@
 import type { Expense, ProductionRecord, Sale, WeeklyPayment, Worker } from './types'
 
 const value = (number: number | string | null | undefined) => Number(number ?? 0)
-export const money = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount)
+const currencyFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+export const money = (amount: number) => currencyFormatter.format(amount)
 
 export function weekStart(date = new Date()) {
   const copy = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))

@@ -82,6 +82,11 @@ export function useAdvanceReminders(userId: string | null, recordsKey?: unknown)
     const isCurrent = () => account.current === userId && generation.current === sequence
     setState(previous => ({ ...previous, saving: true, error: '', message: '' }))
     try {
+      if (setupMissing.current && !state.settings.enabled && !schedule.enabled) {
+        if (saveReminderPreference(userId, schedule) === false) throw new Error('This phone could not save the schedule. Allow site storage in your browser settings and try again.')
+        setState(previous => ({ ...previous, settings: { ...schedule }, ready: false, error: '', message: 'Preferred schedule saved on this device. Reminder delivery still needs setup.' }))
+        return
+      }
       if (permissionRequest) {
         const permission = await permissionRequest
         if (!isCurrent()) throw new Error('Your account changed. Reopen reminder settings.')
@@ -101,7 +106,7 @@ export function useAdvanceReminders(userId: string | null, recordsKey?: unknown)
       } catch (cause) {
         if (!(cause instanceof ReminderSetupError) || !setupMissing.current || state.settings.enabled || schedule.enabled) throw cause
         if (!isCurrent()) throw new Error('Your account changed. Reopen reminder settings.')
-        saveReminderPreference(userId, schedule)
+        if (saveReminderPreference(userId, schedule) === false) throw new Error('This phone could not save the schedule. Allow site storage in your browser settings and try again.')
         setState(previous => ({ ...previous, settings: { ...schedule }, ready: false, error: '', message: 'Preferred schedule saved on this device. Reminder delivery still needs setup.' }))
         return
       }
