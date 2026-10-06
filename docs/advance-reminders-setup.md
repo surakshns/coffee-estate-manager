@@ -72,6 +72,38 @@ Supabase and open the signed-in reminder settings to confirm status loads, then
 follow the phone delivery verification checklist below. See the official
 [function deployment flags](https://supabase.com/docs/reference/cli/supabase-functions-deploy).
 
+## Upgrade the reminder database in SQL Editor
+
+For an existing installation, open
+[`supabase/upgrades/advance-reminders.sql`](../supabase/upgrades/advance-reminders.sql),
+copy its **entire contents** into Supabase's **SQL Editor → New query** and run it
+as one query. The script checks which reminder migrations are present, applies
+missing `001`, `002` and `003` prerequisites, then applies the `006` rescheduling
+fix in one transaction. It keeps account settings, subscriptions, completion
+markers and delivery history, and can be run again after a successful upgrade.
+The estate application's earlier schema migrations must already be installed.
+Existing daily installations retain their daily scheduler; the upgrade does not
+reapply the older weekly-only phone-connection scheduler on top of them.
+
+If you saw `relation "public.advance_reminder_weeks" does not exist` when running
+`006` alone, the daily reminder migration `003` was missing. Use the complete
+upgrade file instead of creating that table manually: the daily feature also
+needs its columns, constraints, functions, triggers and access policies.
+A partial schema causes a clear error and the transaction rolls back.
+
+The final result should say **Reminder database upgrade complete**, with
+`daily_tracking_ready` and `reschedule_ready` both `true`. Then use the redeploy
+script above so both Edge Functions contain the current shared modules. Database
+upgrades do not change the existing signing secrets or Cron job.
+
+The SQL file is generated from the canonical migrations. After changing a
+reminder migration, regenerate and check it with:
+
+```sh
+node scripts/generate-reminder-upgrade.mjs
+node scripts/generate-reminder-upgrade.mjs --check
+```
+
 ## Server setup
 
 1. Apply all migrations in filename order, including
@@ -79,9 +111,9 @@ follow the phone delivery verification checklist below. See the official
    `supabase/migrations/202610050002_reminder_phone_connections.sql`,
    `supabase/migrations/202610050003_repeating_advance_reminders.sql` and
    `supabase/migrations/202610050006_reminder_reschedule_daily_time.sql`.
-   For an existing installation with earlier migrations applied, run the new
-   `006` migration in Supabase's SQL Editor. It fixes rescheduling and repairs
-   known pending weeks delayed by the old weekday restart. Redeploying Edge
+   For a manual upgrade of an existing installation, use the complete SQL Editor
+   upgrade file above so missing prerequisites are applied too. The `006` fix
+   repairs known pending weeks delayed by the old weekday restart. Redeploying Edge
    Functions alone does not update this database trigger.
    These migrations preserve payment amounts, deductions and clear-week behaviour.
    They do not backfill subscriptions or declare legacy/imported weeks complete.

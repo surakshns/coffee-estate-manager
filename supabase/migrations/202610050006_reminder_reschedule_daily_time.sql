@@ -2,6 +2,14 @@
 -- Apply after 202610050003_repeating_advance_reminders.sql.
 begin;
 
+do $$
+begin
+  if to_regclass('public.advance_reminder_weeks') is null then
+    raise exception 'Apply reminder migration 202610050003_repeating_advance_reminders.sql first, or run supabase/upgrades/advance-reminders.sql to install missing reminder prerequisites and this fix together.';
+  end if;
+end;
+$$;
+
 create or replace function public.queue_advance_reminder_reschedule() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
