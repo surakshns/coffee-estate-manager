@@ -135,7 +135,8 @@ export async function searchLocations(query: string, signal?: AbortSignal): Prom
 
 /**
  * Fetch daily rainfall data for given coordinates and years.
- * Uses Open-Meteo Archive API for historical data + Forecast API for current days.
+ * Uses Open-Meteo Archive reanalysis only. Recent forecast estimates are not
+ * appended to historical totals; this is not official station observation data.
  */
 export async function fetchRainfallData(
   latitude: number, longitude: number, startYear: number, endYear: number, signal?: AbortSignal
@@ -163,14 +164,7 @@ export async function fetchRainfallData(
     const archive = await fetch(archiveUrl, { signal })
     if (!archive.ok) throw new Error('Historical weather service unavailable.')
     read(await archive.json())
-    if (!records.size) throw new Error('No historical rainfall measurements are available.')
-    const lastDate = [...records.keys()].sort().at(-1)!
-    if (endDate === today && lastDate < today) {
-      try {
-        const forecast = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latRounded}&longitude=${lonRounded}&daily=precipitation_sum&past_days=14&forecast_days=1&timezone=auto`, { signal })
-        if (forecast.ok) read(await forecast.json())
-      } catch { if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError') }
-    }
+    if (!records.size) throw new Error('No historical rainfall estimates are available.')
   } catch {
     if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
     throw new Error('Could not fetch historical rainfall for this location. Please check your connection and try again.')

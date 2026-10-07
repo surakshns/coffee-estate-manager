@@ -15,17 +15,18 @@ describe('rainfall fetch integrity', () => {
     await expect(fetchRainfallData(14, 75, 2025, 2025)).rejects.toThrow('historical rainfall')
     expect(fetch).toHaveBeenCalledTimes(2)
   })
-  it('tops up only missing dates, caches current data briefly and refreshes it after expiry', async () => {
+  it('keeps forecast estimates out of historical totals and refreshes archive data after cache expiry', async () => {
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-05T18:35:00Z'))
     const fetch = vi.fn().mockImplementation((url: string) => Promise.resolve(url.includes('archive-api') ? reply(['2026-10-04'], [10]) : reply(['2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07'], [99, 2, 3, 100])))
     vi.stubGlobal('fetch', fetch)
     const records = await fetchRainfallData(15, 75, 2026, 2026)
-    expect(records.map(record => record.precipitationMm)).toEqual([10, 2, 3])
+    expect(records.map(record => record.precipitationMm)).toEqual([10])
     await fetchRainfallData(15, 75, 2026, 2026)
-    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch).toHaveBeenCalledTimes(1)
     vi.setSystemTime(new Date('2026-10-05T18:41:00Z'))
     await fetchRainfallData(15, 75, 2026, 2026)
-    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls.every(([url])=>String(url).includes('archive-api'))).toBe(true)
   })
   it('rejects empty coordinates and future-only ranges before requesting weather', async () => {
     const fetch = vi.fn(); vi.stubGlobal('fetch', fetch)

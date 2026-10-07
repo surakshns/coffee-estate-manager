@@ -306,7 +306,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
         diffLabel: compareWithPrev ? `${diffMm >= 0 ? '+' : ''}${formatRainfall(diffMm, unit)} vs ${compareYear}` : undefined,
         rainyDays,
         highlightTitle: 'Weekly Pattern',
-        highlightText: `${weekData.length} weeks recorded in this period.`,
+        highlightText: `${weekData.length} weeks with model data in this period.`,
         extraLabel: 'Wettest Week',
         extraValue: wettestWeek && wettestWeek.totalMm > 0 ? `${wettestWeek.label} (${formatRainfall(wettestWeek.totalMm, unit)})` : '—'
       }
@@ -437,7 +437,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
       {/* Header */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-bold uppercase tracking-wider text-leaf-700">Weather &amp; Rain Gauge</p>
+          <p className="text-sm font-bold uppercase tracking-wider text-leaf-700">Historical model estimates</p>
           <h1 className="mt-1 text-3xl font-extrabold text-stone-900">Rainfall tracker</h1>
           <p className="mt-1 text-sm text-stone-600">
             Compare this season with previous years: blossom showers, monsoon downpours, and dry spells.
@@ -753,7 +753,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
 
       {!loading && !error && (
         <>
-          <p className="rainfall-coverage" role="status">{data.filter(record => record.date.startsWith(view === 'year' ? `${year}-` : `${year}-${String(month).padStart(2, '0')}`)).length} days with available data in this {view === 'year' ? 'year' : 'month'}. Missing dates are omitted from the daily ledger. Totals and comparisons can cover incomplete periods; recent days may use forecast estimates.</p>
+          <p className="rainfall-coverage" role="status">{data.filter(record => record.date.startsWith(view === 'year' ? `${year}-` : `${year}-${String(month).padStart(2, '0')}`)).length} days with available data in this {view === 'year' ? 'year' : 'month'}. Missing dates are omitted from the daily ledger. Totals and comparisons can cover incomplete periods; recent unavailable days remain missing. Data is Open-Meteo reanalysis, separate from official station observations and forecasts; it is not used for insurance.</p>
           {/* Summary Metric Tiles */}
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="summary-tile tone-volume">
@@ -784,7 +784,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
             <div className="summary-tile tone-expense">
               <p className="tile-label">{summary.extraLabel}</p>
               <p className="mt-2 text-xl font-extrabold sm:text-2xl">{summary.extraValue}</p>
-              <p className="mt-1 text-xs opacity-75">Peak recorded precipitation</p>
+              <p className="mt-1 text-xs opacity-75">Peak modelled precipitation</p>
             </div>
 
             <div className="summary-tile tone-market-arabica">
@@ -805,7 +805,7 @@ export function Rainfall({ defaultYear }: { defaultYear?: number }) {
                     ? compareWithPrev ? `Monthly Comparison: ${year} vs ${compareYear}` : `Monthly Breakdown (${year})`
                     : view === 'week'
                     ? compareWithPrev ? `Weekly Rainfall: ${year} vs ${compareYear}` : `Weekly Rainfall (${new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long' })} ${year})`
-                    : compareWithPrev ? `Daily Rain: ${new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long' })} ${year} vs ${compareYear}` : `Daily Rain Gauge (${new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long' })} ${year})`}
+                    : compareWithPrev ? `Daily Rain: ${new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long' })} ${year} vs ${compareYear}` : `Daily Model Rainfall (${new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long' })} ${year})`}
                 </h2>
               </div>
               <p className="text-xs font-bold text-stone-500">

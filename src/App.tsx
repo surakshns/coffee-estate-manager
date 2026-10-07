@@ -27,14 +27,16 @@ const Production = lazy(() => import('./components/Production').then(module => (
 const Rainfall = lazy(() => import('./components/Rainfall').then(module => ({ default: module.Rainfall })))
 const Documents = lazy(() => import('./components/Documents').then(module => ({ default: module.Documents })))
 const Backup = lazy(() => import('./components/Backup').then(module => ({ default: module.Backup })))
+const FarmIntelligence = lazy(() => import('./components/FarmIntelligence').then(module => ({ default: module.FarmIntelligence })))
 
-type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup'
+type Page = 'Dashboard' | 'Labour' | 'Expenses' | 'Rainfall' | 'Prices' | 'Production' | 'Documents' | 'Backup' | 'Farm Intelligence'
 type NavigationEntry = { advanceDate?: string; advanceRequest?: number; expenseView?: 'records' | 'breakdown' | 'categories' }
 type DeferredInstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
-const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'documents' | 'backup' }[] = [
+const navigation: { page: Page; short: string; icon: 'home' | 'labour' | 'expenses' | 'rainfall' | 'prices' | 'harvest' | 'documents' | 'backup' | 'intelligence' }[] = [
   { page: 'Dashboard', short: 'Home', icon: 'home' },
   { page: 'Labour', short: 'Labour', icon: 'labour' },
   { page: 'Expenses', short: 'Expenses', icon: 'expenses' },
+  { page: 'Farm Intelligence', short: 'Updates', icon: 'intelligence' },
   { page: 'Rainfall', short: 'Rain', icon: 'rainfall' },
   { page: 'Prices', short: 'Prices', icon: 'prices' },
   { page: 'Production', short: 'Harvest', icon: 'harvest' },
@@ -199,6 +201,7 @@ export default function App() {
       case 'Production': return <Production {...props} />
       case 'Documents': return <Documents key={session.user.id} userId={session.user.id} data={data} refresh={refresh} />
       case 'Backup': return <Backup data={data} refresh={refresh} />
+      case 'Farm Intelligence': return <FarmIntelligence key={session.user.id} userId={session.user.id} />
       default: return <Dashboard data={data} year={year} onNavigate={navigate} onStartAdvance={startAdvance} onAddExpense={() => setQuickExpenseOpen(true)} advance={{ loading: reminders.loading, error: Boolean(reminders.error), weekStart: reminders.status?.weekStart, weekStatus: reminders.status?.weekStatus }} />
     }
   }
@@ -242,9 +245,9 @@ export default function App() {
       {!loading && !error && !hasRecords && page === 'Dashboard' && <div className="app-banner welcome-banner"><div><strong>Welcome to your estate desk.</strong><p>Add your first worker, expense or harvest to get started.</p></div><details><summary>Explore with sample records</summary><p className="mt-2 text-sm">This adds sample records to your account.</p><button className="button-secondary mt-2" disabled={loadingDemo} onClick={() => void loadDemo()}>{loadingDemo ? 'Adding records…' : 'Add sample records'}</button></details></div>}
       {loading ? <RecordLoading /> : (!error || loadedAt) && <PageBoundary key={session.user.id} resetKey={page}><Suspense fallback={<RecordLoading message="Opening screen…" />}><div className="page-transition" key={`${session.user.id}:${page}`}>{current()}</div></Suspense></PageBoundary>}
     </main>
-    <SelectionNav value={moreOpen ? 'Menu' : page} aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${!moreOpen && page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${moreOpen || ['Documents', 'Production', 'Prices', 'Rainfall', 'Backup'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="Menu" aria-haspopup="dialog" aria-expanded={moreOpen}><span className="mobile-nav-icon"><Menu size={21} aria-hidden="true" /></span><span className="mobile-nav-label">Menu</span></button></SelectionNav>
+    <SelectionNav value={moreOpen ? 'Menu' : page} aria-label="Main navigation" className="mobile-nav sm:hidden">{navigation.filter(item => ['Dashboard', 'Labour', 'Expenses'].includes(item.page)).map((item) => <button key={item.page} className={`mobile-nav-item ${!moreOpen && page === item.page ? 'is-active' : ''}`} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-nav-icon"><AppIcon name={item.icon} /></span><span className="mobile-nav-label">{item.short}</span></button>)}<button className={`mobile-nav-item ${moreOpen || ['Documents', 'Production', 'Prices', 'Rainfall', 'Backup', 'Farm Intelligence'].includes(page) ? 'is-active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="Menu" aria-haspopup="dialog" aria-expanded={moreOpen}><span className="mobile-nav-icon"><Menu size={21} aria-hidden="true" /></span><span className="mobile-nav-label">Menu</span></button></SelectionNav>
     <Sheet open={moreOpen} title="Menu" className="mobile-menu-sheet" onClose={() => setMoreOpen(false)}>
-      <nav className="mobile-menu-sections" aria-label="Other sections">{navigation.filter(item => ['Documents', 'Production', 'Rainfall', 'Prices'].includes(item.page)).map(item => <button type="button" key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-menu-section-icon"><AppIcon name={item.icon} /></span><span>{item.page === 'Production' ? 'Harvest & sales' : item.page === 'Prices' ? 'Coffee prices' : item.page}</span></button>)}</nav>
+      <nav className="mobile-menu-sections" aria-label="Other sections">{navigation.filter(item => ['Documents', 'Production', 'Rainfall', 'Prices', 'Farm Intelligence'].includes(item.page)).map(item => <button type="button" key={item.page} onClick={() => navigate(item.page)} aria-current={page === item.page ? 'page' : undefined}><span className="mobile-menu-section-icon"><AppIcon name={item.icon} /></span><span>{item.page === 'Production' ? 'Harvest & sales' : item.page === 'Prices' ? 'Coffee prices' : item.page}</span></button>)}</nav>
       <div className="mobile-menu-tools"><h3>Account &amp; tools</h3><button type="button" onClick={() => navigate('Backup')}><AppIcon name="backup" /><span>Backup &amp; import</span><AppIcon name="arrow" /></button><button type="button" onClick={openReminderSettings}><Bell size={19} aria-hidden="true" /><span>Advance reminder</span><AppIcon name="arrow" /></button><button type="button" disabled={refreshing} onClick={refreshFromMenu}><RefreshCw size={19} aria-hidden="true" /><span>Refresh records</span></button><button type="button" onClick={openPasswordSettings}><LockKeyhole size={19} aria-hidden="true" /><span>Change password</span><AppIcon name="arrow" /></button>{installPrompt && <button type="button" onClick={() => { setMoreOpen(false); void installApp() }}><Download size={19} aria-hidden="true" /><span>Install app</span><AppIcon name="arrow" /></button>}<button type="button" className="mobile-menu-signout" onClick={() => void signOut()}><LogOut size={19} aria-hidden="true" /><span>Sign out</span></button></div>
     </Sheet>
     <ExpenseEditor data={data} refresh={refresh} open={quickExpenseOpen} onClose={() => setQuickExpenseOpen(false)} onSaved={setNotice} onManageCategories={() => navigate('Expenses', { expenseView: 'categories' })} />

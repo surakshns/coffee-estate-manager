@@ -14,13 +14,14 @@ A responsive coffee estate bookkeeping application for labour payments, expenses
 - Email/password sign-in, password changes, and email password recovery via Supabase Auth
 - Supabase Row Level Security policies so each account can only access its own records
 - Encrypted property document vault with a separate password, optional fingerprint/face passkey unlock, encrypted file details and automatic locking
+- Farm Intelligence with a private estate/block/crop profile, estate relevance, official-source updates and separately labelled international coffee indicators, indicative pepper prices and IMD district warnings
 - Destructive-action confirmations and large, clear mobile controls
 - Lazy-loaded screens, background record refresh, progressive lists and reduced-motion support
 - Calculation, workflow, account-isolation and security regression tests
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 20.19+ within Node 20, or Node.js 22.12+
 - A free Supabase account and project
 
 ## 1. Create a Supabase project
@@ -168,3 +169,9 @@ Redeploy both reminder Edge Functions to include bounded request parsing and com
 ## Encrypted property documents — 5 October 2026
 
 Also apply `supabase/migrations/202610050005_encrypted_document_vault.sql` before publishing the frontend. It creates owner-only vault settings, enforces encrypted document writes, keeps storage private, and queues original-file removal durably. Existing documents require conversion after creating a vault password in Documents; the migration preserves them for that step. Read [the activation steps and security limits](docs/document-vault-security.md) before treating existing files as encrypted.
+
+## Farm Intelligence — 7 October 2026
+
+Follow the [step-by-step activation guide](docs/farm-intelligence-activation.md) to install `202610070001_farm_intelligence.sql` once, configure the server secret, deploy `farm-intelligence-sync`, verify the first source fetch and enable Vault/Cron before publishing the frontend. Earlier SQL Editor installations may lack CLI migration history; inspect that history before using `db push`.
+
+The [final report](docs/farm-intelligence-report.md) includes actual retrieved records, tests and source gaps. Official station observations, insurance claim calculations and numerical arecanut prices remain unavailable until the required official evidence/access is verified. Farm alerts are in-app in this release; existing weekly-payment phone reminders have their own setup.

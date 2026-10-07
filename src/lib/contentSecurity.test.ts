@@ -8,6 +8,8 @@ it('restricts scripts, document rendering and network connections in production'
   expect(policy).not.toContain("'unsafe-eval'")
   expect(policy).toContain('https://estate-project.supabase.co wss://estate-project.supabase.co')
   expect(policy).not.toContain('*.supabase.co')
+  expect(policy).not.toContain('https://kgis.ksrsac.in')
+  expect(policy).not.toContain('*.ksrsac.in')
   expect(policy).toContain("object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'")
   expect(() => contentSecurityPolicy('http://estate-project.supabase.co')).toThrow(/HTTPS/)
 })

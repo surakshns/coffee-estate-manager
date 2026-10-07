@@ -1,7 +1,10 @@
-# Both functions authenticate inside the handler. User actions validate the
-# session with Auth.getUser; the scheduled sender accepts only its cron secret.
+# Functions authenticate inside their handlers. User actions validate the
+# session with Auth.getUser; scheduled jobs require their own cron secrets.
 [functions.estate-reminders]
 verify_jwt = false
 
 [functions.send-estate-reminders]
+verify_jwt = false
+
+[functions.farm-intelligence-sync]
 verify_jwt = false
