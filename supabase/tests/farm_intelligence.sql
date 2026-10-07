@@ -48,6 +48,33 @@ do $$ declare p jsonb; rejected boolean;begin
   begin perform public.save_farm_profile(jsonb_set(p,'{estate,location_source,source_url}','"javascript:alert(1)"'));
   exception when check_violation then rejected:=true;end;
   if not rejected or public.get_farm_profile()->'estate'->'location_source' is distinct from p->'estate'->'location_source' then raise exception 'Invalid provenance accepted or profile was not rolled back.';end if;
+  p:=jsonb_set(p,'{estate,location_source,parcel_details}','{"lgd_village_code":614874,"mapped_area_m2":1200,"area_method":"local_projection","bounds":[75.7,12.9,75.8,13.0],"geometry_parts":1,"record_match":"not_checked"}');
+  perform public.save_farm_profile(p);
+  if public.get_farm_profile()->'estate'->'location_source' is distinct from p->'estate'->'location_source' then raise exception 'Reusable parcel reference details lost on save.';end if;
+  if (public.get_farm_profile()->'estate'->>'total_area')::numeric <> 12 then raise exception 'Mapped outline replaced confirmed estate area.';end if;
+  rejected:=false;
+  begin perform public.save_farm_profile(jsonb_set(p,'{estate,location_source,parcel_details,mapped_area_m2}','-1'));
+  exception when check_violation then rejected:=true;end;
+  if not rejected or public.get_farm_profile()->'estate'->'location_source' is distinct from p->'estate'->'location_source' then raise exception 'Invalid mapped area accepted or profile not rolled back.';end if;
+  rejected:=false;
+  begin perform public.save_farm_profile(jsonb_set(p,'{estate,location_source,parcel_details,bounds}','[1,2,3,4]'));
+  exception when check_violation then rejected:=true;end;
+  if not rejected then raise exception 'Invalid geographic bounds accepted.';end if;
+  -- Non-personal RTC references are preserved privately without replacing area.
+  p:=jsonb_set(p,'{estate,location_source,level}','"hissa"');
+  p:=jsonb_set(p,'{estate,location_source,hissa}','"1"');
+  p:=jsonb_set(p,'{estate,location_source,rtc_reference}','{"provider":"Bhoomi","land_code":"123","ulpin":null,"recorded_extent":{"acres":"2","guntas":"3","fractional_guntas":"4"},"source_url":"https://rdservices.karnataka.gov.in/BhoomiMaps/","retrieved_at":"2026-10-07T13:00:00.000Z"}');
+  perform public.save_farm_profile(p);
+  if public.get_farm_profile()->'estate'->'location_source' is distinct from p->'estate'->'location_source'
+    or (public.get_farm_profile()->'estate'->>'total_area')::numeric <> 12 then raise exception 'RTC reference lost or replaced confirmed area.';end if;
+  rejected:=false;
+  begin perform public.save_farm_profile(jsonb_set(p,'{estate,location_source,rtc_reference,owner}','"Synthetic owner"'));
+  exception when check_violation then rejected:=true;end;
+  if not rejected then raise exception 'Owner data accepted in the non-personal RTC reference.';end if;
+  rejected:=false;
+  begin perform public.save_farm_profile(jsonb_set(p,'{estate,location_source,rtc_reference,source_url}','"https://untrusted.invalid/"'));
+  exception when check_violation then rejected:=true;end;
+  if not rejected or public.get_farm_profile()->'estate'->'location_source' is distinct from p->'estate'->'location_source' then raise exception 'Untrusted RTC reference accepted or profile not rolled back.';end if;
   -- Extra owner fields from an untrusted client must be ignored by the RPC.
   p:=jsonb_set(p,'{estate,user_id}',to_jsonb(current_setting('farm.test.b')));
   perform public.save_farm_profile(p);

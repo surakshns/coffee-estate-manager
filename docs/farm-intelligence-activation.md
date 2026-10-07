@@ -1,8 +1,8 @@
 # Activate Farm Intelligence, step by step
 
-These steps are for the existing app and Supabase project. The local implementation passed 434 tests and the production build. The [final report](farm-intelligence-report.md) records source gaps and verification limits.
+These steps are for the existing app and Supabase project. The local implementation passed 509 tests and the production build. The [final report](farm-intelligence-report.md) records source gaps and verification limits.
 
-**Current project status, 8 October 2026:** backend steps 2–7 have now been completed for `mwqqetjgtmqeppckpwbf`: migration installed, owner-only security checked, private server/Vault secret configured, function deployed, first live sync successful and cron active. **Do not rerun the migration or generate a replacement secret for this project.** The survey-location migration `202610070002_farm_survey_location.sql` and survey-cache migration `202610070003_farm_survey_cache.sql` are also installed. Four verified public maps are preloaded; the deployed sync refreshes them in the background. There is no SQL Editor action left for this Farm Intelligence installation. Publishing the frontend in step 8 is still pending. The instructions below remain the procedure for a new project or a verified missing installation.
+**Current project status, 8 October 2026:** backend steps 2–7 have now been completed for `mwqqetjgtmqeppckpwbf`: migration installed, owner-only security checked, private server/Vault secret configured, function deployed, first live sync successful and cron active. **Do not rerun the migration or generate a replacement secret for this project.** The survey-location migration `202610070002_farm_survey_location.sql` and survey-cache migration `202610070003_farm_survey_cache.sql` are also installed. The three parcel/RTC migrations `202610080001_farm_parcel_reference_details.sql`, `202610080002_farm_rtc_lookup_limits.sql` and `202610080003_farm_rtc_reference_details.sql` are also installed, and `farm-rtc-lookup` is deployed with session authentication. Four verified public maps are preloaded; the deployed sync refreshes them in the background. There is no SQL Editor action left for this Farm Intelligence installation. Publishing the frontend in step 8 is still pending. The instructions below remain the procedure for a new project or a verified missing installation.
 
 Run each step in order. Keep the same Terminal window for commands using `FARM_PROJECT_REF`. Only public Supabase configuration belongs in React; the sync secret stays server-side.
 
@@ -108,6 +108,17 @@ npx supabase functions deploy farm-intelligence-sync \
   --no-verify-jwt
 ```
 
+For a new project that includes survey selection, also apply the survey and parcel/RTC migrations in filename order before deploying the signed-in lookup:
+
+```sh
+npx supabase functions deploy farm-rtc-lookup \
+  --project-ref "$FARM_PROJECT_REF" \
+  --use-api \
+  --no-verify-jwt
+```
+
+This endpoint verifies the supplied user token with `Auth.getUser` inside the handler and uses a service-only rate limiter. It does not accept the sync secret and needs no additional external API credential.
+
 Deploy from the repository root. The imported `_shared` files are packaged with the function. JWT verification is disabled because this cron-only handler authenticates its independent `x-farm-sync-secret` header; missing or wrong secrets are rejected. Do not deploy with `--prune`. [Supabase function deployment reference](https://supabase.com/docs/reference/cli/supabase-functions-deploy).
 
 ## 6. Run and inspect the first sync
@@ -162,35 +173,24 @@ After the next scheduled dispatch, inspect `source_fetch_runs` again. An empty f
 
 This repository contains a GitHub Pages workflow that runs on pushes to `main`. Ensure the repository's **Settings → Secrets and variables → Actions → Variables** contains the existing public `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Keep secret/service-role keys out of these variables.
 
-Stage only the Farm Intelligence files and the related rainfall-label correction:
+Stage only the intended application files. For the current phone-map/RTC update:
 
 ```sh
-git add .env.example README.md \
-  src/App.tsx src/components/AppIcon.tsx \
-  src/components/Rainfall.tsx src/lib/rainfall.ts src/lib/rainfallFetch.test.ts \
-  src/components/FarmIntelligence.tsx src/components/FarmIntelligence.test.tsx \
-  src/components/FarmOnboarding.tsx src/components/FarmQuickSetup.tsx src/farm-intelligence.css \
+git add tsconfig.app.json src/farm-intelligence.css \
+  src/components/FarmOnboarding.tsx src/components/FarmQuickSetup.tsx \
   src/components/FarmSurveyPicker.tsx src/components/FarmSurveyPicker.test.tsx \
-  src/hooks/useFarmIntelligence.ts src/hooks/useFarmIntelligence.test.tsx \
-  src/lib/farmIntelligence.ts src/lib/farmIntelligenceClient.ts src/lib/farmIntelligence.test.ts \
-  src/lib/farmPresentation.ts src/lib/farmPresentation.test.ts \
-  src/lib/farmSurveyMap.ts src/lib/farmSurveyMap.test.ts \
-  build/contentSecurity.ts src/lib/contentSecurity.test.ts \
-  docs/data-sources.md docs/insurance-methodology.md docs/farm*.md \
-  supabase/config.toml supabase/functions/farm-intelligence-sync \
+  src/components/FarmParcelDetails.tsx src/components/FarmParcelDetails.test.tsx \
+  src/lib/farmSurveyMap.ts src/lib/farmParcelDetails.ts src/lib/farmParcelDetails.test.ts \
+  src/lib/farmRtcClient.ts src/lib/farmRtcClient.test.ts \
+  src/lib/farmRtc.test.ts src/lib/farmRtcHandler.test.ts \
+  docs/farm-survey-map.md docs/farm-intelligence-report.md docs/farm-intelligence-activation.md \
+  supabase/config.toml supabase/functions/farm-rtc-lookup \
   supabase/functions/_shared/farmIntelligence.ts \
-  supabase/functions/_shared/farmSources.ts supabase/functions/_shared/farmSources.test.ts \
-  supabase/functions/_shared/farmSync.ts \
-  supabase/functions/_shared/farmSurveyMap.ts supabase/functions/_shared/farmSurveyMap.test.ts \
-  supabase/functions/_shared/fixtures/coffee-market.html \
-  supabase/functions/_shared/fixtures/pepper-market.html \
-  supabase/functions/_shared/fixtures/coffee-news.html \
-  supabase/functions/_shared/fixtures/imd-hassan.html \
-  supabase/migrations/202610070001_farm_intelligence.sql \
-  supabase/migrations/202610070002_farm_survey_location.sql \
-  supabase/migrations/202610070003_farm_survey_cache.sql \
-  supabase/tests/farm_intelligence.sql supabase/tests/farm_source_batches.sql supabase/tests/farm_survey_cache.sql \
-  supabase/schedules/farm-intelligence.sql
+  supabase/functions/_shared/farmRtc.ts supabase/functions/_shared/farmRtcHandler.ts \
+  supabase/migrations/202610080001_farm_parcel_reference_details.sql \
+  supabase/migrations/202610080002_farm_rtc_lookup_limits.sql \
+  supabase/migrations/202610080003_farm_rtc_reference_details.sql \
+  supabase/tests/farm_intelligence.sql supabase/tests/farm_rtc_lookup_limits.sql
 git diff --cached --stat
 git diff --cached --check
 ```
@@ -198,7 +198,7 @@ git diff --cached --check
 After reviewing the staged changes, commit and push:
 
 ```sh
-git commit -m "Add verified Farm Intelligence and private estate profiles"
+git commit -m "Add phone survey gestures and private official RTC lookup"
 git push origin main
 ```
 
@@ -209,7 +209,7 @@ If your live app uses Cloudflare Pages instead, use its existing connected-repos
 ## 9. Check the deployed app
 
 1. Sign in and open **Farm Intelligence** from the menu.
-2. Create/edit your estate; add physical blocks and the crops actually present. Leave unknown details blank and save once.
+2. Create/edit your estate. Open the survey picker, select a village and survey, pinch/drag the map on a phone, then tap a numbered Hissa and check its live RTC details. Apply the location, confirm your own share and save. Add physical blocks and the crops actually present. Leave unknown details blank and save once.
 3. Check All/Coffee/Pepper/Arecanut filters, source links/dates, relevance reasons and stale/expired states. Switch accounts to confirm each sees only its own profile.
 4. Check the phone and desktop layout and reduced-motion setting. Local visual inspection was blocked by macOS permissions; automated component tests passed.
 5. Expect official station rainfall, verified insurance calculations and numerical arecanut prices to remain unavailable until the documented official-data gaps are resolved. Farm alerts are in-app; this release does not add farm phone push delivery.

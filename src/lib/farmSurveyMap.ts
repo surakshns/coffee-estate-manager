@@ -1,11 +1,13 @@
 import type { EstateInput } from './farmIntelligence'
+import { parcelDetails } from './farmParcelDetails'
+import type { RtcRecord } from './farmRtcClient'
 
 import { supabase } from './supabase'
 import { SURVEY_VILLAGES, surveyQuery, hissaQuery, parseSurveyParcels, type SurveyVillage, type SurveyParcel, type Position, type Polygon, type FarmSurveyMapLayer } from '../../supabase/functions/_shared/farmSurveyMap'
 export { SURVEY_VILLAGES, SURVEY_LAYER, HISSA_LAYER, surveyQuery, parseSurveyParcels } from '../../supabase/functions/_shared/farmSurveyMap'
 export type { SurveyVillage, SurveyParcel, Position, Polygon } from '../../supabase/functions/_shared/farmSurveyMap'
 
-export interface SurveySelection { village: SurveyVillage; parcel: SurveyParcel; latitude: number; longitude: number; sourceUrl: string; retrievedAt: string; level: 'whole_survey' | 'hissa' }
+export interface SurveySelection { village: SurveyVillage; parcel: SurveyParcel; latitude: number; longitude: number; sourceUrl: string; retrievedAt: string; level: 'whole_survey' | 'hissa'; rtcRecord?: RtcRecord | null }
 export interface SurveyLocationSource { provider: 'KGIS'; village_code: string; survey_number: string; hissa: string | null; level: 'whole_survey' | 'hissa'; coordinate_method: 'point_inside_polygon'; source_url: string; retrieved_at: string }
 
 type CacheReader = (village: SurveyVillage, layer: FarmSurveyMapLayer, signal: AbortSignal) => Promise<{ data: unknown; error: unknown }>
@@ -75,5 +77,8 @@ export function parcelPoint(parcel: SurveyParcel): Position {
 
 export function selectionPatch(selection: SurveySelection): Partial<EstateInput> {
   const { village, parcel } = selection
-  return { state: 'Karnataka', district: 'Hassan', taluk: 'Sakleshpur', hobli: 'Kasaba', village: village.name, latitude: selection.latitude, longitude: selection.longitude, survey_numbers: [parcel.hissa ? `${parcel.survey}/${parcel.hissa}` : parcel.survey], elevation_m: null, location_source: { provider: 'KGIS', village_code: village.bhoomi, survey_number: parcel.survey, hissa: parcel.hissa, surnoc: parcel.surnoc, level: selection.level, coordinate_method: 'point_inside_polygon', source_url: selection.sourceUrl, retrieved_at: selection.retrievedAt } }
+  const record = selection.rtcRecord
+  const matches = selection.level === 'hissa' && record?.identity.villageCode === village.bhoomi && record.identity.surveyNumber === parcel.survey && record.identity.surnoc === parcel.surnoc && record.identity.hissaNumber === parcel.hissa
+  const rtc_reference = matches ? { provider: 'Bhoomi' as const, land_code: record.landCode, ulpin: record.ulpin, recorded_extent: { acres: record.extent.acres, guntas: record.extent.guntas, fractional_guntas: record.extent.fractionalGuntas }, source_url: record.sourceUrl, retrieved_at: record.retrievedAt } : undefined
+  return { state: 'Karnataka', district: 'Hassan', taluk: 'Sakleshpur', hobli: 'Kasaba', village: village.name, latitude: selection.latitude, longitude: selection.longitude, survey_numbers: [parcel.hissa ? `${parcel.survey}/${parcel.hissa}` : parcel.survey], elevation_m: null, location_source: { provider: 'KGIS', village_code: village.bhoomi, survey_number: parcel.survey, hissa: parcel.hissa, surnoc: parcel.surnoc, level: selection.level, coordinate_method: 'point_inside_polygon', source_url: selection.sourceUrl, retrieved_at: selection.retrievedAt, parcel_details: { ...parcelDetails(parcel), lgd_village_code: village.lgd, record_match: selection.level === 'hissa' ? 'matching_hissa' : 'not_checked' }, ...(rtc_reference ? { rtc_reference } : {}) } }
 }

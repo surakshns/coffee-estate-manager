@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.farm-intelligence-sync]
 verify_jwt = false
+
+[functions.farm-rtc-lookup]
+verify_jwt = false

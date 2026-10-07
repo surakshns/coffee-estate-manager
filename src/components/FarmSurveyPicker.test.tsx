@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FarmSurveyPicker } from './FarmSurveyPicker'
@@ -8,13 +8,19 @@ const api=vi.hoisted(()=>({load:vi.fn()}))
 vi.mock('../lib/farmSurveyMap',async importOriginal=>({...await importOriginal<typeof import('../lib/farmSurveyMap')>(),loadSurveyParcels:api.load}))
 const parcel:SurveyParcel={key:'12::',survey:'12',surnoc:null,hissa:null,polygons:[[[[75,13],[75.01,13],[75.01,13.01],[75,13.01],[75,13]]]]}
 const result=(parcels=[parcel])=>({parcels,sourceUrl:'https://kgis.ksrsac.in/kgismaps2/rest/services/test/query',retrievedAt:'2026-10-07T00:00:00Z'})
+class TestPointerEvent extends MouseEvent {
+ readonly pointerId: number
+ readonly pointerType: string
+ constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerId = init.pointerId ?? 1; this.pointerType = init.pointerType ?? 'touch' }
+}
 beforeEach(()=>{
  vi.clearAllMocks()
+ vi.stubGlobal('PointerEvent',TestPointerEvent)
  Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(){this.setAttribute('open','')}})
  Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value:function(){this.removeAttribute('open')}})
  api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[]:[parcel]))
 })
-afterEach(()=>cleanup())
+afterEach(()=>{cleanup();vi.unstubAllGlobals()})
 describe('survey selection workflow',()=>{
  it('loads only on explicit village choice and applies a confirmed interior map point',async()=>{
   const user=userEvent.setup(),select=vi.fn();render(<FarmSurveyPicker onSelect={select}/>)
@@ -40,6 +46,44 @@ describe('survey selection workflow',()=>{
   await user.click(screen.getByRole('button',{name:'Use this subdivision location'}))
   expect(select.mock.calls[0][0]).toMatchObject({level:'hissa',parcel:{hissa:'1',surnoc:'*'}})
  })
+ it('selects mapped Hissa outlines by tapping without changing the zoom',async()=>{
+  api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[{...parcel,key:'12:*:1',hissa:'1',surnoc:'*'},{...parcel,key:'12:*:2',hissa:'2',surnoc:'*'}]:[parcel]))
+  const user=userEvent.setup(),select=vi.fn();render(<FarmSurveyPicker onSelect={select}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  await screen.findByRole('option',{name:'12'});await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  await screen.findByRole('option',{name:'12 / 2'})
+  const svg=screen.getByRole('img',{name:'Hebbasale survey parcels'}),group=svg.querySelector('g')!,start=group.getAttribute('transform')
+  expect(svg.querySelectorAll('[data-hissa-key]').length).toBe(2)
+  expect(screen.getByText('H1')).toBeTruthy();expect(screen.getByText('H2')).toBeTruthy()
+  await user.click(svg.querySelector('[data-hissa-key="12:*:2"]')!)
+  expect((screen.getByLabelText('Subdivision / Hissa') as HTMLSelectElement).value).toBe('12:*:2')
+  expect(group.getAttribute('transform')).toBe(start)
+  expect(svg.querySelector('[data-hissa-key="12:*:2"]')!.classList.contains('is-selected-hissa')).toBe(true)
+  await user.click(screen.getByRole('button',{name:'Use this subdivision location'}))
+  expect(select.mock.calls[0][0]).toMatchObject({level:'hissa',parcel:{hissa:'2',survey:'12'}})
+ })
+ it('does not select a Hissa after pinch, drag or cancelled touch',async()=>{
+  api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[{...parcel,key:'12:*:1',hissa:'1',surnoc:'*'},{...parcel,key:'12:*:2',hissa:'2',surnoc:'*'}]:[parcel]))
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  await screen.findByRole('option',{name:'12'});await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  await screen.findByRole('option',{name:'12 / 2'});await user.selectOptions(screen.getByLabelText('Subdivision / Hissa'),'12:*:1')
+  const svg=screen.getByRole('img',{name:'Hebbasale survey parcels'}),other=svg.querySelector('[data-hissa-key="12:*:2"]')!
+  fireEvent.pointerDown(other,{pointerId:1,clientX:150,clientY:250})
+  fireEvent.pointerDown(svg,{pointerId:2,clientX:350,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:2,clientX:450,clientY:250})
+  fireEvent.pointerUp(svg,{pointerId:2,clientX:450,clientY:250});fireEvent.pointerUp(svg,{pointerId:1,clientX:150,clientY:250});fireEvent.click(other)
+  expect((screen.getByLabelText('Subdivision / Hissa') as HTMLSelectElement).value).toBe('12:*:1')
+  fireEvent.pointerDown(other,{pointerId:3,clientX:250,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:3,clientX:300,clientY:250})
+  fireEvent.pointerUp(svg,{pointerId:3,clientX:300,clientY:250});fireEvent.click(other)
+  expect((screen.getByLabelText('Subdivision / Hissa') as HTMLSelectElement).value).toBe('12:*:1')
+  fireEvent.pointerDown(other,{pointerId:4,clientX:250,clientY:250});fireEvent.pointerCancel(svg,{pointerId:4,clientX:250,clientY:250});fireEvent.click(other)
+  expect((screen.getByLabelText('Subdivision / Hissa') as HTMLSelectElement).value).toBe('12:*:1')
+  await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  expect((screen.getByLabelText('Subdivision / Hissa') as HTMLSelectElement).value).toBe('')
+  expect(svg.querySelectorAll('[data-hissa-key]').length).toBe(2)
+ })
  it('ignores a previous village response after switching villages',async()=>{
   let finish:(value:ReturnType<typeof result>)=>void=()=>{}
   api.load.mockImplementation(village=>village.id==='hebbasale'?new Promise(resolve=>{finish=resolve}):Promise.resolve(result([{...parcel,key:'99::',survey:'99'}])))
@@ -49,5 +93,114 @@ describe('survey selection workflow',()=>{
   await act(async()=>finish(result()))
   expect(screen.queryByRole('option',{name:'12'})).toBeNull()
   expect(screen.getByRole('option',{name:'99'})).toBeTruthy()
+ })
+ it('clears selected Hissa details immediately when choosing another survey',async()=>{
+  const second={...parcel,key:'99::',survey:'99'}
+  api.load.mockImplementation(async(_v,_s,survey)=>survey==='12'?result([{...parcel,key:'12:*:1',hissa:'1',surnoc:'*'}]):survey==='99'?new Promise(()=>{}):result([parcel,second]))
+  const user=userEvent.setup(),select=vi.fn();render(<FarmSurveyPicker onSelect={select}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  await screen.findByRole('option',{name:'12'});await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  await screen.findByRole('option',{name:'12 / 1'});await user.selectOptions(screen.getByLabelText('Subdivision / Hissa'),'12:*:1')
+  expect(screen.getByRole('button',{name:'Use this subdivision location'})).toBeTruthy()
+  await user.selectOptions(screen.getByLabelText('Survey number'),'99::')
+  expect(screen.queryByRole('option',{name:'12 / 1'})).toBeNull()
+  expect(screen.queryByRole('button',{name:'Use this subdivision location'})).toBeNull()
+  expect((screen.getByLabelText('Subdivision / Hissa') as HTMLSelectElement).value).toBe('')
+  await user.click(screen.getByRole('button',{name:'Use this survey location'}))
+  expect(select.mock.calls[0][0]).toMatchObject({level:'whole_survey',parcel:{survey:'99',hissa:null}})
+ })
+ it('cancels previous subdivision work and removes details when changing village',async()=>{
+  let finish:(value:ReturnType<typeof result>)=>void=()=>{},previousSignal:AbortSignal|undefined
+  api.load.mockImplementation((village,signal,survey)=>survey?new Promise(resolve=>{finish=resolve;previousSignal=signal}):Promise.resolve(result(village.id==='hebbasale'?[parcel]:[{...parcel,key:'99::',survey:'99'}])))
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  await screen.findByRole('option',{name:'12'});await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  expect(screen.getByRole('region',{name:'Selected parcel details'})).toBeTruthy()
+  await user.selectOptions(screen.getByLabelText('Map village'),'devihalli')
+  expect(previousSignal?.aborted).toBe(true)
+  expect(screen.queryByRole('region',{name:'Selected parcel details'})).toBeNull()
+  expect(screen.queryByRole('button',{name:'Use this survey location'})).toBeNull()
+  await act(async()=>finish(result([{...parcel,key:'12:*:1',hissa:'1',surnoc:'*'}])))
+  await screen.findByRole('option',{name:'99'})
+  expect(screen.queryByRole('option',{name:'12 / 1'})).toBeNull()
+  expect(screen.queryByRole('region',{name:'Selected parcel details'})).toBeNull()
+ })
+ it('reopens with no selected parcel or stale details',async()=>{
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  await screen.findByRole('option',{name:'12'});await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  await user.click(screen.getByRole('button',{name:'Close panel'}))
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}))
+  await screen.findByRole('option',{name:'12'})
+  expect((screen.getByLabelText('Survey number') as HTMLSelectElement).value).toBe('')
+  expect(screen.queryByRole('region',{name:'Selected parcel details'})).toBeNull()
+  expect(screen.queryByRole('button',{name:'Use this survey location'})).toBeNull()
+ })
+ it('zooms at the pinch midpoint and suppresses selection after a two-finger gesture',async()=>{
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  const svg=await screen.findByRole('img',{name:'Hebbasale survey parcels'}),path=svg.querySelector('[data-survey-key="12::"]')!,group=svg.querySelector('g')!
+  fireEvent.pointerDown(path,{pointerId:1,clientX:150,clientY:250})
+  fireEvent.pointerDown(svg,{pointerId:2,clientX:350,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:2,clientX:450,clientY:250})
+  expect(group.getAttribute('transform')).toBe('translate(-75 -125) scale(1.5)')
+  fireEvent.pointerUp(svg,{pointerId:2,clientX:450,clientY:250})
+  fireEvent.pointerUp(svg,{pointerId:1,clientX:150,clientY:250})
+  fireEvent.click(path)
+  expect((screen.getByLabelText('Survey number') as HTMLSelectElement).value).toBe('')
+  // Starting a fresh tap restores selection after the pinch finishes.
+  fireEvent.pointerDown(path,{pointerId:3,clientX:200,clientY:250})
+  fireEvent.pointerUp(svg,{pointerId:3,clientX:201,clientY:250})
+  expect((screen.getByLabelText('Survey number') as HTMLSelectElement).value).toBe('12::')
+ })
+ it('pans with one finger without switching parcels and keeps the viewport within bounds',async()=>{
+  const second={...parcel,key:'99::',survey:'99',polygons:parcel.polygons.map(polygon=>polygon.map(ring=>ring.map(([x,y])=>[x+.01,y] as [number,number])))}
+  api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[]:[parcel,second]))
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  const svg=await screen.findByRole('img',{name:'Hebbasale survey parcels'})
+  await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  const group=svg.querySelector('g')!,other=svg.querySelector('[data-survey-key="99::"]')!
+  const start=group.getAttribute('transform')!
+  fireEvent.pointerDown(other,{pointerId:1,clientX:250,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:1,clientX:280,clientY:280})
+  expect(group.getAttribute('transform')).not.toBe(start)
+  fireEvent.pointerMove(svg,{pointerId:1,clientX:10000,clientY:10000})
+  expect(group.getAttribute('transform')).toBe('translate(0 0) scale(2)')
+  fireEvent.pointerUp(svg,{pointerId:1,clientX:10000,clientY:10000})
+  fireEvent.click(other)
+  expect((screen.getByLabelText('Survey number') as HTMLSelectElement).value).toBe('12::')
+  await user.click(screen.getByRole('button',{name:'Reset map view'}))
+  expect(group.getAttribute('transform')).toBe('translate(0 0) scale(1)')
+  expect(screen.getByRole('button',{name:'Zoom out'}).hasAttribute('disabled')).toBe(true)
+ })
+ it('accepts a small tap movement but cancels interrupted touches',async()=>{
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  const svg=await screen.findByRole('img',{name:'Hebbasale survey parcels'}),path=svg.querySelector('[data-survey-key="12::"]')!
+  fireEvent.pointerDown(path,{pointerId:1,clientX:200,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:1,clientX:202,clientY:251})
+  fireEvent.pointerCancel(svg,{pointerId:1,clientX:202,clientY:251})
+  fireEvent.click(path)
+  expect((screen.getByLabelText('Survey number') as HTMLSelectElement).value).toBe('')
+  fireEvent.pointerDown(path,{pointerId:2,clientX:200,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:2,clientX:202,clientY:251})
+  fireEvent.pointerUp(svg,{pointerId:2,clientX:202,clientY:251})
+  expect((screen.getByLabelText('Survey number') as HTMLSelectElement).value).toBe('12::')
+ })
+ it('limits pinch zoom and retains the button controls after gesturing',async()=>{
+  const user=userEvent.setup();render(<FarmSurveyPicker onSelect={vi.fn()}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  const svg=await screen.findByRole('img',{name:'Hebbasale survey parcels'}),group=svg.querySelector('g')!
+  fireEvent.pointerDown(svg,{pointerId:1,clientX:249,clientY:250})
+  fireEvent.pointerDown(svg,{pointerId:2,clientX:251,clientY:250})
+  fireEvent.pointerMove(svg,{pointerId:2,clientX:1000,clientY:250})
+  expect(group.getAttribute('transform')).toContain('scale(8)')
+  expect(screen.getByRole('button',{name:'Zoom in'}).hasAttribute('disabled')).toBe(true)
+  fireEvent.pointerUp(svg,{pointerId:1,clientX:249,clientY:250});fireEvent.pointerUp(svg,{pointerId:2,clientX:1000,clientY:250})
+  await user.click(screen.getByRole('button',{name:'Zoom out'}))
+  expect(group.getAttribute('transform')).toContain('scale(7)')
+  await user.click(screen.getByRole('button',{name:'Reset map view'}))
+  expect(group.getAttribute('transform')).toBe('translate(0 0) scale(1)')
  })
 })

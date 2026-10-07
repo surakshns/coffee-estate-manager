@@ -17,6 +17,22 @@ export interface FarmLocationSource {
   coordinate_method: 'point_inside_polygon'
   source_url: string
   retrieved_at: string
+  rtc_reference?: {
+    provider: 'Bhoomi'
+    land_code: string
+    ulpin: string | null
+    recorded_extent: { acres: string | null; guntas: string | null; fractional_guntas: string | null }
+    source_url: string
+    retrieved_at: string
+  }
+  parcel_details?: {
+    lgd_village_code: number
+    mapped_area_m2: number
+    area_method: 'local_projection'
+    bounds: [number, number, number, number]
+    geometry_parts: number
+    record_match: 'matching_hissa' | 'not_checked'
+  }
 }
 
 export interface EstateInput {
