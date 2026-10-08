@@ -1,6 +1,6 @@
 # Activate Farm Intelligence, step by step
 
-These steps are for the existing app and Supabase project. The local implementation passed 509 tests and the production build. The [final report](farm-intelligence-report.md) records source gaps and verification limits.
+These steps are for the existing app and Supabase project. The local implementation passed 511 tests and the production build. The [final report](farm-intelligence-report.md) records source gaps and verification limits.
 
 **Current project status, 8 October 2026:** backend steps 2–7 have now been completed for `mwqqetjgtmqeppckpwbf`: migration installed, owner-only security checked, private server/Vault secret configured, function deployed, first live sync successful and cron active. **Do not rerun the migration or generate a replacement secret for this project.** The survey-location migration `202610070002_farm_survey_location.sql` and survey-cache migration `202610070003_farm_survey_cache.sql` are also installed. The three parcel/RTC migrations `202610080001_farm_parcel_reference_details.sql`, `202610080002_farm_rtc_lookup_limits.sql` and `202610080003_farm_rtc_reference_details.sql` are also installed, and `farm-rtc-lookup` is deployed with session authentication. Four verified public maps are preloaded; the deployed sync refreshes them in the background. There is no SQL Editor action left for this Farm Intelligence installation. Publishing the frontend in step 8 is still pending. The instructions below remain the procedure for a new project or a verified missing installation.
 
@@ -16,7 +16,7 @@ npm test
 npm run build
 ```
 
-The installed Vite version requires Node 20.19+ within Node 20, or Node 22.12+. Keep the existing `.env` if already configured; do not overwrite it. It needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (or legacy `VITE_SUPABASE_ANON_KEY`), never a service-role/secret key.
+Use Node 22.12+ to meet both the installed Vite and Supabase requirements. The deployment workflow uses Node 22. Keep the existing `.env` if already configured; do not overwrite it. It needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (or legacy `VITE_SUPABASE_ANON_KEY`), never a service-role/secret key.
 
 If `npm ci` fails with npm-cache `EACCES`/permission errors and leaves missing imports or `tsc: command not found`, use an isolated writable cache:
 
@@ -176,7 +176,7 @@ This repository contains a GitHub Pages workflow that runs on pushes to `main`. 
 Stage only the intended application files. For the current phone-map/RTC update:
 
 ```sh
-git add tsconfig.app.json src/farm-intelligence.css \
+git add .github/workflows/deploy-pages.yml README.md tsconfig.app.json src/farm-intelligence.css \
   src/components/FarmOnboarding.tsx src/components/FarmQuickSetup.tsx \
   src/components/FarmSurveyPicker.tsx src/components/FarmSurveyPicker.test.tsx \
   src/components/FarmParcelDetails.tsx src/components/FarmParcelDetails.test.tsx \

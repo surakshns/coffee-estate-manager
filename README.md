@@ -21,7 +21,7 @@ A responsive coffee estate bookkeeping application for labour payments, expenses
 
 ## Requirements
 
-- Node.js 20.19+ within Node 20, or Node.js 22.12+
+- Node.js 22.12+ (required by the installed Vite and Supabase packages)
 - A free Supabase account and project
 
 ## 1. Create a Supabase project

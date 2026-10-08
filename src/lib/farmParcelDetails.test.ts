@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+vi.mock('./supabase', () => ({ supabase: { from: vi.fn() } }))
 import { parcelDetails, parcelLookupText } from './farmParcelDetails'
 import { selectionPatch, SURVEY_VILLAGES, type Position, type SurveyParcel } from './farmSurveyMap'
 const ring: Position[] = [[75,13],[75.01,13],[75.01,13.01],[75,13.01],[75,13]]

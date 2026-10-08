@@ -24,7 +24,7 @@ The nine existing public Coffee Board notices were reprocessed from verified pub
 
 ## Official survey-map setup
 
-A survey-map picker now works in quick setup and the full editor using two tested official KGIS layers. Hebbasale and Devihalli were resolved against government village identifiers in Kasaba hobli, Sakleshpura, Hassan. Whole-survey and matching numbered Hissa selection fill administrative location, survey identity and approximate coordinates inside the mapped polygon. Unverified elevation, acreage, crops and ownership remain unknown. Hissa entries marked Invalid, Not Matching, Kharab or without status are excluded; repeated identities keep all polygon parts.
+A survey-map picker now works in quick setup and the full editor using two tested official KGIS layers. Hebbasale and Devihalli were resolved against government village identifiers in Kasaba hobli, Sakleshpura, Hassan. Whole-survey and matching numbered Hissa selection fill administrative location, survey identity and approximate coordinates inside the mapped polygon. Geometry does not infer elevation, cultivation, crop details or ownership. A separate signed-in Bhoomi lookup now supplies recorded holders and extent for a selected Hissa. Hissa entries marked Invalid, Not Matching, Kharab or without status are excluded; repeated identities keep all polygon parts.
 
 The follow-up survey migration was tested and installed in the current project. It adds owner-protected source provenance and preserves the atomic account-bound profile RPC. Security checks confirmed RLS, source-column/RPC installation and denied anonymous access. Actual geometry validation covered 427 whole surveys/598 matching Hissa identities in Hebbasale and 91/74 in Devihalli, with every calculated point inside its selected polygon. See [the survey-map guide](farm-survey-map.md) for provider URLs, privacy boundaries, instructions and the remaining elevation gap.
 
@@ -106,15 +106,15 @@ No payout formula has been implemented without those official examples. Even if 
 | Check | Result |
 | --- | --- |
 | Baseline | 347 tests across 38 files passed; TypeScript/production build passed |
-| Final automated suite | **509 tests across 51 files passed** |
+| Final automated suite | **511 tests across 51 files passed** |
 | Final TypeScript and Vite production build | Passed |
 | Database migration/regressions | All 23 repository migrations applied in disposable PGlite/PostgreSQL; nine SQL regression scripts passed across five clock scenarios |
 | Actual source replay | 20 updates / 10 prices / 1 forecast; duplicate-free second batch; conservative sample-estate matching |
-| Edge Function static types | Passed with a minimal Deno declaration shim; actual Deno/hosted function execution not tested locally |
+| Edge Function static types | Local Deno unavailable; shared handlers passed TypeScript and hosted sync/RTC execution was verified after deployment |
 | Hosted backend activation | Migration/security verified; deployed function rejected missing secrets; pg_net/Vault sync returned HTTP 200 for all four sources; cron configured active |
 | Browser visual inspection | Blocked by macOS Accessibility/Screen Recording permissions; component behavior covered by automated UI tests |
 
-Farm Intelligence adds a lazy chunk of about 90.29 KB (27.16 KB gzip), responsive styles, modal focus containment, bounded card rendering and reduced-motion support. The pre-existing initial-bundle warning remains: about 527.73 KB minified versus the 500 KB warning threshold. This does not block the build. Initial validation used an Edge type shim because Deno was unavailable locally. Backend activation subsequently used Supabase CLI 2.120.0 server-side bundling and verified hosted execution through pg_net/Vault. A natural future cron execution and browser visual inspection remain unobserved.
+Farm Intelligence adds a lazy chunk of about 90.35 KB (27.17 KB gzip), responsive styles, modal focus containment, bounded card rendering and reduced-motion support. The pre-existing initial-bundle warning remains: about 527.73 KB minified versus the 500 KB warning threshold. This does not block the build. Initial validation used an Edge type shim because Deno was unavailable locally. Backend activation subsequently used Supabase CLI 2.120.0 server-side bundling and verified hosted execution through pg_net/Vault. A natural future cron execution and browser visual inspection remain unobserved.
 
 ## Recommended next steps
 
@@ -132,7 +132,7 @@ Opening the picker now reads validated public outlines from an authenticated Sup
 
 The cache migration `202610070003_farm_survey_cache.sql` is installed. RLS blocks anonymous reads and all client writes. The deployed `farm-intelligence-sync` checks successful snapshots after 24 hours, refreshes four fixed bounded queries concurrently, and retains valid previous maps when the publisher fails. Map source and retrieval date remain visible and are saved in the estate's private provenance. The browser no longer needs a KGIS connection in CSP. Frontend publishing and Safari visual verification remain pending.
 
-Live verification completed on 8 October 2026: `farm-intelligence-sync` version 4 is ACTIVE. An authenticated pg_net/Vault invocation returned HTTP 200 with all four fresh cached maps skipped and zero failures. The authenticated database role reads four maps; the same role without a user identity reads zero. Unauthenticated function and anonymous REST requests returned HTTP 401. All 509 tests across 51 files and the TypeScript/Vite production build passed. The existing localhost development server is listening on port 5173.
+Live verification completed on 8 October 2026: `farm-intelligence-sync` version 4 is ACTIVE. An authenticated pg_net/Vault invocation returned HTTP 200 with all four fresh cached maps skipped and zero failures. The authenticated database role reads four maps; the same role without a user identity reads zero. Unauthenticated function and anonymous REST requests returned HTTP 401. All 511 tests across 51 files and the TypeScript/Vite production build passed. The existing localhost development server is listening on port 5173.
 
 ## Phone survey selection and RTC details
 
@@ -141,3 +141,9 @@ The picker now supports bounded pinch zoom and one-finger pan. Whole surveys and
 A selected Hissa loads its recorded holders and recorded extent through the new authenticated `farm-rtc-lookup` endpoint, using the official three-step Bhoomi workflow. Both the parcel and every holder row must match the requested identifiers and land code. Category/restriction/court-stay codes and acres/guntas/fractional-guntas components remain as published. Khata and crop entries require the full RTC. The bounded helper was verified against one real Hissa without logging or saving actual holder values.
 
 Map measurements and a successful non-personal RTC reference are kept in the owner's existing private source provenance for reuse. They never replace confirmed owned/cultivated/block areas. Holder names and related names stay live in memory, outside public geometry, persistent client storage and the database. The new database constraints reject owner fields in an RTC reference and invalid measurements; the service-only counter restricts lookups to ten per account per minute. Existing encrypted property-document protections are unchanged.
+
+The deployed `farm-rtc-lookup` version 2 is ACTIVE. Live verification returned HTTP 200 with a matching Hissa and `no-store`; anonymous lookup returned 401, foreign/spoofed requests 400, oversized requests 413, client counter read/claim 403 and the eleventh minute-window lookup 429 with a 60-second retry hint. A temporary verification identity was created, used and removed; no real user account or property document was accessed. All three parcel/RTC migrations are installed with validated constraints and denied anonymous/client counter access.
+
+## WebSocket test initialization correction
+
+The two new Node unit suites were importing the eager real Supabase client. With native WebSocket absent, both failed before collecting tests. They now mock the configured client, matching the existing survey-map suite; a default RTC invocation regression explicitly removes native WebSocket. Both suites passed with WebSocket unavailable, and the full suite passed 511 tests across 51 files with the production build. The Pages workflow now selects Node 22 instead of Node 20 to meet the installed Supabase package requirement. No runtime transport, backend or SQL change was needed.

@@ -4,8 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FarmSurveyPicker } from './FarmSurveyPicker'
 import type { SurveyParcel } from '../lib/farmSurveyMap'
-const api=vi.hoisted(()=>({load:vi.fn()}))
+const api=vi.hoisted(()=>({load:vi.fn(),rtc:vi.fn()}))
 vi.mock('../lib/farmSurveyMap',async importOriginal=>({...await importOriginal<typeof import('../lib/farmSurveyMap')>(),loadSurveyParcels:api.load}))
+vi.mock('../lib/farmRtcClient',async importOriginal=>({...await importOriginal<typeof import('../lib/farmRtcClient')>(),loadRtcRecord:api.rtc}))
 const parcel:SurveyParcel={key:'12::',survey:'12',surnoc:null,hissa:null,polygons:[[[[75,13],[75.01,13],[75.01,13.01],[75,13.01],[75,13]]]]}
 const result=(parcels=[parcel])=>({parcels,sourceUrl:'https://kgis.ksrsac.in/kgismaps2/rest/services/test/query',retrievedAt:'2026-10-07T00:00:00Z'})
 class TestPointerEvent extends MouseEvent {
@@ -19,6 +20,7 @@ beforeEach(()=>{
  Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(){this.setAttribute('open','')}})
  Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value:function(){this.removeAttribute('open')}})
  api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[]:[parcel]))
+ api.rtc.mockRejectedValue(new Error('Synthetic unavailable RTC'))
 })
 afterEach(()=>{cleanup();vi.unstubAllGlobals()})
 describe('survey selection workflow',()=>{
@@ -61,6 +63,18 @@ describe('survey selection workflow',()=>{
   expect(svg.querySelector('[data-hissa-key="12:*:2"]')!.classList.contains('is-selected-hissa')).toBe(true)
   await user.click(screen.getByRole('button',{name:'Use this subdivision location'}))
   expect(select.mock.calls[0][0]).toMatchObject({level:'hissa',parcel:{hissa:'2',survey:'12'}})
+ })
+ it('includes a successfully loaded matching RTC record when the location is applied',async()=>{
+  api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[{...parcel,key:'12:*:1',hissa:'1',surnoc:'*'}]:[parcel]))
+  const record={identity:{villageCode:'2301110012',surveyNumber:'12',surnoc:'*',hissaNumber:'1'},landCode:'123',ulpin:null,villageName:'Hebbasale',extent:{acres:'2',guntas:'3',fractionalGuntas:'4'},owners:[],sourceUrl:'https://rdservices.karnataka.gov.in/BhoomiMaps/',retrievedAt:'2026-10-07T13:00:00Z'}
+  api.rtc.mockResolvedValue(record)
+  const user=userEvent.setup(),select=vi.fn();render(<FarmSurveyPicker onSelect={select}/>)
+  await user.click(screen.getByRole('button',{name:'Select survey number on map'}));await user.selectOptions(screen.getByLabelText('Map village'),'hebbasale')
+  await screen.findByRole('option',{name:'12'});await user.selectOptions(screen.getByLabelText('Survey number'),'12::')
+  await screen.findByRole('option',{name:'12 / 1'});await user.selectOptions(screen.getByLabelText('Subdivision / Hissa'),'12:*:1')
+  await screen.findByText('Recorded extent for this Hissa')
+  await user.click(screen.getByRole('button',{name:'Use this subdivision location'}))
+  expect(select.mock.calls[0][0]).toMatchObject({level:'hissa',parcel:{hissa:'1'},rtcRecord:record})
  })
  it('does not select a Hissa after pinch, drag or cancelled touch',async()=>{
   api.load.mockImplementation(async(_v,_s,survey)=>result(survey?[{...parcel,key:'12:*:1',hissa:'1',surnoc:'*'},{...parcel,key:'12:*:2',hissa:'2',surnoc:'*'}]:[parcel]))
