@@ -44,6 +44,18 @@ describe('public survey map cache refresh', () => {
     expect(row.source_url).toBe(hissaQuery(village))
   })
 
+  it('keeps matching official alphanumeric and fractional subdivisions without adding unverified geometry', () => {
+    const mapped = ['1A', '1/2', '2.1', '0', '*', '3A'].map(HissaNo => feature(village, { HissaNo, HissaCategory: HissaNo === '3A' ? 'Invalid-Mismatch with Bhoomi Records' : 'Valid-Matching to Bhoomi Records' }))
+    expect(parseSurveyParcels(collection(mapped), village, true).map(parcel => parcel.hissa)).toEqual(['*', '1/2', '1A', '2.1'])
+  })
+  it('canonicalises numeric Hissa identities so map and official RTC record identifiers agree', () => {
+    const body = collection(['001', '1'].map(HissaNo => feature(village, { HissaNo, HissaCategory: 'Valid-Matching to Bhoomi Records' })))
+    const parcels = parseSurveyParcels(body, village, true)
+    expect(parcels).toHaveLength(1)
+    expect(parcels[0]).toMatchObject({ hissa: '1', key: '12:*:1' })
+    expect(parcels[0].polygons).toHaveLength(2)
+  })
+
   it('skips fresh snapshots without fetching and refreshes expired or future-dated snapshots', async () => {
     const get = vi.fn().mockResolvedValue({ retrieved_at: '2026-10-07T01:00:00.000Z' })
     const store: SurveyMapCacheStore = { get, save: vi.fn().mockResolvedValue(undefined) }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 const api=vi.hoisted(()=>({from:vi.fn()}))
 vi.mock('./supabase',()=>({supabase:api}))
-import { clearSurveyMapCache, loadSurveyParcels, parcelPoint, parseSurveyParcels, pointInRing, selectionPatch, surveyQuery, SURVEY_VILLAGES, type Position, type SurveyParcel } from './farmSurveyMap'
+import { clearSurveyMapCache, loadSurveyParcels, loadVillageHissaParcels, parcelPoint, parseSurveyParcels, pointInRing, selectionPatch, surveyQuery, SURVEY_VILLAGES, type Position, type SurveyParcel } from './farmSurveyMap'
 import { hissaQuery } from '../../supabase/functions/_shared/farmSurveyMap'
 const village = SURVEY_VILLAGES[0]
 const ring: Position[] = [[75,13],[75.01,13],[75.01,13.01],[75,13.01],[75,13]]
@@ -20,10 +20,11 @@ describe('official survey map integrity',()=>{
     expect(()=>parseSurveyParcels(collection([feature({},[[400000,1400000],[1,2],[1,3],[400000,1400000]])]),village)).toThrow('coordinates')
     expect(()=>parseSurveyParcels(collection([feature({},ring.slice(0,4))]),village)).toThrow('not closed')
   })
-  it('offers only positively numbered subdivisions explicitly matching Bhoomi',()=>{
+  it('retains verified whole-record and lettered Hissas while rejecting unmatched geometry',()=>{
     const rows=parseSurveyParcels(collection(['Valid-Matching to Bhoomi Records\n','Valid-Kharab Lands','Invalid-Not Matching to Bhoomi',null].map((status,i)=>feature({HissaNo:String(i+1),HissaCategory:status}))),village,true)
     expect(rows.map(row=>row.hissa)).toEqual(['1'])
     expect(parseSurveyParcels(collection([feature({HissaNo:'0',HissaCategory:'Valid-Matching to Bhoomi Records'})]),village,true)).toEqual([])
+    expect(parseSurveyParcels(collection(['*','5B','2/1'].map(HissaNo=>feature({HissaNo,HissaCategory:'Valid-Matching to Bhoomi Records'}))),village,true).map(row=>row.hissa)).toEqual(['*','2/1','5B'])
   })
   it('finds a point inside a concave parcel without placing it inside a hole',()=>{
     const outer:Position[]=[[75,13],[75.02,13],[75.02,13.02],[75.015,13.02],[75.015,13.005],[75.005,13.005],[75.005,13.02],[75,13.02],[75,13]]
@@ -56,6 +57,13 @@ describe('official survey map integrity',()=>{
     const result=await loadSurveyParcels(village,new AbortController().signal,'12',reader)
     expect(result.parcels.map(p=>[p.survey,p.hissa])).toEqual([['12','1']])
     expect(result.sourceUrl).toBe(hissaQuery(village))
+  })
+  it('loads all village Hissas from the same authenticated saved layer',async()=>{
+    const geojson=collection([feature({HissaNo:'*',HissaCategory:'Valid-Matching to Bhoomi Records'}),feature({HissaNo:'5B',HissaCategory:'Valid-Matching to Bhoomi Records',surveynumberi:13})])
+    const reader=vi.fn().mockResolvedValue({data:{village_code:village.bhoomi,layer:'hissa',geojson,source_url:hissaQuery(village),retrieved_at:'2026-10-06T12:00:00Z'},error:null})
+    const result=await loadVillageHissaParcels(village,new AbortController().signal,reader)
+    expect(result.parcels.map(p=>[p.survey,p.hissa])).toEqual([['12','*'],['13','5B']])
+    expect(reader).toHaveBeenCalledOnce()
   })
   it('reads through the authenticated database client and reuses public geometry for other Hissa selections',async()=>{
     const data={village_code:village.bhoomi,layer:'hissa',geojson:collection([feature({HissaNo:'1',HissaCategory:'Valid-Matching to Bhoomi Records'}),feature({HissaNo:'2',HissaCategory:'Valid-Matching to Bhoomi Records',surveynumberi:13})]),source_url:hissaQuery(village),retrieved_at:'2026-10-06T12:00:00Z'}

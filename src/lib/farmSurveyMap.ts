@@ -21,8 +21,20 @@ const maps = new Map<string, { parcels: SurveyParcel[]; sourceUrl: string; retri
 export function clearSurveyMapCache() { maps.clear() }
 export async function loadSurveyParcels(village: SurveyVillage, signal: AbortSignal, survey?: string, reader: CacheReader = readCache) {
   surveyQuery(village, survey) // Validate whitelist and the optional survey number.
+  const result = await loadVillageMap(village, signal, survey === undefined ? 'whole_survey' : 'hissa', reader)
+  return { parcels: survey === undefined ? result.parcels : result.parcels.filter(parcel => parcel.survey === String(Number(survey))), sourceUrl: result.sourceUrl, retrievedAt: result.retrievedAt }
+}
+
+// Our Estate displays both villages without issuing a publisher request for
+// each survey. Use the same validated, authenticated, public-geometry cache.
+export async function loadVillageHissaParcels(village: SurveyVillage, signal: AbortSignal, reader: CacheReader = readCache) {
+  hissaQuery(village)
+  const result = await loadVillageMap(village, signal, 'hissa', reader)
+  return { parcels: result.parcels, sourceUrl: result.sourceUrl, retrievedAt: result.retrievedAt }
+}
+
+async function loadVillageMap(village: SurveyVillage, signal: AbortSignal, layer: FarmSurveyMapLayer, reader: CacheReader) {
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-  const layer: FarmSurveyMapLayer = survey === undefined ? 'whole_survey' : 'hissa'
   const key = `${village.bhoomi}:${layer}`
   let result = reader === readCache ? maps.get(key) : undefined
   if (!result || result.expires <= Date.now()) {
@@ -37,7 +49,7 @@ export async function loadSurveyParcels(village: SurveyVillage, signal: AbortSig
     result = { parcels, sourceUrl, retrievedAt: row.retrieved_at, expires: Date.now() + 300000 }
     if (reader === readCache) maps.set(key, result)
   }
-  return { parcels: survey === undefined ? result.parcels : result.parcels.filter(parcel => parcel.survey === String(Number(survey))), sourceUrl: result.sourceUrl, retrievedAt: result.retrievedAt }
+  return result
 }
 
 export function pointInRing(point: Position, ring: Position[]) {

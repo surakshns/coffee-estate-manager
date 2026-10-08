@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.farm-rtc-lookup]
 verify_jwt = false
+
+[functions.farm-estate-holdings]
+verify_jwt = false

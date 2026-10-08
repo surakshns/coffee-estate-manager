@@ -44,11 +44,13 @@ export function parseSurveyParcels(value: unknown, village: SurveyVillage, subdi
     if (!props || Number(props.LGD_VillageCode) !== village.lgd || props.KGISVillageCode !== village.bhoomi) throw new Error('The map response belongs to another village.')
     const survey = Number(props.surveynumberi)
     if (!Number.isInteger(survey) || survey <= 0 || survey > 999999) continue
-    const hissa = typeof props.HissaNo === 'string' && props.HissaNo.trim() ? props.HissaNo.trim() : null
+    let hissa = typeof props.HissaNo === 'string' && props.HissaNo.trim() ? props.HissaNo.trim() : null
     const surnoc = typeof props.Surnoc === 'string' && props.Surnoc.trim() ? props.Surnoc.trim() : null
-    if (subdivision && (String(props.HissaCategory ?? '').trim() !== 'Valid-Matching to Bhoomi Records' || !hissa || !/^\d{1,6}$/.test(hissa) || Number(hissa) <= 0)) continue
+    if (subdivision && (String(props.HissaCategory ?? '').trim() !== 'Valid-Matching to Bhoomi Records' || !hissa
+      || !/^(?:[A-Za-z0-9][A-Za-z0-9./_-]{0,19}|\*{1,2})$/.test(hissa) || (/^\d+$/.test(hissa) && (Number(hissa) <= 0 || hissa.length > 10)))) continue
     if (hissa && (hissa.length > 100 || /[<>]/.test(hissa))) throw new Error('Invalid subdivision label.')
     if (surnoc && (surnoc.length > 50 || /[<>]/.test(surnoc))) throw new Error('Invalid Surnoc label.')
+    if (hissa && /^\d+$/.test(hissa)) hissa = hissa.replace(/^0+(?=\d)/, '')
     const polygons = geometry?.type === 'Polygon' ? [geometry.coordinates] : geometry?.type === 'MultiPolygon' ? geometry.coordinates : null
     if (!Array.isArray(polygons) || !polygons.length) throw new Error('Invalid parcel geometry.')
     for (const polygon of polygons) {

@@ -1,11 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({ invoke: vi.fn() }))
 vi.mock('./supabase', () => ({ supabase: { functions: { invoke: api.invoke } } }))
-import { loadRtcRecord, rtcExtentText, type RtcLookupRequest, type RtcRecord } from './farmRtcClient'
+import { loadRtcRecord, loadRtcOptions, rtcExtentText, type RtcLookupRequest, type RtcRecord, type RtcOptions } from './farmRtcClient'
 const request: RtcLookupRequest = { villageCode: '2301110012', surveyNumber: '92', surnoc: '*', hissaNumber: '1' }
 const record: RtcRecord = { identity: request, villageName: 'Hebbasale', landCode: '123', ulpin: null, extent: { acres: '2', guntas: '3', fractionalGuntas: '4' }, owners: [], sourceUrl: 'https://rdservices.karnataka.gov.in/BhoomiMaps/', retrievedAt: '2026-10-07T13:00:00Z' }
 afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals() })
 describe('private RTC client', () => {
+  const optionsRequest = { mode: 'options' as const, villageCode: request.villageCode, surveyNumber: request.surveyNumber }
+  const options: RtcOptions = { identity: { villageCode: request.villageCode, surveyNumber: request.surveyNumber }, entries: [{ surnoc: '*', hissaNumber: '*' }, { surnoc: '*', hissaNumber: '2A' }], sourceUrl: record.sourceUrl, retrievedAt: record.retrievedAt }
+  it('loads verified Hissa options even when there is no published map outline', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ...options, owners: ['Excluded'] }, error: null }), signal = new AbortController().signal
+    expect(await loadRtcOptions(optionsRequest, signal, invoke)).toEqual(options)
+    expect(invoke).toHaveBeenCalledWith(optionsRequest, signal)
+  })
+  it('rejects foreign or unsafe options and cancels obsolete responses', async () => {
+    const signal = new AbortController().signal
+    for (const data of [{ ...options, identity: { ...options.identity, surveyNumber: 'foreign' } }, { ...options, entries: [{ surnoc: '*', hissaNumber: '<img>' }] }, { ...options, sourceUrl: 'https://untrusted.test' }]) await expect(loadRtcOptions(optionsRequest, signal, async () => ({ data, error: null }))).rejects.toThrow(/could not be verified/)
+    const controller = new AbortController()
+    await expect(loadRtcOptions(optionsRequest, controller.signal, async () => { controller.abort(); return { data: options, error: null } })).rejects.toHaveProperty('name', 'AbortError')
+  })
   it('uses the configured Supabase function client without requiring native WebSocket', async () => {
     vi.stubGlobal('WebSocket', undefined)
     vi.resetModules()

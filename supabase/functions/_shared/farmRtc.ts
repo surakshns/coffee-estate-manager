@@ -3,6 +3,8 @@ export const RTC_SOURCE_URL = 'https://rdservices.karnataka.gov.in/BhoomiMaps/'
 const RTC_BASE_URL = `${RTC_SOURCE_URL}Default/`
 const MAX_RESPONSE_BYTES = 256 * 1024
 const MAX_OWNERS = 100
+const MAX_SURNOCS = 20
+const MAX_OPTIONS = 1000
 const LOOKUP_TIMEOUT_MS = 20_000
 const VILLAGES: Record<string, string> = { '2301110012': '12', '2301110038': '38' }
 
@@ -11,6 +13,18 @@ export interface RtcLookupRequest {
   surveyNumber: string
   surnoc: string
   hissaNumber: string
+}
+export interface RtcOptionsRequest {
+  mode: 'options'
+  villageCode: RtcLookupRequest['villageCode']
+  surveyNumber: string
+}
+export interface RtcOption { surnoc: string; hissaNumber: string }
+export interface RtcOptions {
+  identity: Pick<RtcLookupRequest, 'villageCode' | 'surveyNumber'>
+  entries: RtcOption[]
+  sourceUrl: string
+  retrievedAt: string
 }
 export interface RtcExtent {
   acres: string | null
@@ -47,7 +61,7 @@ export class RtcLookupError extends Error {
   }
 }
 const unavailable = () => new RtcLookupError('unavailable', 'The official RTC record is unavailable or could not be verified for this parcel. Try the official Bhoomi service.')
-const invalid = () => new RtcLookupError('invalid_request', 'Choose a supported village and a valid survey, surnoc and numeric hissa.')
+const invalid = () => new RtcLookupError('invalid_request', 'Choose a supported village and valid survey, Surnoc and Hissa identifiers.')
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw unavailable()
   return value as Record<string, unknown>
@@ -67,6 +81,14 @@ function boundedText(value: unknown, maxLength = 500): string | null {
   if (text.length > maxLength || /[<>\u0000-\u001f\u007f]/.test(text)) throw unavailable()
   return text || null
 }
+/** Preserve official compound/symbol identifiers; canonicalise only integer identifiers. */
+export function rtcHissaIdentifier(value: unknown): string {
+  const text = boundedText(value, 20)
+  if (!text || !/^[A-Za-z0-9*./_-]{1,20}$/.test(text)) throw unavailable()
+  if (/^\d+$/.test(text) && text.length > 10) throw unavailable()
+  return /^\d+$/.test(text) ? text.replace(/^0+(?=\d)/, '') : text
+}
+export function isWholeRtcHissa(value: string): boolean { return /^\*{1,2}$/.test(value) || value === '0' }
 function extent(row: Record<string, unknown>): RtcExtent {
   const component = (key: string) => {
     const text = boundedText(row[key], 40)
@@ -86,8 +108,17 @@ export function validateRtcLookupRequest(raw: unknown): RtcLookupRequest {
       villageCode: input.villageCode as RtcLookupRequest['villageCode'],
       surveyNumber: positiveInteger(input.surveyNumber, 6),
       surnoc: input.surnoc,
-      hissaNumber: positiveInteger(input.hissaNumber, 10)
+      hissaNumber: rtcHissaIdentifier(input.hissaNumber)
     }
+  } catch { throw invalid() }
+}
+export function validateRtcOptionsRequest(raw: unknown): RtcOptionsRequest {
+  try {
+    const input = object(raw)
+    if (Object.keys(input).some(key => !['mode', 'villageCode', 'surveyNumber'].includes(key))
+      || input.mode !== 'options' || typeof input.villageCode !== 'string' || !Object.hasOwn(VILLAGES, input.villageCode)
+      || typeof input.surveyNumber !== 'string') throw invalid()
+    return { mode: 'options', villageCode: input.villageCode as RtcLookupRequest['villageCode'], surveyNumber: positiveInteger(input.surveyNumber, 6) }
   } catch { throw invalid() }
 }
 function decode(raw: unknown): unknown {
@@ -106,7 +137,7 @@ function requireIdentity(row: Record<string, unknown>, request: RtcLookupRequest
     || positiveInteger(row.village_code, 3) !== VILLAGES[request.villageCode]
     || positiveInteger(row.survey_no, 6) !== request.surveyNumber
     || boundedText(row.surnoc, 20) !== request.surnoc
-    || positiveInteger(row.hissa_no, 10) !== request.hissaNumber) throw unavailable()
+    || rtcHissaIdentifier(row.hissa_no) !== request.hissaNumber) throw unavailable()
   if (landCode !== undefined && boundedText(row.land_code, 40) !== landCode) throw unavailable()
 }
 /** Accepts JSON or the service's double-encoded JSON; returns a strict whitelist. */
@@ -168,8 +199,8 @@ function sessionCookie(headers: Headers): string | null {
   return null
 }
 /** Fixed-origin three-step workflow, with an isolated transient ASP.NET session. */
-export async function lookupRtcRecord(input: RtcLookupRequest, fetcher: typeof fetch = fetch): Promise<RtcRecord> {
-  const request = validateRtcLookupRequest(input)
+async function withRtcSession<T>(request: Pick<RtcLookupRequest, 'villageCode' | 'surveyNumber'>, fetcher: typeof fetch,
+  callback: (post: (step: 'GetSurnoc' | 'GetHissaNo' | 'GetRTCDataforSearch', values: Record<string, string>) => Promise<unknown>, base: Record<string, string>, hasCookie: () => boolean) => Promise<T>): Promise<T> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS)
   let cookie: string | null = null
@@ -184,19 +215,7 @@ export async function lookupRtcRecord(input: RtcLookupRequest, fetcher: typeof f
     return decode(await boundedBody(response))
   }
   try {
-    const surnocs = await post('GetSurnoc', base)
-    if (!cookie || !Array.isArray(surnocs) || surnocs.length > 1000 || !surnocs.some(value => {
-      try {
-        const row = object(value)
-        return positiveInteger(row.survey_no, 6) === request.surveyNumber && boundedText(row.surnoc, 20) === request.surnoc
-      } catch { return false }
-    })) throw unavailable()
-    const hissas = await post('GetHissaNo', { surnoc: request.surnoc })
-    if (!Array.isArray(hissas) || hissas.length > 1000 || !hissas.some(value => {
-      try { return positiveInteger(object(value).hissa_no, 10) === request.hissaNumber } catch { return false }
-    })) throw unavailable()
-    const raw = await post('GetRTCDataforSearch', { ...base, Surnoc: request.surnoc, Hissano: request.hissaNumber })
-    return parseRtcRecord(raw, request)
+    return await callback(post, base, () => Boolean(cookie))
   } catch (error) {
     if (error instanceof RtcLookupError) throw error
     throw unavailable()
@@ -204,4 +223,52 @@ export async function lookupRtcRecord(input: RtcLookupRequest, fetcher: typeof f
     clearTimeout(timer)
     cookie = null
   }
+}
+/** Lists records, including subdivisions whose geometry has not been published by KGIS. No owners are fetched. */
+export async function lookupRtcOptions(input: RtcOptionsRequest, fetcher: typeof fetch = fetch): Promise<RtcOptions> {
+  const request = validateRtcOptionsRequest(input)
+  return withRtcSession(request, fetcher, async (post, base, hasCookie) => {
+    const raw = await post('GetSurnoc', base)
+    if (!hasCookie() || !Array.isArray(raw) || raw.length > MAX_OPTIONS) throw unavailable()
+    const surnocs = new Set<string>()
+    for (const value of raw) {
+      const row = object(value)
+      if (positiveInteger(row.survey_no, 6) !== request.surveyNumber) throw unavailable()
+      const surnoc = boundedText(row.surnoc, 20)
+      if (!surnoc || !/^[A-Za-z0-9*./_-]{1,20}$/.test(surnoc)) throw unavailable()
+      surnocs.add(surnoc)
+    }
+    if (surnocs.size > MAX_SURNOCS) throw unavailable()
+    const entries: RtcOption[] = []
+    for (const surnoc of surnocs) {
+      const rows = await post('GetHissaNo', { surnoc })
+      if (!Array.isArray(rows) || rows.length > MAX_OPTIONS) throw unavailable()
+      for (const value of rows) {
+        const hissaNumber = rtcHissaIdentifier(object(value).hissa_no)
+        if (!entries.some(entry => entry.surnoc === surnoc && entry.hissaNumber === hissaNumber)) entries.push({ surnoc, hissaNumber })
+        if (entries.length > MAX_OPTIONS) throw unavailable()
+      }
+    }
+    entries.sort((a, b) => a.surnoc.localeCompare(b.surnoc, 'en', { numeric: true }) || a.hissaNumber.localeCompare(b.hissaNumber, 'en', { numeric: true }))
+    return { identity: { villageCode: request.villageCode, surveyNumber: request.surveyNumber }, entries, sourceUrl: RTC_SOURCE_URL, retrievedAt: new Date().toISOString() }
+  })
+}
+/** Fixed-origin three-step workflow, with an isolated transient ASP.NET session. */
+export async function lookupRtcRecord(input: RtcLookupRequest, fetcher: typeof fetch = fetch): Promise<RtcRecord> {
+  const request = validateRtcLookupRequest(input)
+  return withRtcSession(request, fetcher, async (post, base, hasCookie) => {
+    const surnocs = await post('GetSurnoc', base)
+    if (!hasCookie() || !Array.isArray(surnocs) || surnocs.length > MAX_OPTIONS || !surnocs.some(value => {
+      try {
+        const row = object(value)
+        return positiveInteger(row.survey_no, 6) === request.surveyNumber && boundedText(row.surnoc, 20) === request.surnoc
+      } catch { return false }
+    })) throw unavailable()
+    const hissas = await post('GetHissaNo', { surnoc: request.surnoc })
+    if (!Array.isArray(hissas) || hissas.length > MAX_OPTIONS || !hissas.some(value => {
+      try { return rtcHissaIdentifier(object(value).hissa_no) === request.hissaNumber } catch { return false }
+    })) throw unavailable()
+    const raw = await post('GetRTCDataforSearch', { ...base, Surnoc: request.surnoc, Hissano: request.hissaNumber })
+    return parseRtcRecord(raw, request)
+  })
 }

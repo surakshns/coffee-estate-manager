@@ -10,6 +10,8 @@ it('restricts scripts, document rendering and network connections in production'
   expect(policy).not.toContain('*.supabase.co')
   expect(policy).not.toContain('https://kgis.ksrsac.in')
   expect(policy).not.toContain('*.ksrsac.in')
+  expect(policy).toContain("img-src 'self' blob: data: https://tile.openstreetmap.org")
+  expect(policy.split(';').find(part=>part.trim().startsWith('connect-src'))).not.toContain('openstreetmap')
   expect(policy).toContain("object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'")
   expect(() => contentSecurityPolicy('http://estate-project.supabase.co')).toThrow(/HTTPS/)
 })

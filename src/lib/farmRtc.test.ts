@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { lookupRtcRecord, parseRtcRecord, RtcLookupError, RTC_SOURCE_URL, validateRtcLookupRequest, type RtcLookupRequest } from '../../supabase/functions/_shared/farmRtc'
+import { lookupRtcRecord, lookupRtcOptions, parseRtcRecord, RtcLookupError, RTC_SOURCE_URL, validateRtcLookupRequest, validateRtcOptionsRequest, type RtcLookupRequest } from '../../supabase/functions/_shared/farmRtc'
 
 // Entirely synthetic identifiers and names. No retrieved RTC owner data is kept.
 const request: RtcLookupRequest = { villageCode: '2301110012', surveyNumber: '41', surnoc: '*', hissaNumber: '1' }
@@ -23,14 +23,15 @@ function successfulFetcher(input = request) {
 afterEach(() => vi.useRealTimers())
 
 describe('strict RTC request and identity validation', () => {
-  it('allows only the two reviewed villages and canonical positive survey/hissa strings', () => {
+  it('allows only the two reviewed villages and preserves official compound Hissa identifiers', () => {
     expect(validateRtcLookupRequest({ ...request, surveyNumber: '000041', hissaNumber: '001' })).toEqual(request)
     expect(validateRtcLookupRequest({ ...request, villageCode: '2301110038', surnoc: 'A/2' }).villageCode).toBe('2301110038')
+    for (const hissaNumber of ['1A', '1/2', '1.2', '*', '**', '0']) expect(validateRtcLookupRequest({ ...request, hissaNumber }).hissaNumber).toBe(hissaNumber)
   })
   it.each([
     null, [], { ...request, villageCode: '2301119999' }, { ...request, surveyNumber: '0' },
     { ...request, surveyNumber: '1234567' }, { ...request, surveyNumber: '4.1' },
-    { ...request, hissaNumber: '*' }, { ...request, hissaNumber: '12345678901' },
+    { ...request, hissaNumber: '<img>' }, { ...request, hissaNumber: '12345678901' },
     { ...request, surnoc: '<script>' }, { ...request, surnoc: 'a'.repeat(21) },
     { ...request, sourceUrl: 'https://attacker.invalid/' }, { ...request, surveyNumber: 41 }
   ])('rejects invalid or caller-controlled request fields', input => {
@@ -52,6 +53,12 @@ describe('strict RTC request and identity validation', () => {
     data.Table1[0].hissa_no = '0001'
     data.Table[0].ext_acre = '02.00'
     expect(parseRtcRecord(data, request).extent.acres).toBe('02.00')
+  })
+  it.each(['1A', '1/2', '*', '**', '0'])('matches official owner records with Hissa %s exactly', hissaNumber => {
+    const input = { ...request, hissaNumber }
+    expect(parseRtcRecord(record(input), input).identity.hissaNumber).toBe(hissaNumber)
+    const wrong = record(input); wrong.Table1[0].hissa_no = 'different'
+    expect(() => parseRtcRecord(wrong, input)).toThrow(RtcLookupError)
   })
   it.each(['distcode', 'talukcode', 'hobli_code', 'village_code', 'survey_no', 'surnoc', 'hissa_no'])('rejects a different parcel header %s', field => {
     const data = record()
@@ -85,6 +92,10 @@ describe('strict RTC request and identity validation', () => {
 })
 
 describe('private fixed-origin RTC lookup', () => {
+  it.each(['1A', '1/2', '*', '0'])('only looks up nonnumeric or whole Hissa %s after it is returned by Bhoomi', async hissaNumber => {
+    const input = { ...request, hissaNumber }
+    expect((await lookupRtcRecord(input, successfulFetcher(input))).identity).toEqual(input)
+  })
   it('uses the exact three POST steps and carries the isolated session cookie', async () => {
     const fetcher = successfulFetcher()
     const output = await lookupRtcRecord(request, fetcher)
@@ -154,5 +165,39 @@ describe('private fixed-origin RTC lookup', () => {
     const fetcher = vi.fn<typeof fetch>()
     await expect(lookupRtcRecord({ ...request, villageCode: 'invalid' } as unknown as RtcLookupRequest, fetcher)).rejects.toMatchObject({ kind: 'invalid_request' })
     expect(fetcher).not.toHaveBeenCalled()
+  })
+})
+
+describe('official RTC options independent of map geometry', () => {
+  const input = { mode: 'options' as const, villageCode: request.villageCode, surveyNumber: request.surveyNumber }
+  it('validates options independently and rejects caller-controlled fields', () => {
+    expect(validateRtcOptionsRequest({ ...input, surveyNumber: '000041' })).toEqual(input)
+    for (const value of [{ ...input, mode: 'unknown' }, { ...input, hissaNumber: '1' }, { ...input, villageCode: 'foreign' }, { ...input, surveyNumber: 41 }]) expect(() => validateRtcOptionsRequest(value)).toThrow(RtcLookupError)
+  })
+  it('fetches all official Surnoc/Hissa pairs with one isolated session and no owner requests', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json([{ survey_no: 41, surnoc: '*' }, { survey_no: 41, surnoc: 'A' }, { survey_no: '041', surnoc: '*' }], { 'set-cookie': 'ASP.NET_SessionId=synthetic_session; Path=/' }))
+      .mockResolvedValueOnce(json([{ hissa_no: '**' }, { hissa_no: '1A' }, { hissa_no: '1A' }, { hissa_no: '001' }]))
+      .mockResolvedValueOnce(json([{ hissa_no: '1/2' }]))
+    const output = await lookupRtcOptions(input, fetcher)
+    expect(output.identity).toEqual({ villageCode: request.villageCode, surveyNumber: '41' })
+    expect(output.entries).toEqual(expect.arrayContaining([{ surnoc: '*', hissaNumber: '**' }, { surnoc: '*', hissaNumber: '1A' }, { surnoc: '*', hissaNumber: '1' }, { surnoc: 'A', hissaNumber: '1/2' }]))
+    expect(output.entries).toHaveLength(4)
+    expect(fetcher.mock.calls.map(([url]) => String(url).split('/').at(-1))).toEqual(['GetSurnoc', 'GetHissaNo', 'GetHissaNo'])
+    expect(new Headers(fetcher.mock.calls[2][1]?.headers).get('Cookie')).toBe('ASP.NET_SessionId=synthetic_session')
+    expect(output).not.toHaveProperty('owners')
+  })
+  it('fails closed for a foreign survey and unreasonable Surnoc counts', async () => {
+    for (const rows of [[{ survey_no: '42', surnoc: '*' }], Array.from({ length: 21 }, (_, i) => ({ survey_no: '41', surnoc: `A${i}` }))]) {
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json(rows, { 'set-cookie': 'ASP.NET_SessionId=synthetic_session; Path=/' }))
+      await expect(lookupRtcOptions(input, fetcher)).rejects.toMatchObject({ kind: 'unavailable' })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    }
+  })
+  it('rejects malformed Hissa lists and identifiers before returning options', async () => {
+    for (const rows of [[{ hissa_no: '<script>' }], [{ hissa_no: null }], { status: 'Exception' }]) {
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json([{ survey_no: '41', surnoc: '*' }], { 'set-cookie': 'ASP.NET_SessionId=synthetic_session; Path=/' })).mockResolvedValueOnce(json(rows))
+      await expect(lookupRtcOptions(input, fetcher)).rejects.toMatchObject({ kind: 'unavailable' })
+    }
   })
 })

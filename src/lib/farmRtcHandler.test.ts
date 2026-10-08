@@ -4,8 +4,8 @@ import { RtcLookupError } from '../../supabase/functions/_shared/farmRtc'
 const body = { villageCode: '2301110012', surveyNumber: '92', surnoc: '*', hissaNumber: '1' }
 const request = (value: unknown = body, token = 'valid') => new Request('https://example.test/rtc', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(value) })
 function setup() {
-  const authenticate = vi.fn().mockResolvedValue('user-id'), claim = vi.fn().mockResolvedValue(true), lookup = vi.fn().mockResolvedValue({ identity: body, owners: [] })
-  return { authenticate, claim, lookup, handler: createRtcLookupHandler({ authenticate, claim, lookup }) }
+  const authenticate = vi.fn().mockResolvedValue('user-id'), claim = vi.fn().mockResolvedValue(true), lookup = vi.fn().mockResolvedValue({ identity: body, owners: [] }), options = vi.fn().mockResolvedValue({ identity: { villageCode: body.villageCode, surveyNumber: body.surveyNumber }, entries: [{ surnoc: '*', hissaNumber: '1A' }] })
+  return { authenticate, claim, lookup, options, handler: createRtcLookupHandler({ authenticate, claim, lookup, options }) }
 }
 describe('signed-in RTC endpoint', () => {
   it('requires a valid authenticated identity before touching upstream or limits', async () => {
@@ -19,6 +19,30 @@ describe('signed-in RTC endpoint', () => {
     expect(response.status).toBe(200); expect(deps.claim).toHaveBeenCalledWith('user-id'); expect(deps.lookup).toHaveBeenCalledWith(body)
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect((await deps.handler(request({ ...body, userId: 'someone-else' }))).status).toBe(400)
+  })
+  it('refreshes private markers for the authenticated account without blocking verified RTC display',async()=>{
+    const deps=setup(),onRecord=vi.fn().mockResolvedValue(undefined)
+    const handler=createRtcLookupHandler({...deps,onRecord})
+    expect((await handler(request())).status).toBe(200)
+    expect(onRecord).toHaveBeenCalledWith('user-id',{identity:body,owners:[]})
+    onRecord.mockRejectedValue(new Error('private saved-name metadata'))
+    const response=await handler(request())
+    expect(response.status).toBe(200);expect(await response.text()).not.toContain('private saved-name')
+  })
+  it('authenticates and rate limits options with the same protections, without fetching owners', async () => {
+    const deps = setup(), input = { mode: 'options', villageCode: body.villageCode, surveyNumber: body.surveyNumber }
+    const response = await deps.handler(request(input))
+    expect(response.status).toBe(200); expect(deps.options).toHaveBeenCalledWith(input); expect(deps.lookup).not.toHaveBeenCalled()
+    expect(deps.claim).toHaveBeenCalledWith('user-id'); expect(response.headers.get('Cache-Control')).toBe('no-store')
+    deps.claim.mockResolvedValue(false)
+    expect((await deps.handler(request(input))).status).toBe(429)
+    expect(deps.options).toHaveBeenCalledTimes(1)
+  })
+  it('rejects extra options fields and unknown modes before a claim', async () => {
+    const deps = setup()
+    expect((await deps.handler(request({ mode: 'options', villageCode: body.villageCode, surveyNumber: body.surveyNumber, owner: 'someone' }))).status).toBe(400)
+    expect((await deps.handler(request({ ...body, mode: 'owner-search' }))).status).toBe(400)
+    expect(deps.options).not.toHaveBeenCalled(); expect(deps.claim).not.toHaveBeenCalled()
   })
   it('rejects large, malformed or foreign-village requests before a claim', async () => {
     const deps = setup()

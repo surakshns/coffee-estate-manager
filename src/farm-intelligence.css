@@ -232,6 +232,8 @@
 .fi-parcel-area > strong { font-size: 23px; color: #315b3d; }
 .fi-parcel-area > small { color: #617555; font-size: 11px; }
 .fi-parcel-record { border-top: 1px solid #e5ebdf; padding-top: 16px; }
+.fi-parcel-record > label { display: grid; gap: 8px; margin: 12px 0; font-size: 13px; font-weight: 650; }
+.fi-parcel-record > label select { width: 100%; min-height: 44px; border: 1px solid #d6e0ce; border-radius: 10px; padding: 9px 12px; background: white; color: #294734; }
 .fi-parcel-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .fi-parcel-actions .button-secondary { min-height: 44px; font-size: 13px; display: inline-flex; gap: 7px; align-items: center; justify-content: center; }
 .fi-parcel-source { margin: 14px 0; color: #5a7250; font-size: 13px; }

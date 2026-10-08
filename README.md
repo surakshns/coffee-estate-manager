@@ -15,6 +15,7 @@ A responsive coffee estate bookkeeping application for labour payments, expenses
 - Supabase Row Level Security policies so each account can only access its own records
 - Encrypted property document vault with a separate password, optional fingerprint/face passkey unlock, encrypted file details and automatic locking
 - Farm Intelligence with a private estate/block/crop profile, estate relevance, official-source updates and separately labelled international coffee indicators, indicative pepper prices and IMD district warnings
+- Our Estate with both official village survey maps, live RTC details, private recorded-holder markers and matching-share acreage with background coverage tracking
 - Destructive-action confirmations and large, clear mobile controls
 - Lazy-loaded screens, background record refresh, progressive lists and reduced-motion support
 - Calculation, workflow, account-isolation and security regression tests
@@ -175,3 +176,9 @@ Also apply `supabase/migrations/202610050005_encrypted_document_vault.sql` befor
 Follow the [step-by-step activation guide](docs/farm-intelligence-activation.md) to install `202610070001_farm_intelligence.sql` once, configure the server secret, deploy `farm-intelligence-sync`, verify the first source fetch and enable Vault/Cron before publishing the frontend. Earlier SQL Editor installations may lack CLI migration history; inspect that history before using `db push`.
 
 The [final report](docs/farm-intelligence-report.md) includes actual retrieved records, tests and source gaps. Official station observations, insurance claim calculations and numerical arecanut prices remain unavailable until the required official evidence/access is verified. Farm alerts are in-app in this release; existing weekly-payment phone reminders have their own setup.
+
+## Our Estate — 8 October 2026
+
+**Our Estate** opens Hebbasale and Devihalli together, with survey/Hissa search, phone map gestures, fullscreen, live official RTC records and private holder-name matches. Matching acreage totals recorded holder shares and shows scan coverage and unknown extents separately from map outline area. The background worker is active in the existing Supabase project; the initial scan continues while the app is closed.
+
+See [Our Estate implementation, activation and verification](docs/our-estate.md). The installed private-holder migration and schedule do not need replaying. The finished frontend remains local until published through the existing deployment workflow.
